@@ -1,0 +1,6 @@
+attrs
+dateparser
+requests
+
+# Formatting (not needed at runtime)
+yapf
