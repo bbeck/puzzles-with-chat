@@ -1,6 +1,10 @@
 attrs
 dateparser
+eventlet
+flask
+flask-socketio
 requests
+watchdog
 
 # Formatting (not needed at runtime)
 yapf

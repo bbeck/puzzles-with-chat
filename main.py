@@ -1,58 +1,46 @@
-import crosswords.api
+import crosswords
+import flask
+import flask_socketio
 
-puzzle = crosswords.api.load_puzzle("2/15/1942")
+app = flask.Flask(__name__)
+socketio = flask_socketio.SocketIO(app)
 
-# Render the solved puzzle in ASCII.
-for row in range(puzzle.rows):
-    if row == 0:
-        # Top row
-        print("┌───", end="")
-        for col in range(puzzle.cols - 1):
-            print("┬───", end="")
-        print("┐")
-    else:
-        # Bottom of previous row
-        for col in range(puzzle.cols):
-            if col == 0:
-                print("├───", end="")
-            else:
-                print("┼───", end="")
-        print("┤")
 
-    # Top row of contents for this row (contains clue number)
-    for col in range(puzzle.cols):
-        num = puzzle.cell_clue_numbers[row][col]
-        s = f"│{num:<3}" if num != 0 else "│   "
-        print(s if puzzle.cells[row][col] is not None else "│███", end="")
-    print("│")
+@app.route("/")
+def index():
+    r"""Render an index of which crosswords channels are available."""
+    return flask.render_template("index.html")
 
-    # Middle row of contents for this row (always empty)
-    for col in range(puzzle.cols):
-        print("│   " if puzzle.cells[row][col] is not None else "│███", end="")
-    print("│")
 
-    # Bottom row of contents for this row (contains answer)
-    for col in range(puzzle.cols):
-        ans = puzzle.cells[row][col]
-        s = f"│{ans:^3}" if ans is not None else "│███"
-        print(s, end="")
-    print("│")
+@app.route("/favicon.ico")
+def favicon():
+    flask.abort(404)
 
-for col in range(puzzle.cols):
-    if col == 0:
-        print("└───", end="")
-    else:
-        print("┴───", end="")
-print("┘")
-print()
 
-# Render the clues
-print("Across:")
-for num, clue in sorted(puzzle.across_clues.items()):
-    print(f"{num:>3}. {clue}")
-print()
+@app.route("/<channel>")
+def channel(channel):
+    r"""Render a user view of the crossword.
 
-print("Down:")
-for num, clue in sorted(puzzle.down_clues.items()):
-    print(f"{num:>3}. {clue}")
-print()
+    This view is read-only and intended for distribution to anyone who wants
+    to see the crossword as its being solved.
+    """
+    return flask.render_template("channel.html", owner=channel, streamer=False)
+
+
+@app.route("/<channel>/streamer")
+def streamer(channel):
+    r"""Render a streamer friendly view of the crossword.
+
+    A streamer friendly view that is consistent in positioning and sizing, has
+    options for controlling which crossword is currently being used as well as
+    any configurable display options for streaming, etc.
+
+    The intention is that only the streamer will have access to this particular
+    view.
+    """
+    return flask.render_template("channel.html", owner=channel, streamer=True)
+
+
+if __name__ == "__main__":
+    socketio.on_namespace(crosswords.CrosswordNamespace())
+    socketio.run(app, debug=True, host="0.0.0.0")

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.slim.js"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/crossword.js') }}"></script>
+</head>
+
+<body>
+  <nav class="navbar navbar-dark bg-dark">
+    <div class="navbar-brand">Twitch Plays Crosswords</div>
+
+    {% if streamer %}
+    <div class="selector">
+      <input type="date"></input>
+      <button id="set-date" type="button">Switch Date</button>
+    </div>
+    {% endif %}
+  </nav>
+
+  <div id="crossword">
+    <div>
+      <div class="header">
+        <div>
+          <span class="title">Title:</span>
+          <span id="title">Title goes here.</span>
+        </div>
+        <div>
+          <span class="title">Date:</span>
+          <span id="date">Date goes here.</span>
+        </div>
+      </div>
+      <div id="grid">
+        Puzzle grid goes here.
+      </div>
+    </div>
+    <div>
+      <div class="clue-title">Across</div>
+      <div id="across-clues" class="clues">
+        Across clues go here
+      </div>
+    </div>
+    <div>
+      <div class="clue-title">Down</div>
+      <div id="down-clues" class="clues">
+        Down clues go here
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript" charset="utf-8">
+    var socket = io("/crosswords");
+
+    // Connect to the crosswords namespace and join the room for this channel
+    // owner.  We do this every time we connect so that if we get disconnected
+    // we'll automatically rejoin the room upon reconnecting.
+    socket.on("connect", function () {
+      socket.emit("join", { "room": "{{ owner }}" })
+    });
+
+    socket.on("crossword", function (data) {
+      var puzzle = JSON.parse(data);
+      render_crossword(puzzle);
+    });
+  </script>
+
+  <script type="text/javascript" charset="utf-8">
+    var button = document.getElementById("set-date");
+    if (button !== null) {
+      button.onclick = function () {
+        // TODO: This should emit a set_crossword event instead.
+        socket.emit("switch_puzzle", { "room": "{{ owner }}" });
+      }
+    }
+  </script>
+</body>
+
+</html>
