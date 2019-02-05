@@ -13,9 +13,9 @@
     <div class="navbar-brand">Twitch Plays Crosswords</div>
 
     {% if streamer %}
-    <div class="selector">
-      <input type="date"></input>
-      <button id="set-date" type="button">Switch Date</button>
+    <div class="selector form-inline">
+      <input id="date-selector" type="date" class="form-control form-control-sm"></input>
+      <button id="set-date" type="button" class="btn btn-dark">Switch Date</button>
     </div>
     {% endif %}
   </nav>
@@ -68,10 +68,17 @@
 
   <script type="text/javascript" charset="utf-8">
     var button = document.getElementById("set-date");
-    if (button !== null) {
+    var dateSelector = document.getElementById("date-selector");
+
+    if (button !== null && dateSelector !== null) {
       button.onclick = function () {
-        // TODO: This should emit a set_crossword event instead.
-        socket.emit("switch_puzzle", { "room": "{{ owner }}" });
+        var date = dateSelector.value;
+        if (date !== "") {
+          socket.emit("set_crossword", {
+            "room": "{{ owner }}",
+            "date": date,
+          });
+        }
       }
     }
   </script>

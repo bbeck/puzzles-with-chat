@@ -31,21 +31,6 @@ class CrosswordNamespace(socketio.Namespace):
         self.rooms = set()
         self.states = {}
 
-    # TODO: Remove this handler.
-    def on_switch_puzzle(self, data):
-        r"""Temporary handler used to indicate to switch to a random puzzle."""
-        import datetime
-        import random
-
-        room = data["room"]
-        date = (datetime.date(1993, 11, 21) +
-                datetime.timedelta(days=random.randint(0, 9000)))
-
-        return self.on_set_crossword({
-            "room": room,
-            "date": date,
-        })
-
     def on_set_crossword(self, data):
         r"""Handler for the streamer setting which puzzle they're working on."""
         room = data["room"]
