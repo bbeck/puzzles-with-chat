@@ -6,7 +6,7 @@ import calendar
 import dateparser
 import html
 import requests
-from . import Puzzle
+from .puzzle import Puzzle
 
 
 def load_puzzle(date, publisher="NYT"):
@@ -91,12 +91,12 @@ def load_nyt_puzzle(date):
 
     across_clues = {}
     for clue in data["clues"]["across"]:
-        num, clue = _parse_nyt_clue(clue)
+        num, clue = parse_nyt_clue(clue)
         across_clues[num] = clue
 
     down_clues = {}
     for clue in data["clues"]["down"]:
-        num, clue = _parse_nyt_clue(clue)
+        num, clue = parse_nyt_clue(clue)
         down_clues[num] = clue
 
     return Puzzle(
@@ -114,7 +114,7 @@ def load_nyt_puzzle(date):
     )
 
 
-def _parse_nyt_clue(s):
+def parse_nyt_clue(s):
     r"Parses a New York Times clue into its number and the clue text."
 
     # Clues look like the following:
