@@ -3,8 +3,5 @@ dateparser
 eventlet
 flask
 flask-socketio
+redis
 requests
-watchdog
-
-# Formatting (not needed at runtime)
-yapf

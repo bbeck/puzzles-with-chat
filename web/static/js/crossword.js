@@ -11,9 +11,9 @@ function render_crossword(puzzle) {
   render_grid(puzzle);
 
   var across = document.querySelector("#crossword #across-clues");
-  render_clues(puzzle.across_clues, across);
+  render_clues(puzzle.across_clues, across, "a");
   var down = document.querySelector("#crossword #down-clues");
-  render_clues(puzzle.down_clues, down);
+  render_clues(puzzle.down_clues, down, "d");
 }
 
 function render_grid(puzzle) {
@@ -76,7 +76,7 @@ function render_grid(puzzle) {
   gridDiv.appendChild(table);
 }
 
-function render_clues(clues, root) {
+function render_clues(clues, root, side) {
   /*
     We're going to model the clues as an ol of items with each clue being a
     single li within the list.  An individual clue will be comprised of the
@@ -93,6 +93,7 @@ function render_clues(clues, root) {
   var list = document.createElement("ol");
   for (var i = 0; i < numbers.length; i++) {
     var li = document.createElement("li");
+    li.setAttribute("id", numbers[i] + side);
     list.appendChild(li);
 
     var numberSpan = document.createElement("span");

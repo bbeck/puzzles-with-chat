@@ -9,8 +9,14 @@
 </head>
 
 <body>
-  <nav class="navbar navbar-dark bg-dark">
+  <nav class="navbar navbar-dark text-light bg-dark">
     <div class="navbar-brand">Twitch Plays Crosswords</div>
+
+    <!-- TODO: Remove this. -->
+    <div class="selector form-inline">
+      <input id="clue-selector" type="text" class="form-control form-control-sm"></input>
+      <button id="show-clue" type="button" class="btn btn-dark">Show Clue</button>
+    </div>
 
     {% if streamer %}
     <div class="selector form-inline">
@@ -51,13 +57,12 @@
   </div>
 
   <script type="text/javascript" charset="utf-8">
-    var socket = io("/crosswords");
-
-    // Connect to the crosswords namespace and join the room for this channel
-    // owner.  We do this every time we connect so that if we get disconnected
-    // we'll automatically rejoin the room upon reconnecting.
+    // Connect to the server and join the room for this channel owner.  We do
+    // this every time we connect so that if we get disconnected we'll
+    // automatically rejoin the room upon reconnecting.
+    var socket = io();
     socket.on("connect", function () {
-      socket.emit("join", { "room": "{{ owner }}" })
+      socket.emit("join", "{{ owner }}");
     });
 
     socket.on("crossword", function (data) {
@@ -74,10 +79,24 @@
       button.onclick = function () {
         var date = dateSelector.value;
         if (date !== "") {
-          socket.emit("set_crossword", {
+          socket.emit("set_puzzle", {
             "room": "{{ owner }}",
             "date": date,
           });
+        }
+      }
+    }
+  </script>
+
+  <script type="text/javascript" charset="utf-8">
+    var button = document.getElementById("show-clue");
+    var clueSelector = document.getElementById("clue-selector");
+
+    if (button !== null && clueSelector !== null) {
+      button.onclick = function () {
+        var clue = document.getElementById(clueSelector.value);
+        if (clue !== null) {
+          clue.scrollIntoView();
         }
       }
     }

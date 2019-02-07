@@ -1,5 +1,6 @@
 import attr
 import datetime
+import json
 import typing
 
 
@@ -72,3 +73,49 @@ class Puzzle(object):
     cell_circles = attr.ib(type=typing.List[typing.List[bool]])
     across_clues = attr.ib(type=typing.Dict[int, str])
     down_clues = attr.ib(type=typing.Dict[int, str])
+
+    def to_json(self):
+        r"""Converts a Puzzle instance into a JSON string.
+
+        The majority of the fields of the puzzle type are suitable for direct
+        conversion to JSON.  For the ones that are not suitable for direct
+        conversion to JSON they are changed to be logical equivalents (for
+        example dates are changed to ISO8601 date strings).
+
+        Returns
+        -------
+        str
+            The JSON representation of the current puzzle instance.
+        """
+        d = attr.asdict(self)
+
+        # JSON doesn't support datetimes, so convert to an ISO8601 date string.
+        d["published"] = d["published"].isoformat()
+
+        return json.dumps(d)
+
+    @classmethod
+    def from_json(cls, s):
+        r"""Converts a JSON string to a new Puzzle instance.
+
+        Similar to how `to_json` will encode any fields that are not suitable
+        for direction to conversion to JSON this method will undo any such
+        encodings (for example dates are changed back to python datetime.date
+        instances).
+
+        Parameters
+        ----------
+        s : str
+            The JSON string representation of a Puzzle.
+
+        Returns
+        -------
+        Puzzle
+            The Puzzle instance corresponding to the inputted JSON string.
+        """
+        d = json.loads(s)
+
+        # Parse the ISO8601 date string into a datetime.date.
+        d["published"] = datetime.date.fromisoformat(d["published"])
+
+        return cls(**d)
