@@ -195,7 +195,8 @@ def load_nyt_puzzle(date):
     cell_clue_numbers = [[0 for col in range(cols)] for row in range(rows)]
     for row in range(rows):
         for col in range(cols):
-            cell_clue_numbers[row][col] = data["gridnums"][row * cols + col]
+            num = int(data["gridnums"][row * cols + col])
+            cell_clue_numbers[row][col] = num
 
     # Not every puzzle has circles, so make sure we check first if they're
     # present before trying to traverse them.
@@ -245,3 +246,56 @@ def parse_nyt_clue(s):
     clue = html.unescape(clue)
 
     return int(n), clue.strip()
+
+
+def get_answer_cells(puzzle, num, direction):
+    r"""Determines the coordinates of the answer cells for a given clue.
+
+    Parameters
+    ----------
+    puzzle : Puzzle
+        The puzzle instance that the answer cells should be determined from.
+
+    num : int
+        The number of the clue.
+
+    direction : str
+        The direction of the clue.  Must be either `a` or `d`.
+
+    Returns
+    -------
+    List[typing.Tuple[int, int]]|None
+        The coordinates (x, y) of the cells that the answer go into.  If the
+        provided clue is not valid then None is returned.
+    """
+    # First we'll find out which cell the numbered answer begins in.  This is
+    # the same regardless of whether we're looking for across or down answers.
+    current = None
+    for y in range(puzzle.rows):
+        for x in range(puzzle.rows):
+            if puzzle.cell_clue_numbers[y][x] == num:
+                current = (x, y)
+    if current is None:
+        return None
+
+    # Now that we know the starting cell, let's traverse in the correct
+    # direction until we reach either a cell that can't be inputted into or
+    # the edge of the puzzle.
+    dx, dy = (1, 0) if direction == "a" else (0, 1)
+
+    coordinates = []
+    while True:
+        x, y = current
+
+        # We're done if we move outside of the puzzle...
+        if x >= puzzle.cols or y >= puzzle.rows:
+            break
+
+        # ... or have hit a cell that can't be inputted into.
+        if puzzle.cells[y][x] is None:
+            break
+
+        coordinates.append(current)
+        current = (x + dx, y + dy)
+
+    return coordinates

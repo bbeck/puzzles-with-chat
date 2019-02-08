@@ -59,6 +59,38 @@ def streamer(channel):
     return flask.render_template("channel.html", owner=channel, streamer=True)
 
 
+@app.route("/<channel>/answer/<clue>", methods=["PUT"])
+def answer(channel, clue):
+    r"""Apply an answer to the specified crossword clue.
+
+    This route is a REST handler that expects a string body whose text
+    contains the answer to the clue specified in the URL.  No response body
+    is returned, just an HTTP 200 upon successful specifying of the answer and
+    a HTTP 4xx when applying the answer fails.
+    """
+    if flask.request.content_length > 1024:
+        flask.abort(413)  # 413 = Payload Too Large
+
+    answer = flask.request.get_data(as_text=True)
+    if answer is None or len(answer.strip()) == 0:
+        flask.abort(400)  # 400 = Bad Request
+    answer = answer.upper()
+
+    room = rooms.apply_answer(channel, clue, answer)
+    if room is None:
+        # We should technically distinguish between couldn't find the clue and
+        # couldn't fit the answer...
+        flask.abort(404)  # 404 = Not Found
+
+    # Now that we've updated the room, send the puzzle to everyone.
+    puzzle = attr.evolve(room.puzzle, cells=room.cells)
+    socketio.emit("crossword", puzzle.to_json(), broadcast=True, room=channel)
+
+    # ...and return a HTTP 204 = No Content (server processed the request but
+    # hasn't generated any content to return).
+    return ("", 204, {})
+
+
 @socketio.on("join")
 def join(name):
     r"""Handler that's called when a client has requested to join a room."""
@@ -76,13 +108,16 @@ def join(name):
         puzzle = attr.evolve(room.puzzle, cells=room.cells)
 
         # Let this user know about the puzzle.
-        flask_socketio.emit("crossword", puzzle.to_json())
+        socketio.emit("crossword", puzzle.to_json())
 
 
 @socketio.on("set_puzzle")
 def set_crossword(data):
     r"""Handler that's called when the streamer changes the puzzle."""
-    puzzle = puzzles.load_puzzle(data["date"])
+    room = data["room"]
+    date = data["date"]
+
+    puzzle = puzzles.load_puzzle(date)
     if puzzle is None:
         # Something went wrong loading the puzzle.  There's nothing more we can
         # do so return.  TODO: Log/emit some type of error here.
@@ -90,19 +125,19 @@ def set_crossword(data):
 
     # Setup the cells list for the new solve.
     cells = [[
-        puzzle.cells[y][x] if puzzle.cells[y][x] is not None else None
+        "" if puzzle.cells[y][x] is not None else None
         for x in range(puzzle.cols)
     ] for y in range(puzzle.rows)]
 
     # Save the state of the room to the database.
-    rooms.set_room(data["room"], rooms.Room(puzzle=puzzle, cells=cells))
+    rooms.set_room(room, rooms.Room(puzzle=puzzle, cells=cells))
 
     # Update the puzzle to have the empty set of cells before sending to the
     # clients so that we don't send the answers to the browser.
     puzzle = attr.evolve(puzzle, cells=cells)
 
     # Let everyone know about the updated puzzle.
-    flask_socketio.emit("crossword", puzzle.to_json(), broadcast=True)
+    socketio.emit("crossword", puzzle.to_json(), broadcast=True, room=room)
 
 
 if __name__ == "__main__":
