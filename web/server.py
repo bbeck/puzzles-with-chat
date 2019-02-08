@@ -106,6 +106,19 @@ def answer(channel, clue):
     return ("", 204, {})
 
 
+@app.route("/bot/channels")
+def channels():
+    r"""Return the channels that the bot should be present in.
+
+    This route is a REST endpoint that tells the bot which channels have an
+    active puzzle and thus which channels the bot should join.  The response is
+    a JSON object with a "channels" property that is the list of channels to
+    join.
+    """
+    channels = rooms.get_all_room_names()
+    return flask.jsonify(channels=channels)
+
+
 @socketio.on("join")
 def join(name):
     r"""Handler that's called when a client has requested to join a room."""

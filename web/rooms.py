@@ -46,6 +46,18 @@ class Room(object):
         )
 
 
+def get_all_room_names():
+    r"""Return all active room names from the redis database.
+
+    Returns
+    -------
+    List[str]
+        The active room names.
+    """
+    redis = db.get_db()
+    return [parse_room_name(name) for name in redis.scan_iter(match="room:*")]
+
+
 def get_room(name):
     r"""Load a room from the redis database.
 
@@ -226,3 +238,24 @@ def parse_answer(answer):
 
     # TODO: Should we check for unbalanced parentheses?
     return cells
+
+
+def parse_room_name(b):
+    r"""Parse a room name from the redis database.
+
+    The room name is returned from redis as a set of bytes with a prefix of
+    "room:".  This method converts the bytes to a string and removes the
+    prefix.
+
+    Parameters
+    ----------
+    b : List[byte]
+        The bytes returned from redis as the name of the room.
+
+    Returns
+    -------
+    str
+        The name of the room.
+    """
+    s = b.decode("utf-8")
+    return s[5:]
