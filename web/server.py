@@ -59,6 +59,21 @@ def streamer(channel):
     return flask.render_template("channel.html", owner=channel, streamer=True)
 
 
+@app.route("/<channel>/show/<clue>")
+def show_clue(channel, clue):
+    r"""Update the UI to make a clue visibe.
+
+    This route is a REST handler that triggers a request to make a clue
+    visible on the screen.  No response body is returned and this method always
+    returns a HTTP 204 regardless of its success or not.  The reason a HTTP 204
+    is always returned is because making a clue visible is a client side
+    operation, and the server currently doesn't have a way to know if it has
+    succeeded or not, it just knows that the request has been made.
+    """
+    socketio.emit("show_clue", clue, broadcast=True, room=channel)
+    return ("", 204, {})
+
+
 @app.route("/<channel>/answer/<clue>", methods=["PUT"])
 def answer(channel, clue):
     r"""Apply an answer to the specified crossword clue.

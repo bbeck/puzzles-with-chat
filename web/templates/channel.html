@@ -12,12 +12,6 @@
   <nav class="navbar navbar-dark text-light bg-dark">
     <div class="navbar-brand">Twitch Plays Crosswords</div>
 
-    <!-- TODO: Remove this. -->
-    <div class="selector form-inline">
-      <input id="clue-selector" type="text" class="form-control form-control-sm"></input>
-      <button id="show-clue" type="button" class="btn btn-dark">Show Clue</button>
-    </div>
-
     {% if streamer %}
     <div class="selector form-inline">
       <input id="date-selector" type="date" class="form-control form-control-sm"></input>
@@ -69,6 +63,13 @@
       var puzzle = JSON.parse(data);
       render_crossword(puzzle);
     });
+
+    socket.on("show_clue", function (clue) {
+      var clueElem = document.getElementById(clue);
+      if (clueElem !== null) {
+        clueElem.scrollIntoView();
+      }
+    });
   </script>
 
   <script type="text/javascript" charset="utf-8">
@@ -79,24 +80,7 @@
       button.onclick = function () {
         var date = dateSelector.value;
         if (date !== "") {
-          socket.emit("set_puzzle", {
-            "room": "{{ owner }}",
-            "date": date,
-          });
-        }
-      }
-    }
-  </script>
-
-  <script type="text/javascript" charset="utf-8">
-    var button = document.getElementById("show-clue");
-    var clueSelector = document.getElementById("clue-selector");
-
-    if (button !== null && clueSelector !== null) {
-      button.onclick = function () {
-        var clue = document.getElementById(clueSelector.value);
-        if (clue !== null) {
-          clue.scrollIntoView();
+          socket.emit("set_puzzle", { "room": "{{ owner }}", "date": date });
         }
       }
     }
