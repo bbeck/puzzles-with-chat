@@ -1,8 +1,8 @@
 import attr
-import crosswords
 import flask
 import flask_socketio
 import os
+import puzzles
 import rooms
 
 app = flask.Flask(__name__)
@@ -56,7 +56,6 @@ def streamer(channel):
     # indication that they're about to start solving a puzzle with their chat
     # and have the chat bot join their channel.
     # TODO: Code this.
-
     return flask.render_template("channel.html", owner=channel, streamer=True)
 
 
@@ -83,7 +82,7 @@ def join(name):
 @socketio.on("set_puzzle")
 def set_crossword(data):
     r"""Handler that's called when the streamer changes the puzzle."""
-    puzzle = crosswords.load_puzzle(data["date"])
+    puzzle = puzzles.load_puzzle(data["date"])
     if puzzle is None:
         # Something went wrong loading the puzzle.  There's nothing more we can
         # do so return.  TODO: Log/emit some type of error here.
@@ -91,7 +90,7 @@ def set_crossword(data):
 
     # Setup the cells list for the new solve.
     cells = [[
-        "" if puzzle.cells[y][x] is not None else None
+        puzzle.cells[y][x] if puzzle.cells[y][x] is not None else None
         for x in range(puzzle.cols)
     ] for y in range(puzzle.rows)]
 

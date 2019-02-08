@@ -1,8 +1,8 @@
 import attr
-import crosswords
 import db
 import flask
 import json
+import puzzles
 import typing
 
 
@@ -15,13 +15,13 @@ class Room(object):
 
     Attributes
     ----------
-    puzzle : crosswords.Puzzle
+    puzzle : puzzles.Puzzle
         The puzzle that is currently being solved.
 
     cells : List[List[str]]
         The current cell values.
     """
-    puzzle = attr.ib(type=crosswords.Puzzle)
+    puzzle = attr.ib(type=puzzles.Puzzle)
     cells = attr.ib(type=typing.List[typing.List[str]])
 
     def to_json(self):
@@ -41,7 +41,7 @@ class Room(object):
     def from_json(cls, s):
         d = json.loads(s)
         return cls(
-            puzzle=crosswords.Puzzle.from_json(d["puzzle"]),
+            puzzle=puzzles.Puzzle.from_json(d["puzzle"]),
             cells=d["cells"],
         )
 
