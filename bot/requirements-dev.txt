@@ -1,0 +1,3 @@
+-r requirements.txt
+
+watchdog  # For hot code reloading
