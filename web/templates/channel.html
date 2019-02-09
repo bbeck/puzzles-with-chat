@@ -70,6 +70,10 @@
         clueElem.scrollIntoView();
       }
     });
+
+    socket.on("solved", function () {
+      alert("The puzzle has been correctly solved!");
+    })
   </script>
 
   <script type="text/javascript" charset="utf-8">

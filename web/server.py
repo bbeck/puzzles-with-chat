@@ -101,6 +101,10 @@ def answer(channel, clue):
     puzzle = attr.evolve(room.puzzle, cells=room.cells)
     socketio.emit("crossword", puzzle.to_json(), broadcast=True, room=channel)
 
+    # Check and see if we've solved the puzzle.
+    if room.puzzle.cells == room.cells:
+        socketio.emit("solved", broadcast=True, room=channel)
+
     # ...and return a HTTP 204 = No Content (server processed the request but
     # hasn't generated any content to return).
     return ("", 204, {})
