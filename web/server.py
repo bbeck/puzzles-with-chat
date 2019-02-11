@@ -1,9 +1,9 @@
 import attr
 import flask
-import flask_socketio
 import os
 import puzzles
 import rooms
+from flask_socketio import SocketIO, emit, join_room
 
 app = flask.Flask(__name__)
 app.config.from_mapping(
@@ -11,7 +11,7 @@ app.config.from_mapping(
     ROOM_TTL=int(os.environ.get("ROOM_TTL", 4 * 60 * 60)),
 )
 
-socketio = flask_socketio.SocketIO(app)
+socketio = SocketIO(app)
 
 
 @app.route("/")
@@ -52,10 +52,6 @@ def streamer(channel):
     The intention is that only the streamer will have access to this particular
     view.
     """
-    # Take the fact that a streamer has loaded their channel page as an
-    # indication that they're about to start solving a puzzle with their chat
-    # and have the chat bot join their channel.
-    # TODO: Code this.
     return flask.render_template("channel.html", owner=channel, streamer=True)
 
 
@@ -70,7 +66,7 @@ def show_clue(channel, clue):
     operation, and the server currently doesn't have a way to know if it has
     succeeded or not, it just knows that the request has been made.
     """
-    socketio.emit("show_clue", clue, broadcast=True, room=channel)
+    socketio.emit("show_clue", clue, room=channel)
     return ("", 204, {})
 
 
@@ -99,11 +95,11 @@ def answer(channel, clue):
 
     # Now that we've updated the room, send the puzzle to everyone.
     puzzle = attr.evolve(room.puzzle, cells=room.cells)
-    socketio.emit("crossword", puzzle.to_json(), broadcast=True, room=channel)
+    socketio.emit("crossword", puzzle.to_json(), room=channel)
 
-    # Check and see if we've solved the puzzle.
+    # Check and see if we've solved the puzzle, if so let everyone know.
     if room.puzzle.cells == room.cells:
-        socketio.emit("solved", broadcast=True, room=channel)
+        socketio.emit("solved", room=channel)
 
     # ...and return a HTTP 204 = No Content (server processed the request but
     # hasn't generated any content to return).
@@ -127,9 +123,8 @@ def channels():
 def join(name):
     r"""Handler that's called when a client has requested to join a room."""
     # Tell the socketio backend that this particular socket is joining the
-    # room.  This will allow this socket to receive broadcast events in the
-    # future.
-    flask_socketio.join_room(name)
+    # room.  This will allow this socket to receive room events in the future.
+    join_room(name)
 
     # Whenever someone joins the room send the current state of the puzzle
     # to them so that they can render it in their browser.  This will send
@@ -140,7 +135,7 @@ def join(name):
         puzzle = attr.evolve(room.puzzle, cells=room.cells)
 
         # Let this user know about the puzzle.
-        socketio.emit("crossword", puzzle.to_json())
+        emit("crossword", puzzle.to_json())
 
 
 @socketio.on("set_puzzle")
@@ -169,7 +164,7 @@ def set_crossword(data):
     puzzle = attr.evolve(puzzle, cells=cells)
 
     # Let everyone know about the updated puzzle.
-    socketio.emit("crossword", puzzle.to_json(), broadcast=True, room=room)
+    emit("crossword", puzzle.to_json(), room=room)
 
 
 if __name__ == "__main__":
