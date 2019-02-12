@@ -5,6 +5,13 @@ function set_date(date) {
   }
 }
 
+function set_settings(settings) {
+  var checkbox = document.querySelector("#correct-answers-only");
+  if (checkbox !== null) {
+    checkbox.checked = settings["only_allow_correct_answers"];
+  }
+}
+
 function render_crossword(puzzle) {
   var crossword = document.querySelector("#crossword");
   crossword.setAttribute("data-size", puzzle["rows"]);

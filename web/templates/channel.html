@@ -5,15 +5,30 @@
   <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.slim.js"></script>
+  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/crossword.js') }}"></script>
 </head>
 
 <body>
-  <nav class="navbar navbar-dark text-light bg-dark">
+  <nav class="navbar navbar-expand navbar-dark text-light bg-dark">
     <div class="navbar-brand">Twitch Plays Crosswords</div>
 
     {% if streamer %}
-    <div class="selector form-inline">
+    <ul class="navbar-nav ml-auto">
+      <li class="nav-item dropdown">
+        <button id="settings-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
+          Settings
+        </button>
+        <div class="dropdown-menu px-2" aria-labelledby="settings-dropdown">
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="correct-answers-only">
+            <label class="form-check-label" for="correct-answers-only">Only allow correct answers</label>
+          </div>
+        </div>
+      </li>
+    </ul>
+    <div class="selector">
       <input id="date-selector" type="date" class="form-control form-control-sm"></input>
     </div>
     {% endif %}
@@ -68,6 +83,11 @@
       set_date(puzzle.published);
     });
 
+    socket.on("settings", function (data) {
+      var settings = JSON.parse(data);
+      set_settings(settings);
+    })
+
     socket.on("show_clue", function (clue) {
       var clueElem = document.getElementById(clue);
       if (clueElem !== null) {
@@ -86,13 +106,25 @@
 
   <script type="text/javascript" charset="utf-8">
     var dateSelector = document.getElementById("date-selector");
-
     if (dateSelector !== null) {
       dateSelector.onchange = function () {
         var date = dateSelector.value;
         if (date !== "") {
           socket.emit("set_puzzle", { "room": "{{ owner }}", "date": date });
         }
+      }
+    }
+
+    var correctAnswersCheckbox = document.getElementById("correct-answers-only");
+    if (correctAnswersCheckbox !== null) {
+      correctAnswersCheckbox.onchange = function () {
+        var value = correctAnswersCheckbox.checked;
+        socket.emit("set_settings", {
+          "room": "{{ owner }}",
+          "settings": {
+            "only_allow_correct_answers": value
+          }
+        });
       }
     }
   </script>

@@ -62,9 +62,9 @@ def get_room(name):
     r"""Load a room from the redis database.
 
     Rooms are stored in the redis database under a key with the hardcoded string
-    "room:" concatenated with the the channel's name.  This allows all rooms
-    to be easily scanned.  After any read or write operation to a room the
-    key's expiration is automatically updated.
+    "room:" concatenated with the channel's name.  This allows all rooms to be
+    easily scanned.  After any read or write operation to a room the key's
+    expiration is automatically updated.
 
     Parameters
     ----------
@@ -107,6 +107,42 @@ def set_room(name, room):
 
     redis = db.get_db()
     redis.set(key, s, ex=flask.current_app.config["ROOM_TTL"])
+
+
+def get_correct_answer(name, clue):
+    r"""Get the correct answer for a clue from the current puzzle.
+
+    This method will attempt to identify the clue that's been specified and
+    provide the answer for it.  If the room or the clue cannot be identified
+    then None will be returned.
+
+    Parameters
+    ----------
+    name : str
+        The name of the room to retrieve the answer of.
+
+    clue : str
+        The id of the clue to retrieve the answer of.
+    """
+    room = get_room(name)
+    if room is None:
+        return None
+
+    # Parse the clue into its components
+    num, direction = parse_clue(clue)
+    if num is None or direction is None:
+        return None
+
+    # Build the answer taking into account rebus cells.
+    answer = ""
+    for x, y in puzzles.get_answer_cells(room.puzzle, num, direction):
+        value = room.puzzle.cells[y][x]
+        if len(value) == 1:
+            answer += value
+        else:
+            answer += f"({value})"
+
+    return answer
 
 
 def apply_answer(name, clue, answer):

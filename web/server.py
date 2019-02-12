@@ -3,6 +3,7 @@ import flask
 import os
 import puzzles
 import rooms
+import settings
 from flask_socketio import SocketIO, emit, join_room
 
 app = flask.Flask(__name__)
@@ -87,6 +88,12 @@ def answer(channel, clue):
         flask.abort(400)  # 400 = Bad Request
     answer = answer.upper()
 
+    room_settings = settings.get_settings(channel)
+    if room_settings.only_allow_correct_answers:
+        correct = rooms.get_correct_answer(channel, clue)
+        if answer != correct:
+            flask.abort(403)  # 403 = Forbidden
+
     room = rooms.apply_answer(channel, clue, answer)
     if room is None:
         # We should technically distinguish between couldn't find the clue and
@@ -133,15 +140,17 @@ def join(name):
     room = rooms.get_room(name)
     if room is not None:
         puzzle = attr.evolve(room.puzzle, cells=room.cells)
+        room_settings = settings.get_settings(name)
 
-        # Let this user know about the puzzle.
+        # Let this user know about the puzzle and settings.
         emit("crossword", puzzle.to_json())
+        emit("settings", room_settings.to_json())
 
 
 @socketio.on("set_puzzle")
 def set_crossword(data):
     r"""Handler that's called when the streamer changes the puzzle."""
-    room = data["room"]
+    room_name = data["room"]
     date = data["date"]
 
     puzzle = puzzles.load_puzzle(date)
@@ -157,14 +166,28 @@ def set_crossword(data):
     ] for y in range(puzzle.rows)]
 
     # Save the state of the room to the database.
-    rooms.set_room(room, rooms.Room(puzzle=puzzle, cells=cells))
+    rooms.set_room(room_name, rooms.Room(puzzle=puzzle, cells=cells))
 
     # Update the puzzle to have the empty set of cells before sending to the
     # clients so that we don't send the answers to the browser.
     puzzle = attr.evolve(puzzle, cells=cells)
 
     # Let everyone know about the updated puzzle.
-    emit("crossword", puzzle.to_json(), room=room)
+    emit("crossword", puzzle.to_json(), room=room_name)
+
+
+@socketio.on("set_settings")
+def set_settings(data):
+    r"""Handler that's called when the streamer changes the settings."""
+    room_name = data["room"]
+    changes = data["settings"]  # A key/value dict.
+
+    existing_settings = settings.get_settings(room_name)
+    updated_settings = attr.evolve(existing_settings, **changes)
+    settings.set_settings(room_name, updated_settings)
+
+    # Let everyone know about the settings update.
+    emit("settings", updated_settings.to_json(), room=room_name)
 
 
 if __name__ == "__main__":

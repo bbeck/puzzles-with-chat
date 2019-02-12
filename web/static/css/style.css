@@ -1,3 +1,7 @@
+.navbar .dropdown-menu {
+  min-width: 250px;
+}
+
 #crossword {
   width: 990px;
   height: 635px;
