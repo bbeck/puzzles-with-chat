@@ -1,3 +1,10 @@
+function set_date(date) {
+  var selector = document.querySelector("#date-selector");
+  if (selector !== null) {
+    selector.value = date;
+  }
+}
+
 function render_crossword(puzzle) {
   var crossword = document.querySelector("#crossword");
   crossword.setAttribute("data-size", puzzle["rows"]);

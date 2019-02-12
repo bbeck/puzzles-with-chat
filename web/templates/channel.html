@@ -15,7 +15,6 @@
     {% if streamer %}
     <div class="selector form-inline">
       <input id="date-selector" type="date" class="form-control form-control-sm"></input>
-      <button id="set-date" type="button" class="btn btn-dark">Switch Date</button>
     </div>
     {% endif %}
   </nav>
@@ -66,6 +65,7 @@
     socket.on("crossword", function (data) {
       var puzzle = JSON.parse(data);
       render_crossword(puzzle);
+      set_date(puzzle.published);
     });
 
     socket.on("show_clue", function (clue) {
@@ -76,16 +76,19 @@
     });
 
     socket.on("solved", function () {
-      alert("The puzzle has been correctly solved!");
+      // Alert after a second, this gives the UI time to show the last answer
+      // before sending the alert.
+      setTimeout(function () {
+        alert("The puzzle has been correctly solved!");
+      }, 1000);
     })
   </script>
 
   <script type="text/javascript" charset="utf-8">
-    var button = document.getElementById("set-date");
     var dateSelector = document.getElementById("date-selector");
 
-    if (button !== null && dateSelector !== null) {
-      button.onclick = function () {
+    if (dateSelector !== null) {
+      dateSelector.onchange = function () {
         var date = dateSelector.value;
         if (date !== "") {
           socket.emit("set_puzzle", { "room": "{{ owner }}", "date": date });
