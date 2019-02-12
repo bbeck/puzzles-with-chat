@@ -168,7 +168,7 @@ def load_nyt_puzzle(date):
         "Referer": "https://www.xwordinfo.com/JSON",
     }
 
-    url = f"https://www.xwordinfo.com/JSON/Data.aspx?format=text&date={date}"
+    url = f"https://www.xwordinfo.com/JSON/Data.aspx?date={date}"
     response = requests.get(url, headers=headers)
 
     if 400 <= response.status_code < 600:
