@@ -229,10 +229,10 @@ def parse_answer(answer):
     would be interpreted as ["red", "v", "e", "l", "v", "e", "t"] and fit as
     the answer for a 7 cell clue.
 
-    Additionally if an answer contains a " " character anywhere that particular
-    cell will be left empty.  This allows strings like `    s` to be entered
+    Additionally if an answer contains a "." character anywhere that particular
+    cell will be left empty.  This allows strings like `....s` to be entered
     to indicate that the answer is known to be plural, but the other letters
-    aren't known yet.  Within a rebus cell " " characters are kept as-is.
+    aren't known yet.  Within a rebus cell "." characters are kept as-is.
 
     Parameters
     ----------
@@ -270,7 +270,7 @@ def parse_answer(answer):
 
         # We're not in parentheses, this is just a normal character or an
         # empty cell.
-        cells.append(c if c != " " else "")
+        cells.append(c if c != "." else "")
 
     # TODO: Should we check for unbalanced parentheses?
     return cells

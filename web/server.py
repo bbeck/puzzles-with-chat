@@ -91,8 +91,17 @@ def answer(channel, clue):
     room_settings = settings.get_settings(channel)
     if room_settings.only_allow_correct_answers:
         correct = rooms.get_correct_answer(channel, clue)
-        if answer != correct:
+
+        print(f"correct: {correct}, answer: {answer}")
+        if len(answer) != len(correct):
             flask.abort(403)  # 403 = Forbidden
+
+        # An answer could have '.' characters in it because only some
+        # characters are known.  This is still technically a correct answer
+        # so make sure to allow it.
+        for i in range(len(correct)):
+            if answer[i] != "." and answer[i] != correct[i]:
+                flask.abort(403)  # 403 = Forbidden
 
     room = rooms.apply_answer(channel, clue, answer)
     if room is None:
