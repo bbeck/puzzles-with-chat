@@ -272,7 +272,7 @@ def get_answer_cells(puzzle, num, direction):
     # the same regardless of whether we're looking for across or down answers.
     current = None
     for y in range(puzzle.rows):
-        for x in range(puzzle.rows):
+        for x in range(puzzle.cols):
             if puzzle.cell_clue_numbers[y][x] == num:
                 current = (x, y)
     if current is None:

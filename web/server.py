@@ -92,7 +92,6 @@ def answer(channel, clue):
     if room_settings.only_allow_correct_answers:
         correct = rooms.get_correct_answer(channel, clue)
 
-        print(f"correct: {correct}, answer: {answer}")
         if len(answer) != len(correct):
             flask.abort(403)  # 403 = Forbidden
 
