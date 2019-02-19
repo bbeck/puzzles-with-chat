@@ -20,9 +20,19 @@ class Room(object):
 
     cells : List[List[str]]
         The current cell values.
+
+    across_clues_filled : Dict[int, bool]
+        Whether or not an across clue has had an answer filled in, indexed by
+        clue number.
+
+    down_clues_filled : Dict[int, bool]
+        Whether or not a down clue has had an answer filled in, indexed by clue
+        number.
     """
     puzzle = attr.ib(type=puzzles.Puzzle)
     cells = attr.ib(type=typing.List[typing.List[str]])
+    across_clues_filled = attr.ib(type=typing.Dict[int, bool])
+    down_clues_filled = attr.ib(type=typing.Dict[int, bool])
 
     def to_json(self):
         r"""Converts the current room to a JSON string.
@@ -33,16 +43,32 @@ class Room(object):
             The representation of the room as a JSON string.
         """
         return json.dumps({
-            "puzzle": self.puzzle.to_json(),
+            "puzzle": self.puzzle.to_dict(),
             "cells": self.cells,
+            "across_clues_filled": self.across_clues_filled,
+            "down_clues_filled": self.down_clues_filled,
         })
 
     @classmethod
     def from_json(cls, s):
         d = json.loads(s)
+
+        # Convert the keys for across_clues_filled and down_clues_filled to
+        # ints.  JSON doesn't support non-string keys for objects.
+        d["across_clues_filled"] = {
+            int(n): v
+            for (n, v) in d["across_clues_filled"].items()
+        }
+        d["down_clues_filled"] = {
+            int(n): v
+            for (n, v) in d["down_clues_filled"].items()
+        }
+
         return cls(
-            puzzle=puzzles.Puzzle.from_json(d["puzzle"]),
+            puzzle=puzzles.Puzzle.from_dict(d["puzzle"]),
             cells=d["cells"],
+            across_clues_filled=d["across_clues_filled"],
+            down_clues_filled=d["down_clues_filled"],
         )
 
 
@@ -181,6 +207,18 @@ def apply_answer(name, clue, answer):
     # room's state.
     for (value, (x, y)) in zip(answer, coordinates):
         room.cells[y][x] = value
+
+    # A single answer can actually answer multiple clues, so instead of
+    # checking if we've just filled this one clue we'll do a quick check of
+    # the entire puzzle.
+    for num in room.puzzle.across_clues:
+        room.across_clues_filled[num] = all(
+            room.cells[y][x] != ""
+            for (x, y) in puzzles.get_answer_cells(room.puzzle, num, "a"))
+    for num in room.puzzle.down_clues:
+        room.down_clues_filled[num] = all(
+            room.cells[y][x] != ""
+            for (x, y) in puzzles.get_answer_cells(room.puzzle, num, "d"))
 
     set_room(name, room)
 

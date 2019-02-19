@@ -78,32 +78,69 @@ class Puzzle(object):
     across_clues = attr.ib(type=typing.Dict[int, str])
     down_clues = attr.ib(type=typing.Dict[int, str])
 
-    def to_json(self):
-        r"""Converts a Puzzle instance into a JSON string.
+    def to_dict(self):
+        r"""Converts a Puzzle instance into a python dictionary.
 
-        The majority of the fields of the puzzle type are suitable for direct
-        conversion to JSON.  For the ones that are not suitable for direct
-        conversion to JSON they are changed to be logical equivalents (for
-        example dates are changed to ISO8601 date strings).
+        The converts the current instance into a dictionary suitable for
+        transforming to JSON.  This means that any field that's not suitable
+        for a direct conversion to JSON will be changed to their logical
+        equivalents (for example dates are change to ISO8601 date strings).
+
+        The benefit of this method is that it can be called instead of `to_json`
+        when a Puzzle object is stored as just one part of a larger tree of
+        objects.
 
         Returns
         -------
-        str
-            The JSON representation of the current puzzle instance.
+        Dict[str, ?]
+            The python dictionary representation of the current puzzle instance.
         """
         d = attr.asdict(self)
 
         # JSON doesn't support datetimes, so convert to an ISO8601 date string.
         d["published"] = d["published"].isoformat()
 
-        return json.dumps(d)
+        return d
+
+    @classmethod
+    def from_dict(cls, d):
+        r"""Converts a python dictionary to a new Puzzle instance.
+
+        Similar to how `to_dict` will encode any fields that are not suitable
+        for direct conversion to JSON this method will undo any such encodings
+        (for example dates are changed back to python datetime.date instance).
+
+        Parameters
+        ----------
+        d : Dict[str, ?]
+            The python dictionary representation of a Puzzle.
+        """
+        # Parse the ISO8601 date string into a datetime.date.
+        d["published"] = datetime.date.fromisoformat(d["published"])
+
+        # Convert the keys for across_clues and down_clues to ints.  JSON
+        # doesn't support non-string keys for objects.
+        d["across_clues"] = {int(n): v for (n, v) in d["across_clues"].items()}
+        d["down_clues"] = {int(n): v for (n, v) in d["down_clues"].items()}
+
+        return cls(**d)
+
+    def to_json(self):
+        r"""Converts a Puzzle instance into a JSON string.
+
+        Returns
+        -------
+        str
+            The JSON representation of the current puzzle instance.
+        """
+        return json.dumps(self.to_dict())
 
     @classmethod
     def from_json(cls, s):
         r"""Converts a JSON string to a new Puzzle instance.
 
         Similar to how `to_json` will encode any fields that are not suitable
-        for direction to conversion to JSON this method will undo any such
+        for direct to conversion to JSON this method will undo any such
         encodings (for example dates are changed back to python datetime.date
         instances).
 
@@ -117,12 +154,7 @@ class Puzzle(object):
         Puzzle
             The Puzzle instance corresponding to the inputted JSON string.
         """
-        d = json.loads(s)
-
-        # Parse the ISO8601 date string into a datetime.date.
-        d["published"] = datetime.date.fromisoformat(d["published"])
-
-        return cls(**d)
+        return Puzzle.from_dict(json.loads(s))
 
 
 def load_puzzle(date, publisher="NYT"):

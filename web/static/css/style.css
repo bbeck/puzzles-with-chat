@@ -54,6 +54,10 @@
   display: flex;
 }
 
+#crossword .clues li.filled {
+  color: gray;
+}
+
 #crossword .clues .number {
   margin-right: 5px;
   font-weight: bold;

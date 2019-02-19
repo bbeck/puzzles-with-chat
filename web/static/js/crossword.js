@@ -12,7 +12,11 @@ function set_settings(settings) {
   }
 }
 
-function render_crossword(puzzle) {
+function render_crossword(state) {
+  var puzzle = state.puzzle;
+  var across_clues_filled = state.across_clues_filled;
+  var down_clues_filled = state.down_clues_filled;
+
   var crossword = document.querySelector("#crossword");
   crossword.setAttribute("data-size", puzzle["rows"]);
 
@@ -25,9 +29,9 @@ function render_crossword(puzzle) {
   render_grid(puzzle);
 
   var across = document.querySelector("#crossword #across-clues");
-  render_clues(puzzle.across_clues, across, "a");
+  render_clues(puzzle.across_clues, across_clues_filled, across, "a");
   var down = document.querySelector("#crossword #down-clues");
-  render_clues(puzzle.down_clues, down, "d");
+  render_clues(puzzle.down_clues, down_clues_filled, down, "d");
 }
 
 function render_grid(puzzle) {
@@ -90,7 +94,7 @@ function render_grid(puzzle) {
   gridDiv.appendChild(table);
 }
 
-function render_clues(clues, root, side) {
+function render_clues(clues, filled, root, side) {
   /*
     We're going to model the clues as an ol of items with each clue being a
     single li within the list.  An individual clue will be comprised of the
@@ -108,6 +112,9 @@ function render_clues(clues, root, side) {
   for (var i = 0; i < numbers.length; i++) {
     var li = document.createElement("li");
     li.setAttribute("id", numbers[i] + side);
+    if (filled[numbers[i]]) {
+      li.classList.add("filled");
+    }
     list.appendChild(li);
 
     var numberSpan = document.createElement("span");

@@ -77,10 +77,10 @@
       socket.emit("join", "{{ owner }}");
     });
 
-    socket.on("crossword", function (data) {
-      var puzzle = JSON.parse(data);
-      render_crossword(puzzle);
-      set_date(puzzle.published);
+    socket.on("state", function (data) {
+      var state = JSON.parse(data);
+      render_crossword(state);
+      set_date(state.puzzle.published);
     });
 
     socket.on("settings", function (data) {

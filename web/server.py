@@ -108,12 +108,18 @@ def answer(channel, clue):
         # couldn't fit the answer...
         flask.abort(404)  # 404 = Not Found
 
-    # Now that we've updated the room, send the puzzle to everyone.
+    # Determine what the cells look like for the solve puzzle so we can detect
+    # if the puzzle is complete.
+    complete_cells = room.puzzle.cells
+
+    # Now that we've updated the room, send it to everyone, sanitizing the
+    # puzzle from having answers first.
     puzzle = attr.evolve(room.puzzle, cells=room.cells)
-    socketio.emit("crossword", puzzle.to_json(), room=channel)
+    room = attr.evolve(room, puzzle=puzzle)
+    socketio.emit("state", room.to_json(), room=channel)
 
     # Check and see if we've solved the puzzle, if so let everyone know.
-    if room.puzzle.cells == room.cells:
+    if complete_cells == room.cells:
         socketio.emit("solved", room=channel)
 
     # ...and return a HTTP 204 = No Content (server processed the request but
@@ -148,10 +154,11 @@ def join(name):
     room = rooms.get_room(name)
     if room is not None:
         puzzle = attr.evolve(room.puzzle, cells=room.cells)
+        room = attr.evolve(room, puzzle=puzzle)
         room_settings = settings.get_settings(name)
 
         # Let this user know about the puzzle and settings.
-        emit("crossword", puzzle.to_json())
+        emit("state", room.to_json())
         emit("settings", room_settings.to_json())
 
 
@@ -173,15 +180,26 @@ def set_crossword(data):
         for x in range(puzzle.cols)
     ] for y in range(puzzle.rows)]
 
+    # Setup the set of filled in clues for the new solve.
+    across_clues_filled = {num: False for num in puzzle.across_clues}
+    down_clues_filled = {num: False for num in puzzle.down_clues}
+
     # Save the state of the room to the database.
-    rooms.set_room(room_name, rooms.Room(puzzle=puzzle, cells=cells))
+    room = rooms.Room(
+        puzzle=puzzle,
+        cells=cells,
+        across_clues_filled=across_clues_filled,
+        down_clues_filled=down_clues_filled,
+    )
+    rooms.set_room(room_name, room)
 
     # Update the puzzle to have the empty set of cells before sending to the
     # clients so that we don't send the answers to the browser.
     puzzle = attr.evolve(puzzle, cells=cells)
+    room = attr.evolve(room, puzzle=puzzle)
 
     # Let everyone know about the updated puzzle.
-    emit("crossword", puzzle.to_json(), room=room_name)
+    emit("state", room.to_json(), room=room_name)
 
 
 @socketio.on("set_settings")
