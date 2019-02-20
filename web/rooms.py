@@ -15,6 +15,10 @@ class Room(object):
 
     Attributes
     ----------
+    play_pause_state : str
+        The state of the solve.  Valid values are: "created", "paused",
+        "playing", or "complete".
+
     puzzle : puzzles.Puzzle
         The puzzle that is currently being solved.
 
@@ -29,6 +33,7 @@ class Room(object):
         Whether or not a down clue has had an answer filled in, indexed by clue
         number.
     """
+    play_pause_state = attr.ib(type=str)
     puzzle = attr.ib(type=puzzles.Puzzle)
     cells = attr.ib(type=typing.List[typing.List[str]])
     across_clues_filled = attr.ib(type=typing.Dict[int, bool])
@@ -43,6 +48,7 @@ class Room(object):
             The representation of the room as a JSON string.
         """
         return json.dumps({
+            "play_pause_state": self.play_pause_state,
             "puzzle": self.puzzle.to_dict(),
             "cells": self.cells,
             "across_clues_filled": self.across_clues_filled,
@@ -65,6 +71,7 @@ class Room(object):
         }
 
         return cls(
+            play_pause_state=d["play_pause_state"],
             puzzle=puzzles.Puzzle.from_dict(d["puzzle"]),
             cells=d["cells"],
             across_clues_filled=d["across_clues_filled"],
@@ -171,7 +178,7 @@ def get_correct_answer(name, clue):
     return answer
 
 
-def apply_answer(name, clue, answer):
+def apply_answer(room, name, clue, answer):
     r"""Apply an answer to a puzzle.
 
     This method will attempt to identify the clue that's been specified and
@@ -180,6 +187,9 @@ def apply_answer(name, clue, answer):
 
     Parameters
     ----------
+    room : Room
+        The room to apply the answer to.
+
     name : str
         The name of the room to apply the answer to.
 
@@ -189,10 +199,6 @@ def apply_answer(name, clue, answer):
     answer : str
         The answer to apply to the clue.
     """
-    room = get_room(name)
-    if room is None:
-        return None
-
     # Parse the clue into its components
     num, direction = parse_clue(clue)
     if num is None or direction is None:
@@ -203,8 +209,7 @@ def apply_answer(name, clue, answer):
     if len(answer) != len(coordinates):
         return None
 
-    # Otherwise write the answer values into the puzzle cells and save the
-    # room's state.
+    # Otherwise write the answer values into the puzzle cells.
     for (value, (x, y)) in zip(answer, coordinates):
         room.cells[y][x] = value
 
@@ -219,6 +224,11 @@ def apply_answer(name, clue, answer):
         room.down_clues_filled[num] = all(
             room.cells[y][x] != ""
             for (x, y) in puzzles.get_answer_cells(room.puzzle, num, "d"))
+
+    # Check and see if we've finished the puzzle, if so update the state to
+    # complete.
+    if room.cells == room.puzzle.cells:
+        room = attr.evolve(room, play_pause_state="complete")
 
     set_room(name, room)
 

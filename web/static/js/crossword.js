@@ -1,3 +1,52 @@
+function set_play_pause(state) {
+  var crossword = document.querySelector("#crossword");
+  if (crossword === null) {
+    return;
+  }
+
+  var button = document.querySelector("#start-pause");
+  // It's okay if the button isn't present as non-streamer views won't have it,
+  // but their puzzle should still be blurred.
+
+  if (state === "created") {
+    if (button !== null) {
+      button.classList.remove("btn-warning");
+      button.classList.add("btn-success")
+      button.innerText = "Start";
+      button.disabled = false;
+    }
+
+    crossword.classList.add("blur");
+  } else if (state === "paused") {
+    if (button !== null) {
+      button.classList.remove("btn-warning");
+      button.classList.add("btn-success")
+      button.innerText = "Unpause";
+      button.disabled = false;
+    }
+
+    crossword.classList.add("blur");
+  } else if (state === "playing") {
+    if (button !== null) {
+      button.classList.add("btn-warning");
+      button.classList.remove("btn-success")
+      button.innerText = "Pause";
+      button.disabled = false;
+    }
+
+    crossword.classList.remove("blur");
+  } else if (state === "complete") {
+    if (button !== null) {
+      button.classList.remove("btn-warning");
+      button.classList.add("btn-success")
+      button.innerText = "Complete";
+      button.disabled = true;
+    }
+
+    crossword.classList.remove("blur");
+  }
+}
+
 function set_date(date) {
   var selector = document.querySelector("#date-selector");
   if (selector !== null) {

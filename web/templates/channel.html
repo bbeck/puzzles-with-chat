@@ -17,6 +17,7 @@
     {% if streamer %}
     <ul class="navbar-nav ml-auto">
       <li class="nav-item dropdown">
+        <button id="start-pause" type="button" class="btn btn-success">Start</button>
         <button id="settings-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
           Settings
         </button>
@@ -79,6 +80,7 @@
 
     socket.on("state", function (data) {
       var state = JSON.parse(data);
+      set_play_pause(state.play_pause_state);
       render_crossword(state);
       set_date(state.puzzle.published);
     });
@@ -124,6 +126,15 @@
           "settings": {
             "only_allow_correct_answers": value
           }
+        });
+      }
+    }
+
+    var startPauseButton = document.getElementById("start-pause");
+    if (startPauseButton !== null) {
+      startPauseButton.onclick = function () {
+        socket.emit("play_pause", {
+          "room": "{{ owner }}",
         });
       }
     }

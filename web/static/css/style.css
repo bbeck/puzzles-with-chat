@@ -8,6 +8,10 @@
   display: flex;
 }
 
+#crossword.blur {
+  filter: blur(5px);
+}
+
 #crossword>div {
   padding: 5px;
 }

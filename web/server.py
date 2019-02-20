@@ -83,6 +83,13 @@ def answer(channel, clue):
     if flask.request.content_length > 1024:
         flask.abort(413)  # 413 = Payload Too Large
 
+    room = rooms.get_room(channel)
+    if room is None:
+        flask.abort(404)  # 404 = Not Found
+
+    if room.play_pause_state != "playing":
+        flask.abort(409)  # 409 = Conflict (state conflicted with request)
+
     answer = flask.request.get_data(as_text=True)
     if answer is None or len(answer.strip()) == 0:
         flask.abort(400)  # 400 = Bad Request
@@ -102,15 +109,11 @@ def answer(channel, clue):
             if answer[i] != "." and answer[i] != correct[i]:
                 flask.abort(403)  # 403 = Forbidden
 
-    room = rooms.apply_answer(channel, clue, answer)
+    room = rooms.apply_answer(room, channel, clue, answer)
     if room is None:
         # We should technically distinguish between couldn't find the clue and
         # couldn't fit the answer...
         flask.abort(404)  # 404 = Not Found
-
-    # Determine what the cells look like for the solve puzzle so we can detect
-    # if the puzzle is complete.
-    complete_cells = room.puzzle.cells
 
     # Now that we've updated the room, send it to everyone, sanitizing the
     # puzzle from having answers first.
@@ -119,7 +122,7 @@ def answer(channel, clue):
     socketio.emit("state", room.to_json(), room=channel)
 
     # Check and see if we've solved the puzzle, if so let everyone know.
-    if complete_cells == room.cells:
+    if room.play_pause_state == "complete":
         socketio.emit("solved", room=channel)
 
     # ...and return a HTTP 204 = No Content (server processed the request but
@@ -147,19 +150,21 @@ def join(name):
     # room.  This will allow this socket to receive room events in the future.
     join_room(name)
 
+    room = rooms.get_room(name)
+    if room is None:
+        return
+
     # Whenever someone joins the room send the current state of the puzzle
     # to them so that they can render it in their browser.  This will send
     # the message to just the client that joined the room.  If there's not
     # a current puzzle then don't send anything.
-    room = rooms.get_room(name)
-    if room is not None:
-        puzzle = attr.evolve(room.puzzle, cells=room.cells)
-        room = attr.evolve(room, puzzle=puzzle)
-        room_settings = settings.get_settings(name)
+    puzzle = attr.evolve(room.puzzle, cells=room.cells)
+    room = attr.evolve(room, puzzle=puzzle)
+    room_settings = settings.get_settings(name)
 
-        # Let this user know about the puzzle and settings.
-        emit("state", room.to_json())
-        emit("settings", room_settings.to_json())
+    # Let this user know about the puzzle and settings.
+    emit("state", room.to_json())
+    emit("settings", room_settings.to_json())
 
 
 @socketio.on("set_puzzle")
@@ -184,8 +189,10 @@ def set_crossword(data):
     across_clues_filled = {num: False for num in puzzle.across_clues}
     down_clues_filled = {num: False for num in puzzle.down_clues}
 
-    # Save the state of the room to the database.
+    # Save the state of the room to the database.  We start all puzzles by
+    # default in the paused state.
     room = rooms.Room(
+        play_pause_state="created",
         puzzle=puzzle,
         cells=cells,
         across_clues_filled=across_clues_filled,
@@ -214,6 +221,32 @@ def set_settings(data):
 
     # Let everyone know about the settings update.
     emit("settings", updated_settings.to_json(), room=room_name)
+
+
+@socketio.on("play_pause")
+def play_pause(data):
+    r"""Handler that's called when the play/pause button is clicked."""
+    room_name = data["room"]
+
+    room = rooms.get_room(room_name)
+    if room is None:
+        return
+
+    # Update the state of the room.
+    state = room.play_pause_state
+    if state == "created" or state == "paused":
+        state = "playing"
+    elif state == "playing":
+        state = "paused"
+
+    # Save the updated room.
+    room = attr.evolve(room, play_pause_state=state)
+    rooms.set_room(room_name, room)
+
+    # Let everyone know about the settings update.
+    puzzle = attr.evolve(room.puzzle, cells=room.cells)
+    room = attr.evolve(room, puzzle=puzzle)
+    emit("state", room.to_json(), room=room_name)
 
 
 if __name__ == "__main__":
