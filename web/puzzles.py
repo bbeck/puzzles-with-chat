@@ -214,9 +214,9 @@ def load_nyt_puzzle(date):
 
     rows = data["size"]["rows"]
     cols = data["size"]["cols"]
-    title = data["title"]
-    publisher = data["publisher"]
-    author = data["author"]
+    title = html.unescape(data["title"])
+    publisher = html.unescape(data["publisher"])
+    author = html.unescape(data["author"])
 
     cells = [[None for col in range(cols)] for row in range(rows)]
     for row in range(rows):
