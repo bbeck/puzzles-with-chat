@@ -8,6 +8,7 @@
   <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/crossword.js') }}"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/win.js') }}"></script>
 </head>
 
 <body>
@@ -101,7 +102,7 @@
       // Alert after a second, this gives the UI time to show the last answer
       // before sending the alert.
       setTimeout(function () {
-        alert("The puzzle has been correctly solved!");
+        start_win_animation();
       }, 1000);
     })
   </script>
