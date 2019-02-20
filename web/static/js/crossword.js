@@ -10,6 +10,7 @@ function set_play_pause(state) {
 
   if (state === "created") {
     if (button !== null) {
+      button.classList.remove("invisible");
       button.classList.remove("btn-warning");
       button.classList.add("btn-success")
       button.innerText = "Start";
@@ -19,6 +20,7 @@ function set_play_pause(state) {
     crossword.classList.add("blur");
   } else if (state === "paused") {
     if (button !== null) {
+      button.classList.remove("invisible");
       button.classList.remove("btn-warning");
       button.classList.add("btn-success")
       button.innerText = "Unpause";
@@ -28,6 +30,7 @@ function set_play_pause(state) {
     crossword.classList.add("blur");
   } else if (state === "playing") {
     if (button !== null) {
+      button.classList.remove("invisible");
       button.classList.add("btn-warning");
       button.classList.remove("btn-success")
       button.innerText = "Pause";
@@ -38,6 +41,7 @@ function set_play_pause(state) {
   } else if (state === "complete") {
     if (button !== null) {
       button.classList.remove("btn-warning");
+      button.classList.add("invisible");
       button.classList.add("btn-success")
       button.innerText = "Complete";
       button.disabled = true;
