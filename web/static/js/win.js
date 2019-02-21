@@ -3,7 +3,7 @@
 //
 
 var WIN_ANIMATION_RUNNING = false,
-  MAX_PARTICLES = 400;
+  MAX_PARTICLES = 1000;
 
 var canvas = document.createElement("canvas"),
   context = canvas.getContext("2d"),
@@ -16,7 +16,7 @@ function start_win_animation() {
   WIN_ANIMATION_RUNNING = true;
   document.body.appendChild(canvas);
 
-  launchInterval = setInterval(launch, 800);
+  launchInterval = setInterval(launch, 300);
   loopInterval = setInterval(loop, 1000 / 50);
   setTimeout(stop_win_animation, 20000);
 }
@@ -24,6 +24,11 @@ function start_win_animation() {
 function stop_win_animation() {
   WIN_ANIMATION_RUNNING = false;
   document.body.removeChild(canvas);
+
+  particles = [];
+  rockets = [];
+  launchInterval = null;
+  loopInterval = null;
 }
 
 function launch() {
@@ -33,7 +38,7 @@ function launch() {
     return;
   }
 
-  if (rockets.length < 10) {
+  if (rockets.length < 15) {
     var x = Math.floor(Math.random() * window.innerWidth / 10) * 10,
       rocket = new Rocket(x);
     rocket.explosionColor = Math.floor(Math.random() * 360 / 10) * 10;
@@ -195,17 +200,28 @@ Rocket.prototype = new Particle();
 Rocket.prototype.constructor = Rocket;
 
 Rocket.prototype.explode = function () {
-  var count = Math.random() * 10 + 80;
+  // decide explosion shape for this rocket
+  var explosionFunction;
+  switch (Math.floor(Math.random() * 4)) {
+    case 0:
+      explosionFunction = heartShape;
+      break;
+    case 1:
+      explosionFunction = starShape;
+      break;
+    default:
+      explosionFunction = sphereShape;
+  }
 
+  // number of particles to be generated
+  var count = Math.random() * 10 + 100;
+
+  // create particles
   for (var i = 0; i < count; i++) {
     var particle = new Particle(this.pos);
-    var angle = Math.random() * Math.PI * 2;
 
-    // emulate 3D effect by using cosine and put more particles in the middle
-    var speed = Math.cos(Math.random() * Math.PI / 2) * 15;
-
-    particle.vel.x = Math.cos(angle) * speed;
-    particle.vel.y = Math.sin(angle) * speed;
+    // delegate to a random chosen function
+    particle.vel = explosionFunction();
 
     particle.size = 10;
 
@@ -246,3 +262,38 @@ Rocket.prototype.render = function (c) {
 
   c.restore();
 };
+
+function sphereShape() {
+  var angle = Math.random() * Math.PI * 2;
+
+  // emulate 3D effect by using cosine and put more particles in the middle
+  var speed = Math.cos(Math.random() * Math.PI / 2) * 15;
+
+  return {
+    x: Math.cos(angle) * speed,
+    y: Math.sin(angle) * speed
+  };
+}
+
+function starShape() {
+  var angle = Math.random() * Math.PI * 2;
+  // sin(5*r) creates a star, need to add PI to rotate 180 degrees
+  var speed = Math.sin(5 * angle + Math.PI) * 12 + Math.random() * 3;
+
+  return {
+    x: Math.cos(angle) * speed,
+    y: Math.sin(angle) * speed
+  };
+}
+
+function heartShape() {
+  var angle = Math.random() * Math.PI * 2;
+
+  var speed = Math.random() * 0.2 + 0.6;
+
+  // invert y speed to display heart in the right orientation
+  return {
+    x: (16 * Math.pow(Math.sin(angle), 3)) * speed,
+    y: (13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)) * -speed
+  };
+}
