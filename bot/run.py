@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import schedule
 import sys
@@ -9,6 +10,14 @@ import twitch
 API_ENDPOINT = os.getenv("API_ENDPOINT")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "twitch_plays_crosswords")
 BOT_OAUTH_TOKEN = os.getenv("BOT_OAUTH_TOKEN")
+
+# A regular expression that matches a chat message that's providing an answer.
+ANSWER_REGEX = re.compile(
+    r"^!(answer\s+)?(?P<clue>[0-9]+[aAdD])\s+(?P<answer>.*)$")
+
+# A regular expression that matches a chat message that's asking for a clue to
+# be visible.
+SHOW_REGEX = re.compile(r"^!show\s+(?P<clue>[0-9]+[aAdD])\s*$")
 
 # The channels that the bot has currently joined.  This is kept up to date as
 # the bot joins and parts from channels.
@@ -69,15 +78,31 @@ def check_channels(join_func, part_func):
 
 
 def handle_message(channel, message):
-    words = message.split(" ", 2)
+    r"""Handle a message from the channel.
 
-    if words[0] == "!answer" and len(words) == 3:
-        clue = words[1].lower()
-        answer = words[2]
+    This method will parse the message from the channel and see if it's a
+    command for the bot to execute.  If it is, it will invoke the proper
+    endpoint of the REST API endpoint.
+
+    Parameters
+    ----------
+    channel : str
+        The name of the channel that the message originated in.  The channel
+        name will not include a leading '#' character.
+
+    message : str
+        The contents of the message.
+    """
+    match = ANSWER_REGEX.match(message)
+    if match:
+        clue = match.group("clue")
+        answer = match.group("answer")
         requests.put(f"{API_ENDPOINT}/{channel}/answer/{clue}", data=answer)
+        return
 
-    if words[0] == "!show" and len(words) == 2:
-        clue = words[1].lower()
+    match = SHOW_REGEX.match(message)
+    if match:
+        clue = match.group("clue")
         requests.get(f"{API_ENDPOINT}/{channel}/show/{clue}")
 
 

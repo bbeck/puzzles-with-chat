@@ -282,6 +282,9 @@ def parse_answer(answer):
     to indicate that the answer is known to be plural, but the other letters
     aren't known yet.  Within a rebus cell "." characters are kept as-is.
 
+    Whitespace within answers is removed and ignored.  This makes it more
+    natural to specify answers like "red velvet cake".
+
     Parameters
     ----------
     answer : str
@@ -297,6 +300,9 @@ def parse_answer(answer):
     cells = []
     inParens = False
     for c in answer:
+        if c.isspace():
+            continue
+
         # Check if we're closing a pair of parentheses.
         if inParens and c == ")":
             inParens = False
