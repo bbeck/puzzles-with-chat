@@ -142,6 +142,10 @@
       var clueElem = document.getElementById(clue);
       if (clueElem !== null) {
         clueElem.scrollIntoView();
+        clueElem.classList.add("shown");
+        setTimeout(function () {
+          clueElem.classList.remove("shown");
+        }, 2500);
       }
     });
 

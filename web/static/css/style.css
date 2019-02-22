@@ -72,11 +72,16 @@
 #crossword .clues li {
   font-family: sans-serif;
   font-size: 14px;
+  transition: all 2s;
   display: flex;
 }
 
 #crossword .clues li.filled {
   color: gray;
+}
+
+#crossword .clues li.shown {
+  background-color: lightyellow;
 }
 
 #crossword .clues .number {
