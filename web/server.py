@@ -6,7 +6,35 @@ import rooms
 import settings
 from flask_socketio import SocketIO, emit, join_room
 
+
+class ReverseProxied(object):
+    r"""Helper for invoking WSGI requests with proper URL scheme.
+
+    Depending on where the app is run it may be behind a load balander that
+    is providing SSL termination transparently to the app.  The Flask `url_for`
+    method doeesn't natively know when this is the case so from its perspective
+    all requests to the app are coming over HTTP and thus it generates an
+    external HTTP url instead of an HTTPS one.  Normally we could just tell
+    `url_for` to generate URLs with a scheme of HTTPS, but then in
+    development when a load balancer isn't being used it would be doing the
+    incorret thing.  So this class wraps the WSGI app within Flask to detect
+    if the incoming request has been forwarded to the app via a load balancer,
+    and if so uses whatever protocol the request came into the load balancer
+    with.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, environ, start_response):
+        scheme = environ.get('HTTP_X_FORWARDED_PROTO')
+        if scheme:
+            environ['wsgi.url_scheme'] = scheme
+        return self.app(environ, start_response)
+
+
 app = flask.Flask(__name__)
+app.wsgi_app = ReverseProxied(app.wsgi_app)
 app.config.from_mapping(
     REDIS_URL=os.environ.get("REDIS_URL", "redis://localhost:6379"),
     ROOM_TTL=int(os.environ.get("ROOM_TTL", 4 * 60 * 60)),
