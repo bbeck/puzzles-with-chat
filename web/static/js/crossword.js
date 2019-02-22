@@ -65,7 +65,7 @@ function set_settings(settings) {
   }
 }
 
-function render_crossword(state) {
+function render_crossword(state, showOnlyProgress) {
   var puzzle = state.puzzle;
   var across_clues_filled = state.across_clues_filled;
   var down_clues_filled = state.down_clues_filled;
@@ -79,7 +79,7 @@ function render_crossword(state) {
   var date = document.querySelector("#crossword #date");
   date.innerText = puzzle["published"];
 
-  render_grid(puzzle);
+  render_grid(puzzle, showOnlyProgress);
 
   var across = document.querySelector("#crossword #across-clues");
   render_clues(puzzle.across_clues, across_clues_filled, across, "a");
@@ -87,7 +87,7 @@ function render_crossword(state) {
   render_clues(puzzle.down_clues, down_clues_filled, down, "d");
 }
 
-function render_grid(puzzle) {
+function render_grid(puzzle, showOnlyProgress) {
   /*
     We're going to model the grid as a table with one td element per cell of
     the puzzle.  Each td in the grid will be broken in half horizontally.  The
@@ -132,11 +132,18 @@ function render_grid(puzzle) {
 
       // Populate the cell content
       if (cellText !== null && cellText.length > 0) {
-        contentDiv.innerText = cellText;
+        if (showOnlyProgress) {
+          // In the progress view we only indicate that the cell has been
+          // filled with an answer.
+          outerDiv.classList.add("filled");
+        } else {
+          // In the other views we fill the cell with the correct value.
+          contentDiv.innerText = cellText;
 
-        // Add a data attribute that indicates the number of characters
-        // present in the cell.
-        contentDiv.setAttribute("data-length", cellText.length);
+          // Add a data attribute that indicates the number of characters
+          // present in the cell.
+          contentDiv.setAttribute("data-length", cellText.length);
+        }
       }
     }
   }

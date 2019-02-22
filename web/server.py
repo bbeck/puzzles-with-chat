@@ -36,7 +36,8 @@ def channel(channel):
     This view is read-only and intended for distribution to anyone who wants
     to see the crossword as its being solved.
     """
-    return flask.render_template("channel.html", owner=channel, streamer=False)
+    return flask.render_template(
+        "channel.html", owner=channel, streamer=False, progress=False)
 
 
 @app.route("/<channel>/streamer")
@@ -53,7 +54,24 @@ def streamer(channel):
     The intention is that only the streamer will have access to this particular
     view.
     """
-    return flask.render_template("channel.html", owner=channel, streamer=True)
+    return flask.render_template(
+        "channel.html", owner=channel, streamer=True, progress=False)
+
+
+@app.route("/<channel>/progress")
+def progress(channel):
+    r"""Render a progress view of the crossword.
+
+    The progress view is one that shows the progress of the solve without
+    revealing any of the answers.  As cells are filled in they become shaded
+    in the grid, but the actual letter that they're filled with does not show.
+
+    The intention of this view is that it can be shared with others that are
+    solving the puzzle at the same time so that they can see the progress
+    that's happening, but not any of the actual answers.
+    """
+    return flask.render_template(
+        "channel.html", owner=channel, streamer=False, progress=True)
 
 
 @app.route("/<channel>/show/<clue>")

@@ -1,5 +1,22 @@
 .navbar .dropdown-menu {
   min-width: 250px;
+  max-width: 500px;
+}
+
+.navbar .dropdown-menu small {
+  white-space: normal;
+}
+
+.navbar #views-dropwdown-menu {
+  width: 500px;
+}
+
+.navbar #views-dropwdown-menu .dropdown-item {
+  background-color: transparent;
+}
+
+.navbar #views-dropwdown-menu .dropdown-item .lead {
+  color: #212529;
 }
 
 #crossword {
@@ -108,6 +125,10 @@
 
 #crossword #grid .shaded {
   background-color: lightgray;
+}
+
+#crossword #grid .filled {
+  background-color: lightgreen;
 }
 
 /* The clue number part of a cell. */

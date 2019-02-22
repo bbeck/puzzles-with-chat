@@ -2,8 +2,8 @@
 <html lang="en">
 
 <head>
-  <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.slim.js"></script>
   <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
@@ -19,14 +19,60 @@
     <ul class="navbar-nav ml-auto">
       <button id="start-pause" type="button" class="btn btn-success invisible">Start</button>
       <li class="nav-item dropdown">
+        <button id="views-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
+          Views
+        </button>
+        <div id="views-dropwdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="views-dropdown">
+          <form>
+            <div class="dropdown-item">
+              <div class="lead">Streamer View</div>
+              <div>
+                <small class="text-muted">
+                  This link allows changing of settings as well as the active puzzle. Only share it
+                  with those you fully trust.
+                </small>
+              </div>
+              <input type="text" class="form-control" value="{{ url_for('streamer', channel=owner, _external=True)}}" />
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <div class="lead">Progress View</div>
+              <div>
+                <small class="text-muted">
+                  This link will only show the progress of the puzzle solve. As cells are
+                  populated with values they will change color, but the value put in the
+                  cells will not be visible. This link is intended to be shared with
+                  others who are solving the puzzle at the same time, but shouldn't see
+                  any answers.
+                </small>
+              </div>
+              <input type="text" class="form-control" value="{{ url_for('progress', channel=owner, _external=True)}}" />
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <div class="lead">Participant View</div>
+              <div>
+                <small class="text-muted">
+                  This link will show the complete progress of the solve as it happens
+                  in real-time. This link is safe to share with anyone.
+                </small>
+              </div>
+              <input type="text" class="form-control" value="{{ url_for('channel', channel=owner, _external=True)}}" />
+            </div>
+        </div>
+        </form>
+      </li>
+      <li class="nav-item dropdown">
         <button id="settings-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
           Settings
         </button>
         <div class="dropdown-menu px-2" aria-labelledby="settings-dropdown">
-          <div class="form-check">
-            <input type="checkbox" class="form-check-input" id="correct-answers-only">
-            <label class="form-check-label" for="correct-answers-only">Only allow correct answers</label>
-          </div>
+          <form>
+            <div class="form-check dropdown-item">
+              <input type="checkbox" class="form-check-input" id="correct-answers-only">
+              <label class="form-check-label" for="correct-answers-only">Only allow correct answers</label>
+            </div>
+          </form>
         </div>
       </li>
     </ul>
@@ -83,7 +129,7 @@
     socket.on("state", function (data) {
       var state = JSON.parse(data);
       set_play_pause(state.play_pause_state);
-      render_crossword(state);
+      render_crossword(state, eval("{{ progress | lower }}"));
       set_date(state.puzzle.published);
     });
 
