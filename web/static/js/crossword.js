@@ -165,7 +165,9 @@ function render_clues(clues, filled, root, side) {
   // First sort the numbers to make sure the clues show in the correct order.
   var numbers = Object.keys(clues);
   numbers.sort(function (a, b) {
-    return parseInt(a) < parseInt(b);
+    var ia = parseInt(a);
+    var ib = parseInt(b);
+    return (ia < ib) ? -1 : (ia == ib) ? 0 : 1;
   });
 
   var list = document.createElement("ol");
