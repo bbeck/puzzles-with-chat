@@ -2,7 +2,9 @@
 <html lang="en">
 
 <head>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/puzzle.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/win.css') }}">
   <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.slim.js"></script>
   <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
@@ -83,18 +85,13 @@
   </nav>
 
   <div id="crossword">
-    <div>
+    <div class="puzzle">
       <div class="header">
-        <div>
-          <span class="title">Title:</span>
-          <span id="title">Title goes here.</span>
-        </div>
-        <div>
-          <span class="title">Date:</span>
-          <span id="date">Date goes here.</span>
-        </div>
+        <div id="title" class="title">Title goes here.</div>
+        <div class="author">by&nbsp;<span id="author">Author goes here.</span></div>
+        <div id="date" class="date">Date goes here.</div>
       </div>
-      <div id="grid">
+      <div id="grid" class="grid">
         Puzzle grid goes here.
       </div>
       <div class="footer">
@@ -104,16 +101,18 @@
         <div>Make a clue visible: <code>!show 10d</code></div>
       </div>
     </div>
-    <div>
-      <div class="clue-title">Across</div>
-      <div id="across-clues" class="clues">
-        Across clues go here
+    <div class="clues">
+      <div class="across">
+        <div class="clue-title">Across</div>
+        <div id="across-clues" class="clue-list">
+          Across clues go here
+        </div>
       </div>
-    </div>
-    <div>
-      <div class="clue-title">Down</div>
-      <div id="down-clues" class="clues">
-        Down clues go here
+      <div class="down">
+        <div class="clue-title">Down</div>
+        <div id="down-clues" class="clue-list">
+          Down clues go here
+        </div>
       </div>
     </div>
   </div>

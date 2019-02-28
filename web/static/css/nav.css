@@ -1,0 +1,20 @@
+.navbar .dropdown-menu {
+  min-width: 250px;
+  max-width: 500px;
+}
+
+.navbar .dropdown-menu small {
+  white-space: normal;
+}
+
+.navbar #views-dropwdown-menu {
+  width: 500px;
+}
+
+.navbar #views-dropwdown-menu .dropdown-item {
+  background-color: transparent;
+}
+
+.navbar #views-dropwdown-menu .dropdown-item .lead {
+  color: #212529;
+}

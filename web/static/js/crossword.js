@@ -71,10 +71,13 @@ function render_crossword(state, showOnlyProgress) {
   var down_clues_filled = state.down_clues_filled;
 
   var crossword = document.querySelector("#crossword");
-  crossword.setAttribute("data-size", puzzle["rows"]);
+  crossword.setAttribute("data-size", Math.max(puzzle["cols"], puzzle["rows"]));
 
   var title = document.querySelector("#crossword #title");
   title.innerText = puzzle["title"];
+
+  var author = document.querySelector("#crossword #author");
+  author.innerText = puzzle["author"];
 
   var date = document.querySelector("#crossword #date");
   date.innerText = puzzle["published"];
@@ -104,6 +107,7 @@ function render_grid(puzzle, showOnlyProgress) {
       tr.append(td);
 
       var outerDiv = document.createElement("div");
+      outerDiv.classList.add("cell");
       td.append(outerDiv);
 
       var numberDiv = document.createElement("div");
@@ -170,7 +174,7 @@ function render_clues(clues, filled, root, side) {
     return (ia < ib) ? -1 : (ia == ib) ? 0 : 1;
   });
 
-  var list = document.createElement("ol");
+  var list = document.createElement("ul");
   for (var i = 0; i < numbers.length; i++) {
     var li = document.createElement("li");
     li.setAttribute("id", numbers[i] + side);
