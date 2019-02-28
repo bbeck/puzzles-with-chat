@@ -178,7 +178,7 @@ def get_correct_answer(name, clue):
     return answer
 
 
-def apply_answer(room, name, clue, answer):
+def apply_answer(room, name, clue, answer, allow_clearing):
     r"""Apply an answer to a puzzle.
 
     This method will attempt to identify the clue that's been specified and
@@ -198,6 +198,11 @@ def apply_answer(room, name, clue, answer):
 
     answer : str
         The answer to apply to the clue.
+
+    allow_clearing : bool
+        Whether or not to allow applying the answer to clear the value in a
+        cell.  If False then any part of an answer without a value will be
+        ignored if there is already a value filled in that cell.
     """
     # Parse the clue into its components
     num, direction = parse_clue(clue)
@@ -211,7 +216,8 @@ def apply_answer(room, name, clue, answer):
 
     # Otherwise write the answer values into the puzzle cells.
     for (value, (x, y)) in zip(answer, coordinates):
-        room.cells[y][x] = value
+        if allow_clearing or value != "":
+            room.cells[y][x] = value
 
     # A single answer can actually answer multiple clues, so instead of
     # checking if we've just filled this one clue we'll do a quick check of

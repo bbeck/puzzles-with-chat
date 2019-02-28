@@ -155,7 +155,8 @@ def answer(channel, clue):
             if answer[i] != "." and answer[i] != correct[i]:
                 flask.abort(403)  # 403 = Forbidden
 
-    room = rooms.apply_answer(room, channel, clue, answer)
+    allow_clearing = not room_settings.only_allow_correct_answers
+    room = rooms.apply_answer(room, channel, clue, answer, allow_clearing)
     if room is None:
         # We should technically distinguish between couldn't find the clue and
         # couldn't fit the answer...
