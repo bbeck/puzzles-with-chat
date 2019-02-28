@@ -182,8 +182,8 @@ def apply_answer(room, name, clue, answer):
     r"""Apply an answer to a puzzle.
 
     This method will attempt to identify the clue that's been specified and
-    apply the provided answer to it.  If the room or the clue cannot be
-    identified or the answer doesn't fit properly then None will be returned.
+    apply the provided answer to it.  If the clue cannot be identified or the
+    answer doesn't fit properly then None will be returned.
 
     Parameters
     ----------
@@ -231,7 +231,51 @@ def apply_answer(room, name, clue, answer):
         room = attr.evolve(room, play_pause_state="complete")
 
     set_room(name, room)
+    return room
 
+
+def clear_incorrect_cells(room, name):
+    r"""Clear any incorrect answers within a puzzle.
+
+    This method will go through all of the filled in cells for the room and
+    clear any that are incorrect.  The intention is that this method will be
+    called when the room is transitioned from having the "only allow correct
+    answers" setting turned off to having it turned on.  While not ideal to do
+    during a solve, it technically can happen so we should do the right thing.
+
+    In addition to clearing any incorrect cells this method will also update
+    the clues that have been marked as filled in.
+
+    Parameters
+    ----------
+    room : Room
+        The room to clear incorrect cells for.
+
+    name : str
+        The name of the room to clear incorrect cells for.
+
+    Returns
+    -------
+    Room
+        The room object with incorrect cells removed.
+    """
+    # Remove incorrect cells
+    for y in range(room.puzzle.rows):
+        for x in range(room.puzzle.cols):
+            if room.cells[y][x] and room.cells[y][x] != room.puzzle.cells[y][x]:
+                room.cells[y][x] = ""
+
+    # Update the set of filled in answers
+    for num in room.puzzle.across_clues:
+        room.across_clues_filled[num] = all(
+            room.cells[y][x] != ""
+            for (x, y) in puzzles.get_answer_cells(room.puzzle, num, "a"))
+    for num in room.puzzle.down_clues:
+        room.down_clues_filled[num] = all(
+            room.cells[y][x] != ""
+            for (x, y) in puzzles.get_answer_cells(room.puzzle, num, "d"))
+
+    set_room(name, room)
     return room
 
 

@@ -268,6 +268,22 @@ def set_settings(data):
     # Let everyone know about the settings update.
     emit("settings", updated_settings.to_json(), room=room_name)
 
+    # If we've enabled only correct answers, we should clear any cells with
+    # an incorrect value in them.  We also have to update which puzzle clues
+    # have been filled in becuase we might remove some filled in cells.
+    if updated_settings.only_allow_correct_answers:
+        room = rooms.get_room(room_name)
+
+        room = rooms.clear_incorrect_cells(room, room_name)
+
+        # Update the puzzle to have the empty set of cells before sending to the
+        # clients so that we don't send the answers to the browser.
+        puzzle = attr.evolve(room.puzzle, cells=room.cells)
+        room = attr.evolve(room, puzzle=puzzle)
+
+        # Let everyone know about the updated puzzle.
+        emit("state", room.to_json(), room=room_name)
+
 
 @socketio.on("play_pause")
 def play_pause(data):
