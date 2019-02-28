@@ -137,9 +137,12 @@ def answer(channel, clue):
         flask.abort(409)  # 409 = Conflict (state conflicted with request)
 
     answer = flask.request.get_data(as_text=True)
-    if answer is None or len(answer.strip()) == 0:
+    if answer is None:
         flask.abort(400)  # 400 = Bad Request
-    answer = answer.upper()
+
+    answer = answer.replace(" ", "").strip().upper()
+    if len(answer) == 0:
+        flask.abort(400)  # 400 = Bad Request
 
     room_settings = settings.get_settings(channel)
     if room_settings.only_allow_correct_answers:
