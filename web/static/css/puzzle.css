@@ -110,6 +110,10 @@
   Default sizing so data-size is intentionally omitted.  It is intended that
   these sizes work for puzzles that are around 21x21 in size.
 */
+#crossword .puzzle .header,
+#crossword .puzzle .footer {
+  width: 570px;
+}
 #crossword .puzzle .grid {
   height: 570px;
   width: 570px;
@@ -145,6 +149,10 @@
 /*
   Sizing for a 15x15 puzzle.
 */
+#crossword[data-size="15"] .puzzle .header,
+#crossword[data-size="15"] .puzzle .footer {
+  width: 573px;
+}
 #crossword[data-size="15"] .puzzle .grid {
   height: 573px;
   width: 573px;
@@ -184,6 +192,7 @@
 #crossword[data-size="23"] .puzzle .header,
 #crossword[data-size="23"] .puzzle .footer {
   font-size: 70%;
+  width: 578px;
 }
 #crossword[data-size="23"] .puzzle .grid {
   height: 578px;
@@ -226,12 +235,14 @@
 #crossword.blur {
   filter: blur(5px);
 }
-#crossword .puzzle .header {
+#crossword .puzzle .header,
+#crossword .puzzle .footer {
   font-family: sans-serif;
+  overflow: hidden;
+  white-space: nowrap;
 }
 #crossword .puzzle .header .title {
   font-weight: bold;
-  text-transform: uppercase;
 }
 #crossword .puzzle .grid table {
   border-collapse: collapse;
