@@ -17,16 +17,18 @@
 }
 #crossword .puzzle .header .title,
 #crossword .puzzle .header .author,
-#crossword .puzzle .header .date {
+#crossword .puzzle .header .date,
+#crossword .puzzle .header .timer {
   display: flex;
 }
 #crossword .puzzle .header .title {
   justify-content: flex-start;
 }
-#crossword .puzzle .header .author {
+#crossword .puzzle .header .author,
+#crossword .puzzle .header .date {
   justify-content: center;
 }
-#crossword .puzzle .header .date {
+#crossword .puzzle .header .timer {
   justify-content: flex-end;
 }
 #crossword .puzzle .grid .content {

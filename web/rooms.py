@@ -1,4 +1,6 @@
 import attr
+import datetime
+import dateutil.parser
 import db
 import flask
 import json
@@ -32,12 +34,23 @@ class Room(object):
     down_clues_filled : Dict[int, bool]
         Whether or not a down clue has had an answer filled in, indexed by clue
         number.
+
+    last_start_time : Optional[str]
+        The time that we last started or resumed solving the puzzle represented
+        as an ISO-8601 datetime.  If we've not yet started solving the puzzle or
+        are in a non-playing state this will be None.
+
+    total_time_secs : int
+        The total time that prior to the last start that we've spent solving
+        the puzzle.
     """
     play_pause_state = attr.ib(type=str)
     puzzle = attr.ib(type=puzzles.Puzzle)
     cells = attr.ib(type=typing.List[typing.List[str]])
     across_clues_filled = attr.ib(type=typing.Dict[int, bool])
     down_clues_filled = attr.ib(type=typing.Dict[int, bool])
+    last_start_time = attr.ib(type=typing.Optional[str])
+    total_time_secs = attr.ib(type=int)
 
     def to_json(self):
         r"""Converts the current room to a JSON string.
@@ -47,12 +60,18 @@ class Room(object):
         str
             The representation of the room as a JSON string.
         """
+        last_start_time = self.last_start_time
+        if last_start_time:
+            last_start_time = last_start_time.isoformat()
+
         return json.dumps({
             "play_pause_state": self.play_pause_state,
             "puzzle": self.puzzle.to_dict(),
             "cells": self.cells,
             "across_clues_filled": self.across_clues_filled,
             "down_clues_filled": self.down_clues_filled,
+            "last_start_time": last_start_time,
+            "total_time_secs": self.total_time_secs,
         })
 
     @classmethod
@@ -70,12 +89,18 @@ class Room(object):
             for (n, v) in d["down_clues_filled"].items()
         }
 
+        # Convert the last_start_time back into a datetime object.
+        if d["last_start_time"]:
+            d["last_start_time"] = dateutil.parser.parse(d["last_start_time"])
+
         return cls(
             play_pause_state=d["play_pause_state"],
             puzzle=puzzles.Puzzle.from_dict(d["puzzle"]),
             cells=d["cells"],
             across_clues_filled=d["across_clues_filled"],
             down_clues_filled=d["down_clues_filled"],
+            last_start_time=d["last_start_time"],
+            total_time_secs=d["total_time_secs"],
         )
 
 
@@ -232,9 +257,16 @@ def apply_answer(room, name, clue, answer, allow_clearing):
             for (x, y) in puzzles.get_answer_cells(room.puzzle, num, "d"))
 
     # Check and see if we've finished the puzzle, if so update the state to
-    # complete.
+    # complete and stop the timer.
     if room.cells == room.puzzle.cells:
-        room = attr.evolve(room, play_pause_state="complete")
+        delta = datetime.datetime.now() - room.last_start_time
+        total_time_secs = room.total_time_secs + int(delta.total_seconds())
+
+        room = attr.evolve(
+            room,
+            play_pause_state="complete",
+            last_start_time=None,
+            total_time_secs=total_time_secs)
 
     set_room(name, room)
     return room
@@ -280,6 +312,50 @@ def clear_incorrect_cells(room, name):
         room.down_clues_filled[num] = all(
             room.cells[y][x] != ""
             for (x, y) in puzzles.get_answer_cells(room.puzzle, num, "d"))
+
+    set_room(name, room)
+    return room
+
+
+def play_pause(room, name):
+    r"""Toggle the play/pause state of the room.
+
+    This method will update the state of the room to reflect whether it's
+    playing or paused.
+
+    Parameters
+    ----------
+    room : Room
+        The room to toggle the play/pause state for.
+
+    name : str
+        The name of the room to toggle the play/pause state for.
+
+    Returns
+    -------
+    Room
+        The room object with play/pause state toggled.
+    """
+    state = room.play_pause_state
+    last_start_time = room.last_start_time
+    total_time_secs = room.total_time_secs
+    if state == "created" or state == "paused":
+        state = "playing"
+
+        last_start_time = datetime.datetime.now()
+    elif state == "playing":
+        state = "paused"
+
+        delta = datetime.datetime.now() - last_start_time
+        last_start_time = None
+        total_time_secs += int(delta.total_seconds())
+
+    # Save the updated room.
+    room = attr.evolve(
+        room,
+        play_pause_state=state,
+        last_start_time=last_start_time,
+        total_time_secs=total_time_secs)
 
     set_room(name, room)
     return room

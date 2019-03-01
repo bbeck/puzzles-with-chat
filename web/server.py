@@ -247,6 +247,8 @@ def set_crossword(data):
         cells=cells,
         across_clues_filled=across_clues_filled,
         down_clues_filled=down_clues_filled,
+        last_start_time=None,
+        total_time_secs=0,
     )
     rooms.set_room(room_name, room)
 
@@ -298,16 +300,7 @@ def play_pause(data):
     if room is None:
         return
 
-    # Update the state of the room.
-    state = room.play_pause_state
-    if state == "created" or state == "paused":
-        state = "playing"
-    elif state == "playing":
-        state = "paused"
-
-    # Save the updated room.
-    room = attr.evolve(room, play_pause_state=state)
-    rooms.set_room(room_name, room)
+    room = rooms.play_pause(room, room_name)
 
     # Let everyone know about the settings update.
     puzzle = attr.evolve(room.puzzle, cells=room.cells)

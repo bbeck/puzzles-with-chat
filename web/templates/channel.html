@@ -90,6 +90,7 @@
         <div id="title" class="title">Title goes here.</div>
         <div class="author">by&nbsp;<span id="author">Author goes here.</span></div>
         <div id="date" class="date">Date goes here.</div>
+        <div id="timer" class="timer">0h 0m 0s</div>
       </div>
       <div id="grid" class="grid">
         Puzzle grid goes here.
@@ -131,6 +132,7 @@
       set_play_pause(state.play_pause_state);
       render_crossword(state, eval("{{ progress | lower }}"));
       set_date(state.puzzle.published);
+      set_timer(state.play_pause_state, state.last_start_time, state.total_time_secs);
     });
 
     socket.on("settings", function (data) {

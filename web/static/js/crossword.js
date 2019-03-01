@@ -65,7 +65,34 @@ function set_settings(settings) {
   }
 }
 
-function render_crossword(state, showOnlyProgress) {
+// This global variable holds the id of the timer that updates how long the
+// solve has been going for.  When there's not an active timer this will be
+// null.
+var timer_id = null;
+
+function set_timer(state, last_start_time, total_time_secs) {
+  // If there's a previous timer, then cancel it since we're about to create a
+  // new one.
+  if (timer_id !== null) {
+    clearInterval(timer_id);
+    timer_id = null;
+  }
+
+  last_start_time = Date.parse(last_start_time) / 1000;
+
+  // Regardless of what the state is show the time
+  render_timer(last_start_time, total_time_secs);
+
+  if (state === "playing") {
+    // If we're in the playing mode then we need to update the timer
+    // periodically.  We'll automatically do it on every state update, but
+    // towards the end of a puzzle we might not be getting state updates that
+    // often.  So have a background timer that keeps it up to date.
+    timer_id = setInterval(render_timer, 1000, last_start_time, total_time_secs);
+  }
+}
+
+function render_crossword(state, show_only_progress) {
   var puzzle = state.puzzle;
   var across_clues_filled = state.across_clues_filled;
   var down_clues_filled = state.down_clues_filled;
@@ -82,7 +109,7 @@ function render_crossword(state, showOnlyProgress) {
   var date = document.querySelector("#crossword #date");
   date.innerText = puzzle["published"];
 
-  render_grid(puzzle, showOnlyProgress);
+  render_grid(puzzle, show_only_progress);
 
   var across = document.querySelector("#crossword #across-clues");
   render_clues(puzzle.across_clues, across_clues_filled, across, "a");
@@ -90,7 +117,7 @@ function render_crossword(state, showOnlyProgress) {
   render_clues(puzzle.down_clues, down_clues_filled, down, "d");
 }
 
-function render_grid(puzzle, showOnlyProgress) {
+function render_grid(puzzle, show_only_progress) {
   /*
     We're going to model the grid as a table with one td element per cell of
     the puzzle.  Each td in the grid will be broken in half horizontally.  The
@@ -136,7 +163,7 @@ function render_grid(puzzle, showOnlyProgress) {
 
       // Populate the cell content
       if (cellText !== null && cellText.length > 0) {
-        if (showOnlyProgress) {
+        if (show_only_progress) {
           // In the progress view we only indicate that the cell has been
           // filled with an answer.
           outerDiv.classList.add("filled");
@@ -196,6 +223,34 @@ function render_clues(clues, filled, root, side) {
 
   clear(root);
   root.appendChild(list);
+}
+
+function render_timer(last_start_time, total_time_secs) {
+  var now = new Date();
+
+  // Compute the duration, it's comprised of 2 parts.  The accumulated time
+  // which will always be a number and the time that we last entered the
+  // playing state.  The last start time may be NaN when the puzzle is
+  // currently paused and in that case should be ignored.
+  var duration = total_time_secs;
+  if (!isNaN(last_start_time)) {
+    duration += (now.getTime() + now.getTimezoneOffset() * 60000) / 1000 - last_start_time;
+  }
+
+  var hours = parseInt(duration / 3600),
+    mins = parseInt((duration - hours * 3600) / 60),
+    secs = parseInt((duration - hours * 3600 - mins * 60));
+
+  if (mins < 10) {
+    mins = "0" + mins;
+  }
+  if (secs < 10) {
+    secs = "0" + secs;
+  }
+
+  // Clear the old timer and swap the new one into place.
+  var timerDiv = document.querySelector("#crossword #timer");
+  timerDiv.innerText = hours + "h " + mins + "m " + secs + "s";
 }
 
 function clear(elem) {
