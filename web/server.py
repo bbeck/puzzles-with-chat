@@ -200,6 +200,11 @@ def join(name):
     # room.  This will allow this socket to receive room events in the future.
     join_room(name)
 
+    # Always let this user know about the settings, even if there isn't a room
+    # state yet.
+    room_settings = settings.get_settings(name)
+    emit("settings", room_settings.to_json())
+
     room = rooms.get_room(name)
     if room is None:
         return
@@ -210,11 +215,8 @@ def join(name):
     # a current puzzle then don't send anything.
     puzzle = attr.evolve(room.puzzle, cells=room.cells)
     room = attr.evolve(room, puzzle=puzzle)
-    room_settings = settings.get_settings(name)
 
-    # Let this user know about the puzzle and settings.
     emit("state", room.to_json())
-    emit("settings", room_settings.to_json())
 
 
 @socketio.on("set_puzzle")
@@ -274,12 +276,14 @@ def set_settings(data):
     # Let everyone know about the settings update.
     emit("settings", updated_settings.to_json(), room=room_name)
 
+    room = rooms.get_room(room_name)
+    if room is None:
+        return
+
     # If we've enabled only correct answers, we should clear any cells with
     # an incorrect value in them.  We also have to update which puzzle clues
     # have been filled in becuase we might remove some filled in cells.
     if updated_settings.only_allow_correct_answers:
-        room = rooms.get_room(room_name)
-
         room = rooms.clear_incorrect_cells(room, room_name)
 
         # Update the puzzle to have the empty set of cells before sending to the
