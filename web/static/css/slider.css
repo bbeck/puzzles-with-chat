@@ -1,0 +1,78 @@
+/*
+  Sliding toggle switches.  These are custom styles for a label and a checkbox
+  that represent the state of the checkbox as a slider that can be on the left
+  (unchecked) or right (checked).
+
+  Based on: https://www.w3schools.com/howto/howto_css_switch.asp
+*/
+
+.switch {
+  height: 34px;
+  margin: .5rem 0 0 0;
+  position: relative;
+  width: 60px;
+}
+
+/* Hide the default checkbox. */
+.switch input {
+  display: none;
+}
+
+/* The slider */
+.slider {
+  background-color: #ccc;
+  bottom: 0;
+  cursor: pointer;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  transition: .4s;
+}
+
+.slider:before {
+  background-color: white;
+  bottom: 4px;
+  content: "";
+  height: 26px;
+  left: 4px;
+  position: absolute;
+  transition: .4s;
+  width: 26px;
+}
+
+input.default:checked + .slider {
+  background-color: #444;
+}
+input.primary:checked + .slider {
+  background-color: #007bff;
+}
+input.success:checked + .slider {
+  background-color: #28a745;
+}
+input.info:checked + .slider {
+  background-color: #17a2b8;
+}
+input.warning:checked + .slider {
+  background-color: #ffc107;
+}
+input.danger:checked + .slider {
+  background-color: #dc3545;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}

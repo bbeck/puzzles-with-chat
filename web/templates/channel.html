@@ -4,11 +4,12 @@
 <head>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/nav.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/puzzle.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/slider.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/win.css') }}">
   <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.slim.js"></script>
-  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
+  <script src="//code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+  <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/crossword.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/win.js') }}"></script>
 </head>
@@ -61,18 +62,30 @@
               </div>
               <input type="text" class="form-control" value="{{ url_for('channel', channel=owner, _external=True)}}" />
             </div>
+          </form>
         </div>
-        </form>
       </li>
       <li class="nav-item dropdown">
         <button id="settings-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
           Settings
         </button>
-        <div class="dropdown-menu px-2" aria-labelledby="settings-dropdown">
+        <div id="settings-dropwdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="settings-dropdown">
           <form>
-            <div class="form-check dropdown-item">
-              <input type="checkbox" class="form-check-input" id="correct-answers-only">
-              <label class="form-check-label" for="correct-answers-only">Only allow correct answers</label>
+            <div class="dropdown-item">
+              <div class="lead">Only Correct Answers</div>
+              <div>
+                <small class="text-muted">
+                  This setting enables the behavior that only correct answers or correct partial
+                  answers will be accepted. With this enabled a cell in the puzzle can never
+                  contain an incorrect value.
+                </small>
+              </div>
+              <div>
+                <label class="switch">
+                  <input id="correct-answers-only" type="checkbox" class="form-check-input success" />
+                  <span class="slider round"></span>
+                </label>
+              </div>
             </div>
           </form>
         </div>

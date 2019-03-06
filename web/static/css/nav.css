@@ -7,14 +7,17 @@
   white-space: normal;
 }
 
+.navbar #settings-dropwdown-menu,
 .navbar #views-dropwdown-menu {
   width: 500px;
 }
 
+.navbar #settings-dropwdown-menu .dropdown-item,
 .navbar #views-dropwdown-menu .dropdown-item {
   background-color: transparent;
 }
 
+.navbar #settings-dropwdown-menu .dropdown-item .lead,
 .navbar #views-dropwdown-menu .dropdown-item .lead {
   color: #212529;
 }
