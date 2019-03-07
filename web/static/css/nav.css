@@ -21,3 +21,12 @@
 .navbar #views-dropwdown-menu .dropdown-item .lead {
   color: #212529;
 }
+
+.navbar #settings-dropwdown-menu .dropdown-item .switch,
+.navbar #settings-dropwdown-menu .dropdown-item .btn-group {
+  margin: 8px 0 0 0;
+}
+
+.navbar #settings-dropwdown-menu .dropdown-item button {
+  width: 110px;
+}

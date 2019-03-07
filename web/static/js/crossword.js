@@ -63,6 +63,54 @@ function set_settings(settings) {
   if (checkbox !== null) {
     checkbox.checked = settings["only_allow_correct_answers"];
   }
+
+  var on = function (button) {
+    if (button !== null) {
+      button.classList.add("btn-success");
+      button.classList.remove("btn-dark");
+    }
+  };
+  var off = function (button) {
+    if (button !== null) {
+      button.classList.add("btn-dark");
+      button.classList.remove("btn-success");
+    }
+  };
+  var visible = function (div) {
+    if (div !== null) {
+      div.classList.remove("invisible");
+    }
+  }
+  var invisible = function (div) {
+    if (div !== null) {
+      div.classList.add("invisible");
+    }
+  }
+
+  var showAllClues = document.querySelector("#show-all-clues");
+  var hideAcrossClues = document.querySelector("#hide-across-clues");
+  var hideDownClues = document.querySelector("#hide-down-clues");
+  var acrossClues = document.querySelector("#crossword .clues .across");
+  var downClues = document.querySelector("#crossword .clues .down");
+  if (settings["hide_clues"] == "none") {
+    on(showAllClues);
+    off(hideAcrossClues);
+    off(hideDownClues);
+    visible(acrossClues);
+    visible(downClues);
+  } else if (settings["hide_clues"] == "across") {
+    off(showAllClues);
+    on(hideAcrossClues);
+    off(hideDownClues);
+    invisible(acrossClues);
+    visible(downClues);
+  } else if (settings["hide_clues"] == "down") {
+    off(showAllClues);
+    off(hideAcrossClues);
+    on(hideDownClues);
+    invisible(downClues);
+    visible(acrossClues);
+  }
 }
 
 // This global variable holds the id of the timer that updates how long the

@@ -80,11 +80,24 @@
                   contain an incorrect value.
                 </small>
               </div>
+              <label class="switch">
+                <input id="correct-answers-only" type="checkbox" class="form-check-input success" />
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <div class="lead">Reduced set of clues</div>
               <div>
-                <label class="switch">
-                  <input id="correct-answers-only" type="checkbox" class="form-check-input success" />
-                  <span class="slider round"></span>
-                </label>
+                <small class="text-muted">
+                  This setting enables some of the clues to be hidden thus making the puzzle
+                  significantly more difficult to solve.
+                </small>
+              </div>
+              <div class="btn-group" role="group">
+                <button id="show-all-clues" type="button" class="btn btn-dark">Show All</button>
+                <button id="hide-across-clues" type="button" class="btn btn-dark">Hide Across</button>
+                <button id="hide-down-clues" type="button" class="btn btn-dark">Hide Down</button>
               </div>
             </div>
           </form>
@@ -192,6 +205,40 @@
           "room": "{{ owner }}",
           "settings": {
             "only_allow_correct_answers": value
+          }
+        });
+      }
+    }
+
+    var showAllClues = document.getElementById("show-all-clues");
+    var hideAcrossClues = document.getElementById("hide-across-clues");
+    var hideDownClues = document.getElementById("hide-down-clues");
+    if (showAllClues !== null) {
+      showAllClues.onclick = function () {
+        socket.emit("set_settings", {
+          "room": "{{ owner }}",
+          "settings": {
+            "hide_clues": "none"
+          }
+        });
+      }
+    }
+    if (hideAcrossClues !== null) {
+      hideAcrossClues.onclick = function () {
+        socket.emit("set_settings", {
+          "room": "{{ owner }}",
+          "settings": {
+            "hide_clues": "across"
+          }
+        });
+      }
+    }
+    if (hideDownClues !== null) {
+      hideDownClues.onclick = function () {
+        socket.emit("set_settings", {
+          "room": "{{ owner }}",
+          "settings": {
+            "hide_clues": "down"
           }
         });
       }

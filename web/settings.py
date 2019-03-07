@@ -15,10 +15,14 @@ class Settings(object):
     ----------
     only_allow_correct_answers : bool
         When enabled only correct answers will be filled into the puzzle grid.
+
+    hide_clues : str
+        Which clues to hide from the user.
     """
     # It's important to provide sane default values so that settings can be
     # easily added over time.
     only_allow_correct_answers = attr.ib(type=bool, default=False)
+    hide_clues = attr.ib(type=str, default="none")
 
     def to_json(self):
         r"""Converts a Settings instance into a JSON string.

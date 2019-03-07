@@ -311,7 +311,8 @@
 }
 #crossword .clues .clue-list li {
   font-family: sans-serif;
-  transition: all 2s;
+  transition: background-color 2s;
+  transition-timing-function: ease-in-out;
 }
 #crossword .clues .clue-list li.filled {
   color: gray;
