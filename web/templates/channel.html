@@ -19,6 +19,7 @@
     <div class="navbar-brand">Twitch Plays Crosswords</div>
 
     {% if streamer %}
+    <div id="error-message" class="navbar-text text-danger ml-auto mr-auto invisible">Error message here.</div>
     <ul class="navbar-nav ml-auto">
       <button id="start-pause" type="button" class="btn btn-success invisible">Start</button>
       <li class="nav-item dropdown">
@@ -164,7 +165,7 @@
     socket.on("settings", function (data) {
       var settings = JSON.parse(data);
       set_settings(settings);
-    })
+    });
 
     socket.on("show_clue", function (clue) {
       var clueElem = document.getElementById(clue);
@@ -183,7 +184,25 @@
       setTimeout(function () {
         start_win_animation();
       }, 1000);
-    })
+    });
+
+    var errorTimerId = null;
+    socket.on("error", function (message) {
+      if (errorTimerId !== null) {
+        clearTimeout(errorTimerId);
+        errorTimerId = null;
+      }
+
+      var errorElem = document.getElementById("error-message");
+      if (errorElem !== null) {
+        errorElem.innerText = message;
+        errorElem.classList.remove("invisible");
+
+        errorTimerId = setTimeout(function () {
+          errorElem.classList.add("invisible");
+        }, 5000);
+      }
+    });
   </script>
 
   <script type="text/javascript" charset="utf-8">

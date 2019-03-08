@@ -228,7 +228,8 @@ def set_crossword(data):
     puzzle = puzzles.load_puzzle(date)
     if puzzle is None:
         # Something went wrong loading the puzzle.  There's nothing more we can
-        # do so return.  TODO: Log/emit some type of error here.
+        # do so return.
+        emit("error", f"Puzzle for {date} does not exist.", room=room_name)
         return
 
     # Setup the cells list for the new solve.

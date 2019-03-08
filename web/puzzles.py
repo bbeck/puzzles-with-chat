@@ -173,10 +173,15 @@ def load_puzzle(date, publisher="NYT"):
     Returns
     -------
     Puzzle
-        The loaded puzzle object or `None` if a puzzle couldn't be loaded.
+        The loaded puzzle object or `None` if a puzzle couldn't be loaded or
+        the date couldn't be parsed.
     """
     if isinstance(date, str):
-        date = dateparser.parse(date).date()
+        parsed = dateparser.parse(date)
+        if parsed is None:
+            return None
+
+        date = parsed.date()
 
     if publisher == "NYT":
         return load_nyt_puzzle(date)
@@ -210,6 +215,12 @@ def load_nyt_puzzle(date):
     try:
         data = response.json()
     except:
+        return None
+
+    # If xwordinfo doesn't have a puzzle it still returns a valid JSON object
+    # but most of the fields are null.  A grid is pretty important so if we
+    # don't have one then we assume the puzzle doesn't exist and return None.
+    if data is None or data["grid"] is None:
         return None
 
     rows = data["size"]["rows"]
