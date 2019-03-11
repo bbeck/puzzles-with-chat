@@ -216,10 +216,10 @@
   font-size: 50%;
 }
 #crossword[data-size="23"] .puzzle .grid .content[data-length="1"] {
-  font-size: 100%;
+  font-size: 90%;
 }
 #crossword[data-size="23"] .puzzle .grid .content[data-length="2"] {
-  font-size: 100%;
+  font-size: 90%;
 }
 #crossword[data-size="23"] .puzzle .grid .content[data-length="3"] {
   font-size: 75%;
