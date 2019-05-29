@@ -68,11 +68,19 @@ def check_channels(join_func, part_func):
 
     # Join newly added channels
     for channel in set(new_channels) - set(channels):
-        join_func("#" + channel)
+        print(f"Joining channel: {channel}")
+        try:
+            join_func("#" + channel)
+        except:
+            print(f"Exception while joining channel:", sys.exc_info()[0])
 
     # Part removed channels
     for channel in set(channels) - set(new_channels):
-        part_func("#" + channel)
+        print(f"Parting channel: {channel}")
+        try:
+            part_func("#" + channel)
+        except:
+            print(f"Exception while parting channel:", sys.exc_info()[0])
 
     channels = new_channels
 
@@ -106,6 +114,31 @@ def handle_message(channel, message):
         requests.get(f"{API_ENDPOINT}/{channel}/show/{clue}")
 
 
+def run(bot):
+    r"""Run the bot in an infinite loop.
+
+    This method will start an infinite loop that keeps the bot running, even
+    if it raises an exception during execution.
+
+    Parameters
+    ----------
+    bot : twitch.Bot
+        The IRC bot to run.
+    """
+    global channels
+
+    while True:
+        # Clear the list of channels so that we'll re-join the ones we were
+        # previously in.
+        channels = []
+
+        try:
+            print("Starting bot...")
+            bot.start()
+        except:
+            print("Received exception:", sys.exc_info()[0])
+
+
 def main():
     if API_ENDPOINT is None:
         print("API_ENDPOINT environment variable must be present.")
@@ -118,7 +151,7 @@ def main():
     bot = twitch.Bot(BOT_USERNAME, BOT_OAUTH_TOKEN, handle_message)
 
     # Start the bot in a background thread.
-    threading.Thread(target=bot.start).start()
+    threading.Thread(target=run, kwargs=dict(bot=bot)).start()
 
     # Start polling in the background for the channels to join.
     schedule.every(10).to(20).seconds.do(
