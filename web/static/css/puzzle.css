@@ -29,6 +29,7 @@
   justify-content: center;
 }
 #crossword .puzzle .header .timer {
+  flex-shrink: 0;
   justify-content: flex-end;
 }
 #crossword .puzzle .grid .content {
@@ -94,6 +95,13 @@
 #crossword .puzzle .header,
 #crossword .puzzle .footer {
   font-size: 80%;
+}
+#crossword .puzzle .header .title,
+#crossword .puzzle .header .author,
+#crossword .puzzle .header .date,
+#crossword .puzzle .header .timer {
+  margin: 0 2px;
+  overflow: hidden;
 }
 #crossword .clues .clue-title {
   font-size: 80%;
