@@ -7,26 +7,34 @@
   white-space: normal;
 }
 
-.navbar #settings-dropwdown-menu,
-.navbar #views-dropwdown-menu {
+.navbar #puzzle-dropwdown-menu #date-selector {
+  width: auto;
+}
+
+.navbar #puzzle-dropdown-menu,
+.navbar #settings-dropdown-menu,
+.navbar #views-dropdown-menu {
   width: 500px;
 }
 
-.navbar #settings-dropwdown-menu .dropdown-item,
-.navbar #views-dropwdown-menu .dropdown-item {
+.navbar #puzzle-dropdown-menu .dropdown-item,
+.navbar #settings-dropdown-menu .dropdown-item,
+.navbar #views-dropdown-menu .dropdown-item {
   background-color: transparent;
 }
 
-.navbar #settings-dropwdown-menu .dropdown-item .lead,
-.navbar #views-dropwdown-menu .dropdown-item .lead {
+.navbar #puzzle-dropdown-menu .dropdown-item .lead,
+.navbar #settings-dropdown-menu .dropdown-item .lead,
+.navbar #views-dropdown-menu .dropdown-item .lead {
   color: #212529;
 }
 
-.navbar #settings-dropwdown-menu .dropdown-item .switch,
-.navbar #settings-dropwdown-menu .dropdown-item .btn-group {
+.navbar #puzzle-dropdown-menu .dropdown-item .input-group,
+.navbar #settings-dropdown-menu .dropdown-item .switch,
+.navbar #settings-dropdown-menu .dropdown-item .btn-group {
   margin: 8px 0 0 0;
 }
 
-.navbar #settings-dropwdown-menu .dropdown-item button {
+.navbar #settings-dropdown-menu .dropdown-item button {
   width: 110px;
 }

@@ -22,11 +22,13 @@
     <div id="error-message" class="navbar-text text-danger ml-auto mr-auto invisible">Error message here.</div>
     <ul class="navbar-nav ml-auto">
       <button id="start-pause" type="button" class="btn btn-success invisible">Start</button>
+
+      <!-- Views dropdown -->
       <li class="nav-item dropdown">
         <button id="views-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
           Views
         </button>
-        <div id="views-dropwdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="views-dropdown">
+        <div id="views-dropdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="views-dropdown">
           <form>
             <div class="dropdown-item">
               <div class="lead">Streamer View</div>
@@ -66,11 +68,13 @@
           </form>
         </div>
       </li>
+
+      <!-- Settings dropdown -->
       <li class="nav-item dropdown">
         <button id="settings-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
           Settings
         </button>
-        <div id="settings-dropwdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="settings-dropdown">
+        <div id="settings-dropdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="settings-dropdown">
           <form>
             <div class="dropdown-item">
               <div class="lead">Only Correct Answers</div>
@@ -104,10 +108,64 @@
           </form>
         </div>
       </li>
+
+      <!-- Puzzle dropdown -->
+      <li class="nav-item dropdown">
+        <button id="puzzle-dropdown" type="button" class="btn btn-dark dropdown-toggle" data-toggle="dropdown">
+          Puzzle
+        </button>
+        <div id="puzzle-dropdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="puzzle-dropdown">
+          <form>
+            <div class="dropdown-item">
+              <div class="lead">New York Times</div>
+              <div>
+                <small class="text-muted">
+                  Select a date to solve that day's puzzle from the archives of
+                  the New York Times.
+                </small>
+              </div>
+              <div class="input-group">
+                <input id="date-selector" type="date" class="form-control"></input>
+                <div class="input-group-append">
+                  <button id="date-selector-button" type="button" class="btn btn-dark">Load</button>
+                </div>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <div class="lead">Download a .puz file</div>
+              <div>
+                <small class="text-muted">
+                  Input a URL to a .puz file to solve an existing puzzle hosted
+                  somewhere online.
+                </small>
+              </div>
+              <div class="input-group">
+                <input id="url-selector" type="url" class="form-control"></input>
+                <div class="input-group-append">
+                  <button id="url-selector-button" type="button" class="btn btn-dark">Load</button>
+                </div>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <div class="lead">Upload a .puz file</div>
+              <div>
+                <small class="text-muted">
+                  Upload your own puzzle file in .puz format. More info about
+                  the .puz file format can be found
+                  <a href="http://fileformats.archiveteam.org/wiki/PUZ_(crossword_puzzles)">here</a>.
+                </small>
+              </div>
+              <div class="input-group">
+                <button id="file-upload-button" type="button" class="btn btn-dark">Choose file</button>
+                <input id="file-selector" type="file" class="d-none" accept=".puz"></input>
+              </div>
+            </div>
+          </form>
+        </div>
+      </li>
     </ul>
-    <div class="selector">
-      <input id="date-selector" type="date" class="form-control form-control-sm"></input>
-    </div>
     {% endif %}
   </nav>
 
@@ -117,7 +175,7 @@
         <div id="title" class="title">Title goes here.</div>
         <div class="author">by&nbsp;<span id="author">Author goes here.</span></div>
         <div id="date" class="date">Date goes here.</div>
-        <div id="timer" class="timer">0h 0m 0s</div>
+        <div id="timer" class="timer">0h 00m 00s</div>
       </div>
       <div id="grid" class="grid">
         Puzzle grid goes here.
@@ -145,6 +203,7 @@
     </div>
   </div>
 
+  <!-- Websocket setup + handlers. -->
   <script type="text/javascript" charset="utf-8">
     // Connect to the server and join the room for this channel owner.  We do
     // this every time we connect so that if we get disconnected we'll
@@ -180,7 +239,7 @@
 
     socket.on("solved", function () {
       // Alert after a second, this gives the UI time to show the last answer
-      // before sending the alert.
+      // before playing the win animation.
       setTimeout(function () {
         start_win_animation();
       }, 1000);
@@ -205,17 +264,8 @@
     });
   </script>
 
+  <!-- Settings menu handlers. -->
   <script type="text/javascript" charset="utf-8">
-    var dateSelector = document.getElementById("date-selector");
-    if (dateSelector !== null) {
-      dateSelector.onchange = function () {
-        var date = dateSelector.value;
-        if (date !== "") {
-          socket.emit("set_puzzle", { "room": "{{ owner }}", "date": date });
-        }
-      }
-    }
-
     var correctAnswersCheckbox = document.getElementById("correct-answers-only");
     if (correctAnswersCheckbox !== null) {
       correctAnswersCheckbox.onchange = function () {
@@ -262,7 +312,99 @@
         });
       }
     }
+  </script>
 
+  <!-- Puzzle menu handlers. -->
+  <script type="text/javascript" charset="utf-8">
+    function getDateString(d) {
+      var year = d.getFullYear();
+
+      var month = d.getMonth() + 1;
+      if (month < 10) {
+        month = "0" + month;
+      }
+
+      var day = d.getDate();
+      if (day < 10) {
+        day = "0" + day;
+      }
+
+      return year + "-" + month + "-" + day;
+    }
+
+    var puzzleDropdown = document.getElementById("puzzle-dropdown-menu");
+
+    var dateSelector = document.getElementById("date-selector");
+    var dateSelectorButton = document.getElementById("date-selector-button");
+    if (dateSelector !== null && dateSelectorButton !== null) {
+      // We can only get puzzles between 1942-02-15 and today.
+      dateSelector.min = "1942-02-15";
+      dateSelector.max = getDateString(new Date());
+
+      // When the load button is clicked let the server know.
+      dateSelectorButton.onclick = function () {
+        var date = dateSelector.value;
+        if (date !== "") {
+          socket.emit("set_puzzle", { "room": "{{ owner }}", "date": date });
+        }
+
+        if (puzzleDropdown !== null) {
+          puzzleDropdown.classList.remove("show");
+        }
+      };
+    }
+
+    var urlSelector = document.getElementById("url-selector");
+    var urlSelectorButton = document.getElementById("url-selector-button");
+    if (urlSelector !== null && urlSelectorButton !== null) {
+      urlSelectorButton.onclick = function () {
+        var url = urlSelector.value;
+        if (url !== "") {
+          socket.emit("set_puzzle", { "room": "{{ owner }}", "url": url });
+        }
+
+        if (puzzleDropdown !== null) {
+          puzzleDropdown.classList.remove("show");
+        }
+      };
+    }
+
+    var fileSelector = document.getElementById("file-selector");
+    var fileSelectorButton = document.getElementById("file-upload-button");
+    if (fileSelector !== null && fileSelectorButton !== null) {
+      fileSelectorButton.onclick = function () {
+        fileSelector.click();
+
+        if (puzzleDropdown !== null) {
+          puzzleDropdown.classList.remove("show");
+        }
+      };
+
+      fileSelector.onchange = function (e) {
+        var file = e.target.files[0];
+        if (!file) {
+          return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var bytes = e.target.result;
+          if (!bytes) {
+            return;
+          }
+
+          // Encode the bytes as base64 so they're compatible with json.
+          bytes = btoa(bytes);
+
+          socket.emit("set_puzzle", { "room": "{{ owner }}", "bytes": bytes });
+        };
+        reader.readAsBinaryString(file);
+      };
+    }
+  </script>
+
+  <!-- Start/Pause/Unpause button handler. -->
+  <script type="text/javascript" charset="utf-8">
     var startPauseButton = document.getElementById("start-pause");
     if (startPauseButton !== null) {
       startPauseButton.onclick = function () {
