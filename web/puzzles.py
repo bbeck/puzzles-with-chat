@@ -301,6 +301,17 @@ def load_puz_puzzle_from_bytes(bs):
         The Puzzle instance corresponding to the inputted bytes.
     """
     data = puz.load(bs)
+
+    # Check if the puzzle is locked, if it is we might not be able to load the
+    # correct solution from it.  Try to brute force what the 4 digit key is.
+    if data.is_solution_locked():
+        for key in range(1000, 10000):
+            if data.unlock_solution(key):
+                break
+
+    if data.is_solution_locked():
+        return None
+
     numbering = data.clue_numbering()
     rebus = data.rebus()
 
@@ -317,7 +328,7 @@ def load_puz_puzzle_from_bytes(bs):
             offset = row * cols + col
 
             # Make sure to handle rebus cells.
-            if rebus.table[offset] != 0:
+            if data.has_rebus() and rebus.table[offset] != 0:
                 c = rebus.solutions[rebus.table[offset] - 1]
             else:
                 c = data.solution[offset]
