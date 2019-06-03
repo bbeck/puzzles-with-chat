@@ -3,5 +3,6 @@ dateparser
 eventlet
 flask
 flask-socketio
+puzpy
 redis
 requests

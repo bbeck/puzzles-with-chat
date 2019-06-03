@@ -1,4 +1,5 @@
 import attr
+import base64
 import flask
 import os
 import puzzles
@@ -223,14 +224,33 @@ def join(name):
 def set_crossword(data):
     r"""Handler that's called when the streamer changes the puzzle."""
     room_name = data["room"]
-    date = data["date"]
 
-    puzzle = puzzles.load_puzzle(date)
-    if puzzle is None:
-        # Something went wrong loading the puzzle.  There's nothing more we can
-        # do so return.
-        emit("error", f"Puzzle for {date} does not exist.", room=room_name)
-        return
+    # A puzzle can be specified in one of three ways.  First, we can be given
+    # just a date to the puzzle.  This means we want to use the NYT API to load
+    # the selected puzzle.  Secondly, we can be given a URL.  In this case we
+    # want to retrieve the contents of the URL and parse it as a .puz file and
+    # load that puzzle.  Finally, we can receive the bytes of a file.  In this
+    # last case the bytes should be interpreted as a .puz file and that puzzle
+    # should be loaded.
+    if data.get("date") is not None:
+        date = data["date"]
+        puzzle = puzzles.load_nyt_puzzle(date)
+        if puzzle is None:
+            emit("error", f"Puzzle for {date} does not exist.", room=room_name)
+            return
+
+    if data.get("url") is not None:
+        puzzle = puzzles.load_puz_puzzle_from_url(data["url"])
+        if puzzle is None:
+            emit("error", "Failed to load .puz file from url.", room=room_name)
+            return
+
+    if data.get("bytes") is not None:
+        bs = base64.b64decode(data["bytes"])
+        puzzle = puzzles.load_puz_puzzle_from_bytes(bs)
+        if puzzle is None:
+            emit("error", "Failed to parse .puz file.", room=room_name)
+            return
 
     # Setup the cells list for the new solve.
     cells = [[

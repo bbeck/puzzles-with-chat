@@ -4,6 +4,7 @@ import dateparser
 import datetime
 import html
 import json
+import puz
 import requests
 import typing
 
@@ -98,7 +99,8 @@ class Puzzle(object):
         d = attr.asdict(self)
 
         # JSON doesn't support datetimes, so convert to an ISO8601 date string.
-        d["published"] = d["published"].isoformat()
+        if d["published"] is not None:
+            d["published"] = d["published"].isoformat()
 
         return d
 
@@ -115,8 +117,9 @@ class Puzzle(object):
         d : Dict[str, ?]
             The python dictionary representation of a Puzzle.
         """
-        # Parse the ISO8601 date string into a datetime.date.
-        d["published"] = datetime.date.fromisoformat(d["published"])
+        # Parse the ISO8601 date string into a datetime.date if one exists.
+        if d.get("published"):
+            d["published"] = datetime.date.fromisoformat(d["published"])
 
         # Convert the keys for across_clues and down_clues to ints.  JSON
         # doesn't support non-string keys for objects.
@@ -157,18 +160,20 @@ class Puzzle(object):
         return Puzzle.from_dict(json.loads(s))
 
 
-def load_puzzle(date, publisher="NYT"):
-    r"""Loads a crossword puzzle from a publisher on a specific date.
+def load_nyt_puzzle(date):
+    r"""Loads a crossword puzzle from the New York Times for a particular date.
 
-    By default puzzles from The New York Times are loaded.
+    This method uses the xwordinfo.com JSON API to load a New York Times
+    crossword puzzle.  While organized slightly differently from the XPF API
+    the returned data is mostly the same.  Documentation for the JSON API can
+    be found here: https://www.xwordinfo.com/JSON/
+
+    If the puzzle cannot be loaded for some reason, `None` is returned.
 
     Parameters
     ----------
     date : str|datetime.date
         The publication date of the puzzle to load.
-
-    publisher : str
-        The publisher whose puzzle to load.
 
     Returns
     -------
@@ -182,21 +187,6 @@ def load_puzzle(date, publisher="NYT"):
             return None
 
         date = parsed.date()
-
-    if publisher == "NYT":
-        return load_nyt_puzzle(date)
-
-
-def load_nyt_puzzle(date):
-    r"""Loads a crossword puzzle from the New York Times for a particular date.
-
-    This method uses the xwordinfo.com JSON API to load a New York Times
-    crossword puzzle.  While organized slightly differently from the XPF API
-    the returned data is mostly the same.  Documentation for the JSON API can
-    be found here: https://www.xwordinfo.com/JSON/
-
-    If the puzzle cannot be loaded for some reason, `None` is returned.
-    """
 
     # These headers are required in order to get the server to send a non-empty
     # response back.
@@ -289,6 +279,112 @@ def parse_nyt_clue(s):
     clue = html.unescape(clue)
 
     return int(n), clue.strip()
+
+
+def load_puz_puzzle_from_bytes(bs):
+    r"""Loads a crossword puzzle from the bytes of a .puz file.
+
+    This method uses the puzpy library to laod a crossword puzzle in .puz
+    format.  Documentation for the puzpy library can be found here:
+    https://github.com/alexdej/puzpy
+
+    If the puzzle cannot be loaded for some reason, `None` is returned.
+
+    Parameters
+    ----------
+    bs : List[byte]
+        The puzzle in .puz format represented as a list of bytes.
+
+    Returns
+    -------
+    Puzzle
+        The Puzzle instance corresponding to the inputted bytes.
+    """
+    data = puz.load(bs)
+    numbering = data.clue_numbering()
+    rebus = data.rebus()
+
+    rows = data.height
+    cols = data.width
+    title = html.unescape(data.title)
+    published = None  # not exposed in .puz format
+    publisher = None  # not exposed in .puz format
+    author = html.unescape(data.author)
+
+    cells = [[None for col in range(cols)] for row in range(rows)]
+    for row in range(rows):
+        for col in range(cols):
+            offset = row * cols + col
+
+            # Make sure to handle rebus cells.
+            if rebus.table[offset] != 0:
+                c = rebus.solutions[rebus.table[offset] - 1]
+            else:
+                c = data.solution[offset]
+
+            cells[row][col] = c if c != "." else None
+
+    cell_clue_numbers = [[0 for col in range(cols)] for row in range(rows)]
+    for clue in numbering.across + numbering.down:
+        num = clue["num"]
+        row = clue["cell"] // cols
+        col = clue["cell"] % cols
+        cell_clue_numbers[row][col] = num
+
+    cell_circles = [[False for col in range(cols)] for row in range(rows)]
+    if data.extensions.get(puz.Extensions.Markup):
+        for row in range(rows):
+            for col in range(cols):
+                mu = data.extensions[puz.Extensions.Markup][row * cols + col]
+                cell_circles[row][col] = (mu & puz.GridMarkup.Circled) > 0
+
+    across_clues = {}
+    for clue in numbering.across:
+        across_clues[clue["num"]] = clue["clue"]
+
+    down_clues = {}
+    for clue in numbering.down:
+        down_clues[clue["num"]] = clue["clue"]
+
+    return Puzzle(
+        rows=rows,
+        cols=cols,
+        title=title,
+        published=published,
+        publisher=publisher,
+        author=author,
+        cells=cells,
+        cell_clue_numbers=cell_clue_numbers,
+        cell_circles=cell_circles,
+        across_clues=across_clues,
+        down_clues=down_clues,
+    )
+
+
+def load_puz_puzzle_from_url(url):
+    r"""Loads a crossword puzzle in .puz format from a URL.
+
+    This method uses the puzpy library to laod a crossword puzzle in .puz
+    format.  Documentation for the puzpy library can be found here:
+    https://github.com/alexdej/puzpy
+
+    If the puzzle cannot be loaded for some reason, `None` is returned.
+
+    Parameters
+    ----------
+    url : str
+        The URL to the puzzle in .puz format to load.
+
+    Returns
+    -------
+    Puzzle
+        The Puzzle instance corresponding to the inputted URL.
+    """
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+
+    return load_puz_puzzle_from_bytes(r.content)
 
 
 def get_answer_cells(puzzle, num, direction):
