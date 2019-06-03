@@ -380,7 +380,11 @@ def load_puz_puzzle_from_url(url):
     Puzzle
         The Puzzle instance corresponding to the inputted URL.
     """
-    r = requests.get(url)
+    try:
+        r = requests.get(url, timeout=0.5)
+    except:
+        return None
+
     if r.status_code != 200:
         return None
 
