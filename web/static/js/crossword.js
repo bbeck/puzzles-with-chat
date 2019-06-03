@@ -163,6 +163,20 @@ function render_crossword(state, show_only_progress) {
   render_clues(puzzle.across_clues, across_clues_filled, across, "a");
   var down = document.querySelector("#crossword #down-clues");
   render_clues(puzzle.down_clues, down_clues_filled, down, "d");
+
+  // If the puzzle is unsolved thus far then show 1a and 1d.
+  var unsolved = function (filled) { return filled === false; };
+  if (Object.values(across_clues_filled).every(unsolved) &&
+    Object.values(down_clues_filled).every(unsolved)) {
+    var clueElem = document.getElementById("1a");
+    if (clueElem !== null) {
+      clueElem.scrollIntoView();
+    }
+    var clueElem = document.getElementById("1d");
+    if (clueElem !== null) {
+      clueElem.scrollIntoView();
+    }
+  }
 }
 
 function render_grid(puzzle, show_only_progress) {
