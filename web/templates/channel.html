@@ -332,7 +332,7 @@
       return year + "-" + month + "-" + day;
     }
 
-    var puzzleDropdown = document.getElementById("puzzle-dropdown-menu");
+    var puzzleDropdown = document.getElementById("puzzle-dropdown");
 
     var dateSelector = document.getElementById("date-selector");
     var dateSelectorButton = document.getElementById("date-selector-button");
@@ -349,7 +349,7 @@
         }
 
         if (puzzleDropdown !== null) {
-          puzzleDropdown.classList.remove("show");
+          $(puzzleDropdown).dropdown("toggle");
         }
       };
     }
@@ -364,7 +364,7 @@
         }
 
         if (puzzleDropdown !== null) {
-          puzzleDropdown.classList.remove("show");
+          $(puzzleDropdown).dropdown("toggle");
         }
       };
     }
@@ -376,7 +376,7 @@
         fileSelector.click();
 
         if (puzzleDropdown !== null) {
-          puzzleDropdown.classList.remove("show");
+          $(puzzleDropdown).dropdown("toggle");
         }
       };
 
