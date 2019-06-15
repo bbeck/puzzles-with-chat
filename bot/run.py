@@ -13,11 +13,13 @@ BOT_OAUTH_TOKEN = os.getenv("BOT_OAUTH_TOKEN")
 
 # A regular expression that matches a chat message that's providing an answer.
 ANSWER_REGEX = re.compile(
-    r"^!(answer\s+)?(?P<clue>[0-9]+[aAdD])\s+(?P<answer>.*)$")
+    r"^!(answer\s+)?(?P<clue>[0-9]+[aAdD])\s+(?P<answer>.*)\s*$",
+    flags=re.IGNORECASE)
 
 # A regular expression that matches a chat message that's asking for a clue to
 # be visible.
-SHOW_REGEX = re.compile(r"^!show\s+(?P<clue>[0-9]+[aAdD])\s*$")
+SHOW_REGEX = re.compile(
+    r"^!show\s+(?P<clue>[0-9]+[aAdD])\s*$", flags=re.IGNORECASE)
 
 # The channels that the bot has currently joined.  This is kept up to date as
 # the bot joins and parts from channels.
@@ -90,7 +92,7 @@ def handle_message(channel, message):
 
     This method will parse the message from the channel and see if it's a
     command for the bot to execute.  If it is, it will invoke the proper
-    endpoint of the REST API endpoint.
+    endpoint of the REST API.
 
     Parameters
     ----------
@@ -103,14 +105,14 @@ def handle_message(channel, message):
     """
     match = ANSWER_REGEX.match(message)
     if match:
-        clue = match.group("clue")
+        clue = match.group("clue").lower()
         answer = match.group("answer")
         requests.put(f"{API_ENDPOINT}/{channel}/answer/{clue}", data=answer)
         return
 
     match = SHOW_REGEX.match(message)
     if match:
-        clue = match.group("clue")
+        clue = match.group("clue").lower()
         requests.get(f"{API_ENDPOINT}/{channel}/show/{clue}")
 
 
