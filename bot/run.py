@@ -54,12 +54,12 @@ def check_channels(join_func, part_func):
     """
     global channels
 
-    response = requests.get(f"{API_ENDPOINT}/bot/channels")
-    if 400 <= response.status_code < 600:
-        # 4xx and 5xx responses are client and server errors respectively.
-        return
-
     try:
+        response = requests.get(f"{API_ENDPOINT}/bot/channels", timeout=0.5)
+        if 400 <= response.status_code < 600:
+            # 4xx and 5xx responses are client and server errors respectively.
+            return
+
         data = response.json()
     except:
         return
