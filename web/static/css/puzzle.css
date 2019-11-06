@@ -5,7 +5,7 @@
 
 #crossword {
   display: flex;
-  justify-content: space-evenly;
+  justify-content: flex-start;
 }
 #crossword .puzzle {
   display: flex;
@@ -44,6 +44,7 @@
 }
 #crossword .clues {
   display: flex;
+  flex-grow: 1;
 }
 #crossword .clues .across,
 #crossword .clues .down {
@@ -286,7 +287,7 @@
   margin-left: 5px;
 }
 #crossword .clues .across {
-  margin-right: 10px;
+  margin-right: 5px;
 }
 #crossword .clues .clue-title {
   font-family: sans-serif;

@@ -76,14 +76,14 @@ function set_settings(settings) {
       button.classList.remove("btn-success");
     }
   };
-  var visible = function (div) {
+  var show = function (div) {
     if (div !== null) {
-      div.classList.remove("invisible");
+      div.style.display = null;
     }
   }
-  var invisible = function (div) {
+  var hide = function (div) {
     if (div !== null) {
-      div.classList.add("invisible");
+      div.style.display = "none";
     }
   }
 
@@ -96,20 +96,20 @@ function set_settings(settings) {
     on(showAllClues);
     off(hideAcrossClues);
     off(hideDownClues);
-    visible(acrossClues);
-    visible(downClues);
+    show(acrossClues);
+    show(downClues);
   } else if (settings["hide_clues"] == "across") {
     off(showAllClues);
     on(hideAcrossClues);
     off(hideDownClues);
-    invisible(acrossClues);
-    visible(downClues);
+    hide(acrossClues);
+    show(downClues);
   } else if (settings["hide_clues"] == "down") {
     off(showAllClues);
     off(hideAcrossClues);
     on(hideDownClues);
-    invisible(downClues);
-    visible(acrossClues);
+    hide(downClues);
+    show(acrossClues);
   }
 }
 
