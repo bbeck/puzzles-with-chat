@@ -47,7 +47,8 @@ socketio = SocketIO(app)
 @app.route("/")
 def index():
     r"""Render an index of which crosswords channels are available."""
-    return flask.render_template("index.html")
+    room_names = rooms.get_all_room_names()
+    return flask.render_template("index.html", rooms=room_names)
 
 
 @app.route("/favicon.ico")

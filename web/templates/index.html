@@ -2,7 +2,26 @@
 <html lang="en">
 
 <body>
-  <h1>TODO: Implement index page.</h1>
+  <h1>Welcome to Twitch Plays Crosswords!</h1>
+
+  <p>
+    If you've found yourself on this page then something has gone wrong. You
+    probably meant to visit the page for an active crossword solving session
+    for a Twitch streamer. Below are all of the currently active sessions,
+    please click through to the streamer you were looking for.
+  </p>
+
+  {% if rooms %}
+  <ul>
+    {% for room in rooms|sort %}
+    <li><a href="/{{ room }}">{{ room }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>It doesn't look like there are any active solves right now.</p>
+  {% endif %}
+
+  <p>Questions? Comments? Feedback? Feel free to whisper @mistaeksweremade on Twitch.</p>
 </body>
 
 </html>
