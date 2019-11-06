@@ -118,42 +118,39 @@
 
 /*
   Default sizing so data-size is intentionally omitted.  It is intended that
-  these sizes work for puzzles that are around 21x21 in size.
+  these sizes work for puzzles that are around 21x21 in size which is the
+  most frequently used puzzle size.
 */
 #crossword .puzzle .header,
 #crossword .puzzle .footer {
-  width: 570px;
+  width: 576px;
 }
 #crossword .puzzle .grid {
-  height: 570px;
-  width: 570px;
+  height: 576px;
+  width: 576px;
 }
 #crossword .puzzle .grid td {
-  height: 24px;
+  height: 25px;
   line-height: 1;
-  max-height: 24px;
-  max-width: 24px;
-  min-height: 24px;
-  min-width: 24px;
-  width: 24px;
+  width: 25px;
 }
 #crossword .puzzle .grid .number {
   font-size: 50%;
 }
 #crossword .puzzle .grid .content { /* 5 or more characters */
-  font-size: 40%;
+  font-size: 50%;
 }
 #crossword .puzzle .grid .content[data-length="1"] {
-  font-size: 70%;
+  font-size: 115%;
 }
 #crossword .puzzle .grid .content[data-length="2"] {
-  font-size: 70%;
+  font-size: 115%;
 }
 #crossword .puzzle .grid .content[data-length="3"] {
-  font-size: 60%;
+  font-size: 75%;
 }
 #crossword .puzzle .grid .content[data-length="4"] {
-  font-size: 50%;
+  font-size: 70%;
 }
 
 /*
@@ -161,40 +158,34 @@
 */
 #crossword[data-size="15"] .puzzle .header,
 #crossword[data-size="15"] .puzzle .footer {
-  width: 573px;
+  width: 576px;
 }
 #crossword[data-size="15"] .puzzle .grid {
-  height: 573px;
-  width: 573px;
+  height: 576px;
+  width: 576px;
 }
 #crossword[data-size="15"] .puzzle .grid td {
-  height: 30px;
-  line-height: 1;
-  max-height: 30px;
-  max-width: 30px;
-  min-height: 30px;
-  min-width: 30px;
-  width: 30px;
+  height: 38px;
+  width: 38px;
 }
 #crossword[data-size="15"] .puzzle .grid .number {
-  font-size: 75%;
+  font-size: 80%;
 }
 #crossword[data-size="15"] .puzzle .grid .content { /* 5 or more characters */
-  font-size: 40%;
+  font-size: 60%;
 }
 #crossword[data-size="15"] .puzzle .grid .content[data-length="1"] {
-  font-size: 100%;
+  font-size: 150%;
 }
 #crossword[data-size="15"] .puzzle .grid .content[data-length="2"] {
-  font-size: 100%;
+  font-size: 140%;
 }
 #crossword[data-size="15"] .puzzle .grid .content[data-length="3"] {
-  font-size: 85%;
+  font-size: 120%;
 }
 #crossword[data-size="15"] .puzzle .grid .content[data-length="4"] {
-  font-size: 70%;
+  font-size: 100%;
 }
-
 
 /*
   Sizing for a 23x23 puzzle.
@@ -202,19 +193,14 @@
 #crossword[data-size="23"] .puzzle .header,
 #crossword[data-size="23"] .puzzle .footer {
   font-size: 70%;
-  width: 578px;
+  width: 576px;
 }
-#crossword[data-size="23"] .puzzle .grid {
-  height: 578px;
-  width: 578px;
+#crossword[data-size="15"] .puzzle .grid {
+  height: 576px;
+  width: 576px;
 }
 #crossword[data-size="23"] .puzzle .grid td {
   height: 25px;
-  line-height: 1;
-  max-height: 25px;
-  max-width: 25px;
-  min-height: 25px;
-  min-width: 25px;
   width: 25px;
 }
 #crossword[data-size="23"] .puzzle .grid .number {
@@ -224,10 +210,10 @@
   font-size: 50%;
 }
 #crossword[data-size="23"] .puzzle .grid .content[data-length="1"] {
-  font-size: 90%;
+  font-size: 92%;
 }
 #crossword[data-size="23"] .puzzle .grid .content[data-length="2"] {
-  font-size: 90%;
+  font-size: 92%;
 }
 #crossword[data-size="23"] .puzzle .grid .content[data-length="3"] {
   font-size: 75%;
