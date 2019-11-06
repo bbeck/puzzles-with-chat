@@ -6,10 +6,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/puzzle.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/slider.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/win.css') }}">
-  <link rel="stylesheet" href="//stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.slim.js"></script>
   <script src="//code.jquery.com/jquery-3.2.1.slim.min.js"></script>
-  <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.bundle.min.js"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/crossword.js') }}"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/win.js') }}"></script>
 </head>
