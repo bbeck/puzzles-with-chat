@@ -77,7 +77,7 @@
         <div id="settings-dropdown-menu" class="dropdown-menu dropdown-menu-right" aria-labelledby="settings-dropdown">
           <form>
             <div class="dropdown-item">
-              <div class="lead">Only Correct Answers</div>
+              <div class="lead">Only correct answers</div>
               <div>
                 <small class="text-muted">
                   This setting enables the behavior that only correct answers or correct partial
@@ -103,6 +103,20 @@
                 <button id="show-all-clues" type="button" class="btn btn-dark">Show All</button>
                 <button id="hide-across-clues" type="button" class="btn btn-dark">Hide Across</button>
                 <button id="hide-down-clues" type="button" class="btn btn-dark">Hide Down</button>
+              </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item">
+              <div class="lead">Clue font size</div>
+              <div>
+                <small class="text-muted">
+                  This setting allows the size of the font used to render clues to be adjusted.
+                </small>
+              </div>
+              <div class="btn-group" role="group">
+                <button id="font-size-clues-normal" type="button" class="btn btn-dark">Normal</button>
+                <button id="font-size-clues-large" type="button" class="btn btn-dark">Large</button>
+                <button id="font-size-clues-xlarge" type="button" class="btn btn-dark">Extra Large</button>
               </div>
             </div>
           </form>
@@ -290,7 +304,7 @@
             "hide_clues": "none"
           }
         });
-      }
+      };
     }
     if (hideAcrossClues !== null) {
       hideAcrossClues.onclick = function () {
@@ -300,7 +314,7 @@
             "hide_clues": "across"
           }
         });
-      }
+      };
     }
     if (hideDownClues !== null) {
       hideDownClues.onclick = function () {
@@ -310,7 +324,41 @@
             "hide_clues": "down"
           }
         });
-      }
+      };
+    }
+
+    var clueFontSizeNormal = document.getElementById("font-size-clues-normal");
+    var clueFontSizeLarge = document.getElementById("font-size-clues-large");
+    var clueFontSizeXLarge = document.getElementById("font-size-clues-xlarge");
+    if (clueFontSizeNormal !== null) {
+      clueFontSizeNormal.onclick = function () {
+        socket.emit("set_settings", {
+          "room": "{{ owner }}",
+          "settings": {
+            "clue_font_size": "normal"
+          }
+        });
+      };
+    }
+    if (clueFontSizeLarge !== null) {
+      clueFontSizeLarge.onclick = function () {
+        socket.emit("set_settings", {
+          "room": "{{ owner }}",
+          "settings": {
+            "clue_font_size": "large"
+          }
+        });
+      };
+    }
+    if (clueFontSizeXLarge !== null) {
+      clueFontSizeXLarge.onclick = function () {
+        socket.emit("set_settings", {
+          "room": "{{ owner }}",
+          "settings": {
+            "clue_font_size": "xlarge"
+          }
+        });
+      };
     }
   </script>
 

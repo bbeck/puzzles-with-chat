@@ -109,12 +109,30 @@
 }
 #crossword .clues .clue-list {
   height: 600px;
+}
+#crossword .clues[data-font-size="normal"] .clue-list {
   font-size: 85%;
 }
-#crossword .clues .clue-list .number {
+#crossword .clues[data-font-size="normal"] .clue-list .number {
   max-width: 25px;
   min-width: 25px;
   width: 25px;
+}
+#crossword .clues[data-font-size="large"] .clue-list {
+  font-size: 100%;
+}
+#crossword .clues[data-font-size="large"] .clue-list .number {
+  max-width: 30px;
+  min-width: 30px;
+  width: 30px;
+}
+#crossword .clues[data-font-size="xlarge"] .clue-list {
+  font-size: 120%;
+}
+#crossword .clues[data-font-size="xlarge"] .clue-list .number {
+  max-width: 35px;
+  min-width: 35px;
+  width: 35px;
 }
 
 /*

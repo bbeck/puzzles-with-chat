@@ -111,6 +111,33 @@ function set_settings(settings) {
     hide(downClues);
     show(acrossClues);
   }
+
+  var fontSize = function (div, size) {
+    if (div !== null) {
+      div.setAttribute("data-font-size", size);
+    }
+  }
+
+  var clues = document.querySelector("#crossword .clues");
+  var clueFontSizeNormal = document.querySelector("#font-size-clues-normal");
+  var clueFontSizeLarge = document.querySelector("#font-size-clues-large");
+  var clueFontSizeXLarge = document.querySelector("#font-size-clues-xlarge");
+  if (settings["clue_font_size"] == "normal") {
+    on(clueFontSizeNormal);
+    off(clueFontSizeLarge);
+    off(clueFontSizeXLarge);
+    fontSize(clues, "normal");
+  } else if (settings["clue_font_size"] == "large") {
+    off(clueFontSizeNormal);
+    on(clueFontSizeLarge);
+    off(clueFontSizeXLarge);
+    fontSize(clues, "large");
+  } else if (settings["clue_font_size"] == "xlarge") {
+    off(clueFontSizeNormal);
+    off(clueFontSizeLarge);
+    on(clueFontSizeXLarge);
+    fontSize(clues, "xlarge");
+  }
 }
 
 // This global variable holds the id of the timer that updates how long the

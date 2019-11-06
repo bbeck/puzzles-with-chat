@@ -18,11 +18,15 @@ class Settings(object):
 
     hide_clues : str
         Which clues to hide from the user.
+
+    clue_font_size : str
+        What font size to use when rendering clues.
     """
     # It's important to provide sane default values so that settings can be
     # easily added over time.
     only_allow_correct_answers = attr.ib(type=bool, default=False)
     hide_clues = attr.ib(type=str, default="none")
+    clue_font_size = attr.ib(type=str, default="normal")
 
     def to_json(self):
         r"""Converts a Settings instance into a JSON string.
