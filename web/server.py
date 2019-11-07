@@ -66,6 +66,7 @@ def channel(channel):
     This view is read-only and intended for distribution to anyone who wants
     to see the crossword as its being solved.
     """
+    channel = channel.lower()
     return flask.render_template(
         "channel.html", owner=channel, streamer=False, progress=False)
 
@@ -84,6 +85,7 @@ def streamer(channel):
     The intention is that only the streamer will have access to this particular
     view.
     """
+    channel = channel.lower()
     return flask.render_template(
         "channel.html", owner=channel, streamer=True, progress=False)
 
@@ -100,6 +102,7 @@ def progress(channel):
     solving the puzzle at the same time so that they can see the progress
     that's happening, but not any of the actual answers.
     """
+    channel = channel.lower()
     return flask.render_template(
         "channel.html", owner=channel, streamer=False, progress=True)
 
@@ -115,6 +118,9 @@ def show_clue(channel, clue):
     operation, and the server currently doesn't have a way to know if it has
     succeeded or not, it just knows that the request has been made.
     """
+    channel = channel.lower()
+    clue = clue.lower()
+
     socketio.emit("show_clue", clue, room=channel)
     return ("", 204, {})
 
@@ -128,6 +134,9 @@ def answer(channel, clue):
     is returned, just an HTTP 200 upon successful specifying of the answer and
     a HTTP 4xx when applying the answer fails.
     """
+    channel = channel.lower()
+    clue = clue.lower()
+
     if flask.request.content_length > 1024:
         flask.abort(413)  # 413 = Payload Too Large
 
