@@ -41,7 +41,9 @@ app.config.from_mapping(
     ROOM_TTL=int(os.environ.get("ROOM_TTL", 4 * 60 * 60)),
 )
 
-socketio = SocketIO(app)
+hostname = os.environ.get("EXTERNAL_HOSTNAME")
+origins = [f"https://{hostname}"] if hostname else "*"
+socketio = SocketIO(app, cors_allowed_origins=origins)
 
 
 @app.route("/")
