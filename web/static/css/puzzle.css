@@ -2,7 +2,6 @@
   Layout of all of the elements of the puzzle.  This defines all of the flex
   boxes and their flex specific layout settings.
  */
-
 #crossword {
   display: flex;
   justify-content: flex-start;
@@ -44,13 +43,18 @@
 }
 #crossword .clues {
   display: flex;
+  flex-direction: column;
+}
+#crossword .clues .content {
+  display: flex;
   flex-grow: 1;
 }
 #crossword .clues .across,
 #crossword .clues .down {
-  flex-grow: 1;
-  flex-shrink: 1;
+  display: flex;
   flex-basis: 0;
+  flex-direction: column;
+  flex-grow: 1;
 }
 #crossword .clues .clue-list li {
   display: flex;
@@ -104,13 +108,19 @@
   margin: 0 2px;
   overflow: hidden;
 }
+#crossword .clues,
+#crossword .clues .content {
+  min-height: 0;
+}
 #crossword .clues .clue-title {
   font-size: 80%;
 }
 #crossword .clues .clue-list {
-  height: 600px;
+  overflow-x: hidden;
+  overflow-y: scroll;
 }
-#crossword .clues[data-font-size="normal"] .clue-list {
+#crossword .clues[data-font-size="normal"] .clue-list,
+#crossword .clues[data-font-size="normal"] .notes {
   font-size: 85%;
 }
 #crossword .clues[data-font-size="normal"] .clue-list .number {
@@ -118,7 +128,8 @@
   min-width: 25px;
   width: 25px;
 }
-#crossword .clues[data-font-size="large"] .clue-list {
+#crossword .clues[data-font-size="large"] .clue-list,
+#crossword .clues[data-font-size="large"] .notes {
   font-size: 100%;
 }
 #crossword .clues[data-font-size="large"] .clue-list .number {
@@ -126,7 +137,8 @@
   min-width: 30px;
   width: 30px;
 }
-#crossword .clues[data-font-size="xlarge"] .clue-list {
+#crossword .clues[data-font-size="xlarge"] .clue-list,
+#crossword .clues[data-font-size="xlarge"] .notes {
   font-size: 120%;
 }
 #crossword .clues[data-font-size="xlarge"] .clue-list .number {
@@ -304,6 +316,17 @@
 #crossword .clues {
   margin-left: 5px;
 }
+#crossword .clues .notes {
+  font-family: sans-serif;
+}
+#crossword .clues .notes:not(:empty):before {
+  content: 'NOTES:';
+  font-family: sans-serif;
+  font-weight: bold;
+}
+#crossword .clues .notes p {
+  margin: 0;
+}
 #crossword .clues .across {
   margin-right: 5px;
 }
@@ -312,10 +335,6 @@
   font-weight: bold;
   text-transform: uppercase;
   border-bottom: 1px solid gray;
-}
-#crossword .clues .clue-list {
-  overflow: hidden;
-  overflow-y: scroll;
 }
 #crossword .clues .clue-list ul {
   list-style-type: none;

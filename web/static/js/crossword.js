@@ -191,6 +191,11 @@ function render_crossword(state, show_only_progress) {
   var down = document.querySelector("#crossword #down-clues");
   render_clues(puzzle.down_clues, down_clues_filled, down, "d");
 
+  var notes = document.querySelector("#crossword #clue-notes");
+  if (notes !== null && puzzle.notes !== null) {
+    notes.innerHTML = puzzle.notes;
+  }
+
   // If the puzzle is unsolved thus far then show 1a and 1d.
   var unsolved = function (filled) { return filled === false; };
   if (Object.values(across_clues_filled).every(unsolved) &&

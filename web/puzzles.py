@@ -66,6 +66,12 @@ class Puzzle(object):
 
     down_clues : Dict[int, str]
         The clues for the down answers indexed by the clue number.
+
+    notes : Optional[str]
+        The notes for the clues of this puzzle.  Often there is something
+        visually done when the puzzle is published in a newspaper but that can't
+        be done online.  These notes describe the visual change so the puzzle
+        can be solved online.
     """
     rows = attr.ib(type=int)
     cols = attr.ib(type=int)
@@ -78,6 +84,7 @@ class Puzzle(object):
     cell_circles = attr.ib(type=typing.List[typing.List[bool]])
     across_clues = attr.ib(type=typing.Dict[int, str])
     down_clues = attr.ib(type=typing.Dict[int, str])
+    notes = attr.ib(type=typing.Optional[str], default="")
 
     def to_dict(self):
         r"""Converts a Puzzle instance into a python dictionary.
@@ -218,6 +225,7 @@ def load_nyt_puzzle(date):
     title = html.unescape(data["title"])
     publisher = html.unescape(data["publisher"])
     author = html.unescape(data["author"])
+    notes = html.unescape(data.get("jnotes") or "")
 
     cells = [[None for col in range(cols)] for row in range(rows)]
     for row in range(rows):
@@ -261,6 +269,7 @@ def load_nyt_puzzle(date):
         cell_circles=cell_circles,
         across_clues=across_clues,
         down_clues=down_clues,
+        notes=notes,
     )
 
 
@@ -321,6 +330,7 @@ def load_puz_puzzle_from_bytes(bs):
     published = None  # not exposed in .puz format
     publisher = None  # not exposed in .puz format
     author = html.unescape(data.author)
+    notes = data.notes or ""
 
     cells = [[None for col in range(cols)] for row in range(rows)]
     for row in range(rows):
@@ -369,6 +379,7 @@ def load_puz_puzzle_from_bytes(bs):
         cell_circles=cell_circles,
         across_clues=across_clues,
         down_clues=down_clues,
+        notes=notes,
     )
 
 
