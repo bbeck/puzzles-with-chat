@@ -1,0 +1,70 @@
+version: "3.7"
+services:
+  redis:
+    image: redis:5-alpine
+    container_name: twitch-plays-crosswords-redis
+    volumes:
+      - type: volume
+        source: redis
+        target: "/data"
+        volume:
+          nocopy: true
+    ports:
+      - 6379:6379/tcp
+
+  web:
+    build:
+      context: web
+      args:
+        REQUIREMENTS_FILENAME: requirements-dev.txt
+    working_dir: "/usr/src/app"
+    container_name: twitch-plays-crosswords-web
+    depends_on:
+      - redis
+    environment:
+      PYTHONUNBUFFERED: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+      FLASK_ENV: "development"
+      REDIS_URL: "redis://redis:6379"
+      TWITCH_CLIENT_ID:
+      TWITCH_CLIENT_SECRET:
+    volumes:
+      - type: bind
+        source: "./web"
+        target: "/usr/src/app"
+    ports:
+      - 5000:5000/tcp
+    expose:
+      - 5000
+    restart: unless-stopped
+
+  bot:
+    build:
+      context: bot
+      args:
+        REQUIREMENTS_FILENAME: requirements-dev.txt
+    working_dir: "/usr/src/app"
+    command: >-
+      watchmedo auto-restart
+        --pattern="*.py"
+        --ignore-pattern='*.py.*.py'
+        --recursive
+      --
+        python run.py
+    container_name: "twitch-plays-crosswords-bot"
+    depends_on:
+      - web
+    environment:
+      PYTHONUNBUFFERED: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+      API_ENDPOINT: "http://web:5000"
+      BOT_USERNAME:
+      BOT_OAUTH_TOKEN:
+    volumes:
+      - type: bind
+        source: "./bot"
+        target: "/usr/src/app"
+    restart: unless-stopped
+
+volumes:
+  redis:
