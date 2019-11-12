@@ -16,5 +16,6 @@ vendor/
 
 # IDE configuration
 .envrc
+.direnv/
 .idea/
 .vscode/
