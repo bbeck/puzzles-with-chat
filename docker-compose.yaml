@@ -1,0 +1,31 @@
+version: "3.7"
+services:
+  web:
+    build:
+      context: web
+      target: development
+      args:
+        ENVIRONMENT: dev
+    command: >-
+      reflex
+        --start-service
+        --decoration="none"
+        --regex='\.go$$'
+        --inverse-regex='\.generated.go$$'
+      --
+        sh -c '
+          go generate -tags dev ./...;
+          go run .
+        '
+    container_name: twitch-plays-crosswords-web
+    environment:
+      GIN_MODE: release # debug only prints warning messages on startup
+    volumes:
+      - type: bind
+        source: "./web"
+        target: "/src"
+    expose:
+      - 5000
+    ports:
+      - 5000:5000/tcp
+    restart: unless-stopped
