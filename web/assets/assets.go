@@ -30,7 +30,19 @@ func ServeStatic() gin.HandlerFunc {
 			return
 		}
 
-		c.Data(http.StatusOK, http.DetectContentType(bs), bs)
+		var contentType string
+		switch {
+		case strings.HasSuffix(filename, ".css"):
+			contentType = "text/css"
+		case strings.HasSuffix(filename, ".ico"):
+			contentType = "image/x-icon"
+		case strings.HasSuffix(filename, ".js"):
+			contentType = "application/javascript"
+		default:
+			contentType = http.DetectContentType(bs)
+		}
+
+		c.Data(http.StatusOK, contentType, bs)
 		c.Abort()
 	}
 }
