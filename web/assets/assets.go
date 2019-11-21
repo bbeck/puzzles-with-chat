@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +13,15 @@ import (
 const StaticPrefix = "/static/"
 
 var MissingDigest = [sha256.Size]byte{}
+
+// ContentTypes contains a mapping of filename suffix to the content type that
+// should be used for that suffix.
+var ContentTypes = map[string]string{
+	".css": "text/css",
+	".ico": "image/x-icon",
+	".js":  "application/javascript",
+	".map": "application/octet-stream",
+}
 
 // ServeStatic returns a middleware handler that will serve static files from
 // the web/static directory under the /static URL prefix.
@@ -58,15 +68,9 @@ func ServeStatic() gin.HandlerFunc {
 			bs = MustAsset(filename)
 		}
 
-		var contentType string
-		switch {
-		case strings.HasSuffix(filename, ".css"):
-			contentType = "text/css"
-		case strings.HasSuffix(filename, ".ico"):
-			contentType = "image/x-icon"
-		case strings.HasSuffix(filename, ".js"):
-			contentType = "application/javascript"
-		default:
+		// Determine the content type that should be used to serve this file.
+		var contentType = ContentTypes[filepath.Ext(filename)]
+		if contentType == "" {
 			contentType = http.DetectContentType(bs)
 		}
 
