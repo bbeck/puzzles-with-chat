@@ -1,6 +1,8 @@
 package assets
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"net/http"
 	"strings"
 
@@ -8,6 +10,8 @@ import (
 )
 
 const StaticPrefix = "/static/"
+
+var MissingDigest = [sha256.Size]byte{}
 
 // ServeStatic returns a middleware handler that will serve static files from
 // the web/static directory under the /static URL prefix.
@@ -19,15 +23,39 @@ func ServeStatic() gin.HandlerFunc {
 			return
 		}
 
-		// Look for the asset in our bindata, if it's not found then return a 404,
-		// otherwise return the contents of the asset and infer it's content type.
-		// In either case this asset is contained under our path, so we will abort
-		// the request and not allow any other handlers to process it.
+		// Look for the asset in our bindata, if it's not found then return a 404.
 		filename := strings.TrimLeft(c.Request.URL.Path, "/")
-		bs, err := Asset(filename)
+		digest, err := AssetDigest(filename)
 		if err != nil {
 			_ = c.AbortWithError(http.StatusNotFound, err)
 			return
+		}
+
+		// The bytes of the asset, we may need to load these ourselves in order to
+		// compute the etag of the asset, so keep track of them so that we don't
+		// load them twice.
+		var bs []byte
+
+		// When running in development mode, bindata doesn't provide a digest so
+		// make sure that we detect this case and compute it ourselves.
+		if digest == MissingDigest {
+			bs = MustAsset(filename)
+			digest = sha256.Sum256(bs)
+		}
+
+		// Now that we found the asset, check and see if the client has it cached
+		// already.
+		etag := base64.URLEncoding.EncodeToString(digest[:])
+		if etag == c.GetHeader("If-None-Match") {
+			c.AbortWithStatus(http.StatusNotModified)
+			return
+		}
+
+		// If we've gotten here then we know the client doesn't have the latest
+		// version of the asset, load it if we haven't already and serve its
+		// contents up to the caller.
+		if bs != nil {
+			bs = MustAsset(filename)
 		}
 
 		var contentType string
@@ -42,6 +70,7 @@ func ServeStatic() gin.HandlerFunc {
 			contentType = http.DetectContentType(bs)
 		}
 
+		c.Header("Etag", etag)
 		c.Data(http.StatusOK, contentType, bs)
 		c.Abort()
 	}
