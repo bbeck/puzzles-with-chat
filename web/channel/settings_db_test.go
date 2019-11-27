@@ -29,17 +29,23 @@ func TestGetSettings(t *testing.T) {
 		expected Settings
 	}{
 		{
+			name:     "no settings",
+			channel:  "none",
+			expected: Settings{},
+		},
+		{
 			name:    "empty settings",
 			channel: "empty",
 			setup: func(channel string) error {
 				return s.Set(key(channel), `{}`)
 			},
+			expected: Settings{},
 		},
 		{
 			name:    "correct answers only",
 			channel: "correct_answers_only",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"only_allow_correct_answers":true}`)
+				return s.Set(key(channel), `{"onlyAllowCorrectAnswers":true}`)
 			},
 			expected: Settings{OnlyAllowCorrectAnswers: true},
 		},
@@ -47,7 +53,7 @@ func TestGetSettings(t *testing.T) {
 			name:    "clue visibility",
 			channel: "clue_visibility",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clues_to_show":"down"}`)
+				return s.Set(key(channel), `{"cluesToShow":"down"}`)
 			},
 			expected: Settings{CluesToShow: OnlyDownCluesVisible},
 		},
@@ -55,7 +61,7 @@ func TestGetSettings(t *testing.T) {
 			name:    "clue font size",
 			channel: "clue_font_size",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clue_font_size":"large"}`)
+				return s.Set(key(channel), `{"clueFontSize":"large"}`)
 			},
 			expected: Settings{ClueFontSize: SizeLarge},
 		},
@@ -66,7 +72,7 @@ func TestGetSettings(t *testing.T) {
 				if err := s.Set(key("incorrect"), `{"clues_to_show":"all"}`); err != nil {
 					return err
 				}
-				return s.Set(key(channel), `{"clues_to_show":"none"}`)
+				return s.Set(key(channel), `{"cluesToShow":"none"}`)
 			},
 			expected: Settings{CluesToShow: NoCluesVisible},
 		},
@@ -114,7 +120,7 @@ func TestSetSettings(t *testing.T) {
 			name:    "existing settings",
 			channel: "existing",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clue_font_size":"xlarge"}`)
+				return s.Set(key(channel), `{"clueFontSize":"xlarge"}`)
 			},
 			settings: Settings{CluesToShow: OnlyDownCluesVisible},
 		},

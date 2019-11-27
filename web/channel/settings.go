@@ -9,14 +9,14 @@ import (
 // by a streamer for their channel.
 type Settings struct {
 	// When enabled only correct answers will be filled into the puzzle grid.
-	OnlyAllowCorrectAnswers bool `json:"only_allow_correct_answers"`
+	OnlyAllowCorrectAnswers bool `json:"onlyAllowCorrectAnswers"`
 
 	// Which clues should be shown to users.  Can be all of the clues, none of the
 	// clues, only across clues or only down clues.
-	CluesToShow ClueVisibility `json:"clues_to_show"`
+	CluesToShow ClueVisibility `json:"cluesToShow"`
 
 	// What font size should the clues be rendered with.
-	ClueFontSize FontSize `json:"clue_font_size"`
+	ClueFontSize FontSize `json:"clueFontSize"`
 }
 
 // ClueVisibility is an enumeration representing which clues should be shown.

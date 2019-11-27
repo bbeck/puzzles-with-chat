@@ -16,6 +16,11 @@ func GetSettings(c redis.Conn, name string) (Settings, error) {
 	bs, err := redis.Bytes(c.Do("GET", key))
 	if err == nil {
 		err = json.Unmarshal(bs, &settings)
+	} else if err == redis.ErrNil {
+		// There weren't any settings in redis, this is expected when a channel is
+		// new and hasn't solved a puzzle yet.  When this happens we'll use the
+		// default values for the settings.
+		err = nil
 	}
 
 	return settings, err
