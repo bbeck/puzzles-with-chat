@@ -5,25 +5,33 @@ FROM golang:1.13-alpine AS development
 
 # The environment to use for assets.
 ARG ENVIRONMENT=prod
+ENV CGO_ENABLED=0
+ENV GO111MODULE=on
 
-# Setup dependencies
+VOLUME /src
+WORKDIR /src
+
+# Setup dependencies.
 RUN apk --no-cache add ca-certificates git
 
-# Install development dependencies
+# Install development dependencies.
 RUN go get -u                              \
       github.com/kevinburke/go-bindata/... \
       github.com/cespare/reflex
 
+# Download dependencies into the image prior to copying over any source files.
+# This allows the downloading dependencies step to be cached in a layer so that
+# we don't have to repeat the download each time a source file changes.
+COPY go.mod .
+COPY go.sum .
+RUN go get -u ...
+
 # Copy all of the source code into the image so that it can be compiled.  When
 # running via docker-compose in development mode we'll override this and instead
 # mount the source directory from the host machine.
-VOLUME /src
-WORKDIR /src
 COPY . .
 
 # Compile into a static binary.
-ENV CGO_ENABLED=0
-ENV GO111MODULE=on
 RUN go generate -tags ${ENVIRONMENT} ./... && \
     go get                                 && \
     go build -tags ${ENVIRONMENT} -o /web
