@@ -1,5 +1,17 @@
 version: "3.7"
 services:
+  redis:
+    image: redis:5-alpine
+    container_name: twitch-plays-crosswords-redis
+    volumes:
+      - type: volume
+        source: redis
+        target: "/data"
+        volume:
+          nocopy: true
+    ports:
+      - 6379:6379/tcp
+
   web:
     build:
       context: web
@@ -11,15 +23,18 @@ services:
         --start-service
         --decoration="none"
         --regex='\.go$$'
-        --inverse-regex='\.generated.go$$'
+        --inverse-regex='\.gen.go$$'
       --
         sh -c '
           go generate -tags dev ./...;
           go run .
         '
     container_name: twitch-plays-crosswords-web
+    depends_on:
+      - redis
     environment:
       GIN_MODE: release # debug only prints warning messages on startup
+      REDIS_HOST: "redis:6379"
     volumes:
       - type: bind
         source: "./web"
@@ -29,3 +44,6 @@ services:
     ports:
       - 5000:5000/tcp
     restart: unless-stopped
+
+volumes:
+  redis:
