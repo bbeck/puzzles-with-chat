@@ -1,5 +1,5 @@
 # Generated files
-*.generated.go
+*.gen.go
 
 # Binaries for programs and plugins
 *.exe

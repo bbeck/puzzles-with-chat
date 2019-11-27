@@ -20,6 +20,7 @@ var ContentTypes = map[string]string{
 	".css": "text/css",
 	".ico": "image/x-icon",
 	".js":  "application/javascript",
+	".jsx": "text/babel",
 	".map": "application/octet-stream",
 }
 
@@ -37,7 +38,7 @@ func ServeStatic() gin.HandlerFunc {
 		filename := strings.TrimLeft(c.Request.URL.Path, "/")
 		digest, err := AssetDigest(filename)
 		if err != nil {
-			_ = c.AbortWithError(http.StatusNotFound, err)
+			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
 

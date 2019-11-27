@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin/render"
 )
 
-//go:generate go-bindata -debug -pkg $GOPACKAGE -o assets.generated.go -prefix ../ ../static/... ../templates/...
+//go:generate go-bindata -debug -pkg $GOPACKAGE -o assets.gen.go -prefix ../ ../static/... ../templates/...
 
 // TemplateRender returns a render.HTMLRender that is suitable for development
 // purposes.  It will load templates from the web/template directory using
