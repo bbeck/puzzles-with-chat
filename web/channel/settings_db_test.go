@@ -93,6 +93,58 @@ func TestGetSettings(t *testing.T) {
 	}
 }
 
+func TestGetSettings_Error(t *testing.T) {
+	s, err := miniredis.Run()
+	require.NoError(t, err)
+
+	c, err := redis.Dial("tcp", s.Addr())
+	require.NoError(t, err)
+	defer func() { _ = c.Close() }()
+
+	key := func(s string) string {
+		return fmt.Sprintf("settings:%s", s)
+	}
+
+	tests := []struct {
+		name    string
+		channel string
+		setup   func(channel string) error
+	}{
+		{
+			name:    "invalid json",
+			channel: "invalid_json",
+			setup: func(channel string) error {
+				return s.Set(key(channel), `{`)
+			},
+		},
+		{
+			name:    "incorrect type",
+			channel: "incorrect_type",
+			setup: func(channel string) error {
+				return s.Set(key(channel), `true`)
+			},
+		},
+		{
+			name:    "incorrect property type",
+			channel: "incorrect_property_type",
+			setup: func(channel string) error {
+				return s.Set(key(channel), `{"cluesToShow":true}`)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.setup != nil {
+				require.NoError(t, test.setup(test.channel))
+			}
+
+			_, err := GetSettings(c, test.channel)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestSetSettings(t *testing.T) {
 	s, err := miniredis.Run()
 	require.NoError(t, err)
@@ -134,6 +186,33 @@ func TestSetSettings(t *testing.T) {
 
 			assert.NoError(t, SetSettings(c, test.channel, test.settings))
 			assert.True(t, s.Exists(key(test.channel)))
+		})
+	}
+}
+
+func TestSetSettings_Error(t *testing.T) {
+	s, err := miniredis.Run()
+	require.NoError(t, err)
+
+	c, err := redis.Dial("tcp", s.Addr())
+	require.NoError(t, err)
+	defer func() { _ = c.Close() }()
+
+	tests := []struct {
+		name     string
+		channel  string
+		settings Settings
+	}{
+		{
+			name:     "invalid settings",
+			channel:  "invalid",
+			settings: Settings{ClueFontSize: FontSize(17)},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Error(t, SetSettings(c, test.channel, test.settings))
 		})
 	}
 }
