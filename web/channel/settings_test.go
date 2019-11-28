@@ -34,6 +34,11 @@ func TestClueVisibility_String(t *testing.T) {
 			visibility: OnlyAcrossCluesVisible,
 			expected:   "across",
 		},
+		{
+			name:       "invalid",
+			visibility: ClueVisibility(17),
+			expected:   "unknown",
+		},
 	}
 
 	for _, test := range tests {
@@ -81,6 +86,25 @@ func TestClueVisibility_MarshalJSON(t *testing.T) {
 	}
 }
 
+func TestClueVisibility_MarshalJSON_Error(t *testing.T) {
+	tests := []struct {
+		name       string
+		visibility ClueVisibility
+	}{
+		{
+			name:       "invalid",
+			visibility: ClueVisibility(17),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := json.Marshal(test.visibility)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestClueVisibility_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -120,6 +144,35 @@ func TestClueVisibility_UnmarshalJSON(t *testing.T) {
 	}
 }
 
+func TestClueVisibility_UnmarshalJSON_Error(t *testing.T) {
+	tests := []struct {
+		name string
+		bs   []byte
+	}{
+		{
+			name: "invalid json",
+			bs:   []byte(`false`),
+		},
+		{
+			name: "empty value",
+			bs:   []byte(`""`),
+		},
+		{
+			name: "invalid value",
+			bs:   []byte(`"asdf"`),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual ClueVisibility
+
+			err := json.Unmarshal(test.bs, &actual)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestFontSize_String(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -140,6 +193,11 @@ func TestFontSize_String(t *testing.T) {
 			name:     "xlarge",
 			size:     SizeXLarge,
 			expected: "xlarge",
+		},
+		{
+			name:     "invalid",
+			size:     FontSize(17),
+			expected: "unknown",
 		},
 	}
 
@@ -183,6 +241,25 @@ func TestFontSize_MarshalJSON(t *testing.T) {
 	}
 }
 
+func TestFontSize_MarshalJSON_Error(t *testing.T) {
+	tests := []struct {
+		name string
+		size FontSize
+	}{
+		{
+			name: "invalid",
+			size: FontSize(17),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := json.Marshal(test.size)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestFontSize_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -213,6 +290,35 @@ func TestFontSize_UnmarshalJSON(t *testing.T) {
 			err := json.Unmarshal(test.bs, &actual)
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func TestFontSize_UnmarshalJSON_Error(t *testing.T) {
+	tests := []struct {
+		name string
+		bs   []byte
+	}{
+		{
+			name: "invalid json",
+			bs:   []byte(`false`),
+		},
+		{
+			name: "empty value",
+			bs:   []byte(`""`),
+		},
+		{
+			name: "invalid value",
+			bs:   []byte(`"asdf"`),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var actual FontSize
+
+			err := json.Unmarshal(test.bs, &actual)
+			require.Error(t, err)
 		})
 	}
 }
