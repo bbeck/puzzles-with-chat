@@ -12,9 +12,9 @@ services:
     ports:
       - 6379:6379/tcp
 
-  web:
+  api:
     build:
-      context: web
+      context: api
       target: development
       args:
         ENVIRONMENT: dev
@@ -25,11 +25,8 @@ services:
         --regex='\.go$$'
         --inverse-regex='\.gen.go$$'
       --
-        sh -c '
-          go generate -tags dev ./...;
-          go run .
-        '
-    container_name: twitch-plays-crosswords-web
+        sh -c 'go run .'
+    container_name: twitch-plays-crosswords-api
     depends_on:
       - redis
     environment:
@@ -37,7 +34,7 @@ services:
       REDIS_HOST: "redis:6379"
     volumes:
       - type: bind
-        source: "./web"
+        source: "./api"
         target: "/src"
     expose:
       - 5000

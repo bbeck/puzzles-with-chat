@@ -3,8 +3,7 @@
 ####################
 FROM golang:1.13-alpine AS development
 
-# The environment to use for assets.
-ARG ENVIRONMENT=prod
+# Environment variables
 ENV CGO_ENABLED=0
 ENV GO111MODULE=on
 
@@ -15,9 +14,7 @@ WORKDIR /src
 RUN apk --no-cache add ca-certificates git
 
 # Install development dependencies.
-RUN go get -u                              \
-      github.com/kevinburke/go-bindata/... \
-      github.com/cespare/reflex
+RUN go get -u github.com/cespare/reflex
 
 # Download dependencies into the image prior to copying over any source files.
 # This allows the downloading dependencies step to be cached in a layer so that
@@ -32,9 +29,8 @@ RUN go get -u ...
 COPY . .
 
 # Compile into a static binary.
-RUN go generate -tags ${ENVIRONMENT} ./... && \
-    go get                                 && \
-    go build -tags ${ENVIRONMENT} -o /web
+RUN go get && \
+    go build -o /api
 
 
 ####################
@@ -47,7 +43,7 @@ EXPOSE 5000
 # Copy over the static executable and certs (needed because we call into http
 # APIs).
 COPY --from=development /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=development /web /web
+COPY --from=development /api /api
 
 ENV GIN_MODE=release
-ENTRYPOINT ["/web"]
+ENTRYPOINT ["/api"]

@@ -4,18 +4,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bbeck/twitch-plays-crosswords/web/assets"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	router := gin.Default()
-
-	// Serve everything under /web/static as a static asset.
-	router.Use(assets.ServeStatic())
-
-	// Configure everything under /web/templates/ as a template file.
-	router.HTMLRender = assets.TemplateRender()
 
 	router.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "templates/index.tmpl", gin.H{
