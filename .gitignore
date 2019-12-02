@@ -1,3 +1,7 @@
+###
+### Go
+###
+
 # Generated files
 *.gen.go
 
@@ -13,6 +17,20 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+###
+### Node
+###
+build/
+coverage/
+node_modules/
+.pnp
+.pnp.js
+npm-debug.log*
+
+###
+### Common
+###
 
 # Dependency directories
 vendor/

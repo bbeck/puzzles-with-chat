@@ -1,0 +1,119 @@
+.navbar .dropdown-menu {
+  min-width: 250px;
+  max-width: 500px;
+}
+
+.navbar .dropdown-menu small {
+  white-space: normal;
+}
+
+.navbar #puzzle-dropwdown-menu #date-selector {
+  width: auto;
+}
+
+.navbar #puzzle-dropdown-menu,
+.navbar #settings-dropdown-menu,
+.navbar #views-dropdown-menu {
+  width: 500px;
+}
+
+.navbar #puzzle-dropdown-menu .dropdown-item,
+.navbar #settings-dropdown-menu .dropdown-item,
+.navbar #views-dropdown-menu .dropdown-item {
+  background-color: transparent;
+}
+
+.navbar #puzzle-dropdown-menu .dropdown-item .lead,
+.navbar #settings-dropdown-menu .dropdown-item .lead,
+.navbar #views-dropdown-menu .dropdown-item .lead {
+  color: #212529;
+}
+
+.navbar #puzzle-dropdown-menu .dropdown-item .input-group,
+.navbar #settings-dropdown-menu .dropdown-item .switch,
+.navbar #settings-dropdown-menu .dropdown-item .btn-group {
+  margin: 8px 0 0 0;
+}
+
+.navbar #settings-dropdown-menu .dropdown-item button {
+  width: 110px;
+}
+
+
+/*
+  Sliding toggle switches.  A toggle switch is built up of two components, the
+  first is an invisible checkbox that stores the state of the switch.  The
+  second is a slider that can be either left (unchecked) or right (checked).
+
+  Based on: https://www.w3schools.com/howto/howto_css_switch.asp
+*/
+
+.switch {
+  height: 34px;
+  position: relative;
+  width: 60px;
+}
+
+/* Hide the default checkbox. */
+.switch input {
+  display: none;
+}
+
+.switch .slider {
+  background-color: #ccc;
+  bottom: 0;
+  cursor: pointer;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  transition: .4s;
+}
+
+.switch .slider:before {
+  background-color: white;
+  bottom: 4px;
+  content: "";
+  height: 26px;
+  left: 4px;
+  position: absolute;
+  transition: .4s;
+  width: 26px;
+}
+
+.switch input.default:checked + .slider {
+  background-color: #444;
+}
+.switch input.primary:checked + .slider {
+  background-color: #007bff;
+}
+.switch input.success:checked + .slider {
+  background-color: #28a745;
+}
+.switch input.info:checked + .slider {
+  background-color: #17a2b8;
+}
+.switch input.warning:checked + .slider {
+  background-color: #ffc107;
+}
+.switch input.danger:checked + .slider {
+  background-color: #dc3545;
+}
+
+.switch input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.switch .slider.round {
+  border-radius: 34px;
+}
+
+.switch .slider.round:before {
+  border-radius: 50%;
+}
+

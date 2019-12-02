@@ -42,5 +42,25 @@ services:
       - 5000:5000/tcp
     restart: unless-stopped
 
+  ui:
+    build:
+      context: ui
+      target: development
+    command: npm run start
+    container_name: twitch-plays-crosswords-ui
+    depends_on:
+      - api
+    environment:
+      API_HOST: "api:5000"
+    volumes:
+      - type: bind
+        source: "./ui"
+        target: "/src"
+    expose:
+      - 3000
+    ports:
+      - 3000:3000/tcp
+    restart: unless-stopped
+
 volumes:
   redis:
