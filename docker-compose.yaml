@@ -50,8 +50,6 @@ services:
     container_name: twitch-plays-crosswords-ui
     depends_on:
       - api
-    environment:
-      API_HOST: "api:5000"
     volumes:
       - type: bind
         source: "./ui"

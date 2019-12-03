@@ -1,6 +1,7 @@
 import React from "react";
 import {Router} from "@reach/router";
 import {Nav} from "./nav";
+import {EventStream} from "./event-stream";
 
 function App() {
   return (
@@ -35,9 +36,20 @@ function Home() {
           progress. Please click through to the streamer you were looking for.
         </p>
 
+        {/*{{if .rooms}}*/}
+        {/*<p>*/}
+        {/*  <div className="list-group">*/}
+        {/*    {{range .rooms}}*/}
+        {/*    <a className="list-group-item list-group-item-action"*/}
+        {/*       href="/{{.}}">{{.}}</a>*/}
+        {/*    {{end}}*/}
+        {/*  </div>*/}
+        {/*</p>*/}
+        {/*{{else}}*/}
         <div className="alert alert-primary">
           We're sorry, there doesn't appear to be any active solves right now.
         </div>
+        {/*{{end}}*/}
 
         <p>
           Questions? Comments? Feedback? Feel free to whisper @mistaeksweremade
@@ -49,9 +61,30 @@ function Home() {
 }
 
 function Channel(props) {
+  const [events, setEventStream] = React.useState(
+    new EventStream(`/api/channel/${props.channel}/events`)
+  );
+
+  const [settings, setSettings] = React.useState({
+    clues_to_show: "all",
+    clue_font_size: "normal",
+    only_allow_correct_answers: false,
+  });
+
+  React.useEffect(() => {
+    events.setHandler(message => {
+      const event = JSON.parse(message.data);
+
+      if (event.kind === "settings") {
+        setSettings(event.payload);
+      }
+    });
+  }, [events, setEventStream, setSettings]);
+
+
   return (
     <React.Fragment>
-      <Nav channel={props.channel} view={props.view}/>
+      <Nav channel={props.channel} view={props.view} settings={settings}/>
       <h1>Channel view</h1>
     </React.Fragment>
   );
