@@ -45,7 +45,7 @@ func TestGetSettings(t *testing.T) {
 			name:    "correct answers only",
 			channel: "correct_answers_only",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"onlyAllowCorrectAnswers":true}`)
+				return s.Set(key(channel), `{"only_allow_correct_answers":true}`)
 			},
 			expected: Settings{OnlyAllowCorrectAnswers: true},
 		},
@@ -53,7 +53,7 @@ func TestGetSettings(t *testing.T) {
 			name:    "clue visibility",
 			channel: "clue_visibility",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"cluesToShow":"down"}`)
+				return s.Set(key(channel), `{"clues_to_show":"down"}`)
 			},
 			expected: Settings{CluesToShow: OnlyDownCluesVisible},
 		},
@@ -61,7 +61,7 @@ func TestGetSettings(t *testing.T) {
 			name:    "clue font size",
 			channel: "clue_font_size",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clueFontSize":"large"}`)
+				return s.Set(key(channel), `{"clue_font_size":"large"}`)
 			},
 			expected: Settings{ClueFontSize: SizeLarge},
 		},
@@ -72,7 +72,7 @@ func TestGetSettings(t *testing.T) {
 				if err := s.Set(key("incorrect"), `{"clues_to_show":"all"}`); err != nil {
 					return err
 				}
-				return s.Set(key(channel), `{"cluesToShow":"none"}`)
+				return s.Set(key(channel), `{"clues_to_show":"none"}`)
 			},
 			expected: Settings{CluesToShow: NoCluesVisible},
 		},
@@ -128,7 +128,7 @@ func TestGetSettings_Error(t *testing.T) {
 			name:    "incorrect property type",
 			channel: "incorrect_property_type",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"cluesToShow":true}`)
+				return s.Set(key(channel), `{"clues_to_show":true}`)
 			},
 		},
 	}
@@ -172,7 +172,7 @@ func TestSetSettings(t *testing.T) {
 			name:    "existing settings",
 			channel: "existing",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clueFontSize":"xlarge"}`)
+				return s.Set(key(channel), `{"clue_font_size":"xlarge"}`)
 			},
 			settings: Settings{CluesToShow: OnlyDownCluesVisible},
 		},
