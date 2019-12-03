@@ -1,7 +1,6 @@
 package channel
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/alicebob/miniredis"
@@ -18,63 +17,59 @@ func TestGetSettings(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = c.Close() }()
 
-	key := func(s string) string {
-		return fmt.Sprintf("settings:%s", s)
-	}
-
 	tests := []struct {
 		name     string
 		channel  string
 		setup    func(channel string) error
-		expected Settings
+		expected *Settings
 	}{
 		{
 			name:     "no settings",
 			channel:  "none",
-			expected: Settings{},
+			expected: &Settings{},
 		},
 		{
 			name:    "empty settings",
 			channel: "empty",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{}`)
+				return s.Set(SettingsKey(channel), `{}`)
 			},
-			expected: Settings{},
+			expected: &Settings{},
 		},
 		{
 			name:    "correct answers only",
 			channel: "correct_answers_only",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"only_allow_correct_answers":true}`)
+				return s.Set(SettingsKey(channel), `{"only_allow_correct_answers":true}`)
 			},
-			expected: Settings{OnlyAllowCorrectAnswers: true},
+			expected: &Settings{OnlyAllowCorrectAnswers: true},
 		},
 		{
 			name:    "clue visibility",
 			channel: "clue_visibility",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clues_to_show":"down"}`)
+				return s.Set(SettingsKey(channel), `{"clues_to_show":"down"}`)
 			},
-			expected: Settings{CluesToShow: OnlyDownCluesVisible},
+			expected: &Settings{CluesToShow: OnlyDownCluesVisible},
 		},
 		{
 			name:    "clue font size",
 			channel: "clue_font_size",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clue_font_size":"large"}`)
+				return s.Set(SettingsKey(channel), `{"clue_font_size":"large"}`)
 			},
-			expected: Settings{ClueFontSize: SizeLarge},
+			expected: &Settings{ClueFontSize: SizeLarge},
 		},
 		{
 			name:    "gets correct settings",
 			channel: "correct_key",
 			setup: func(channel string) error {
-				if err := s.Set(key("incorrect"), `{"clues_to_show":"all"}`); err != nil {
+				if err := s.Set(SettingsKey("incorrect"), `{"clues_to_show":"all"}`); err != nil {
 					return err
 				}
-				return s.Set(key(channel), `{"clues_to_show":"none"}`)
+				return s.Set(SettingsKey(channel), `{"clues_to_show":"none"}`)
 			},
-			expected: Settings{CluesToShow: NoCluesVisible},
+			expected: &Settings{CluesToShow: NoCluesVisible},
 		},
 	}
 
@@ -101,10 +96,6 @@ func TestGetSettings_Error(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = c.Close() }()
 
-	key := func(s string) string {
-		return fmt.Sprintf("settings:%s", s)
-	}
-
 	tests := []struct {
 		name    string
 		channel string
@@ -114,21 +105,29 @@ func TestGetSettings_Error(t *testing.T) {
 			name:    "invalid json",
 			channel: "invalid_json",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{`)
+				return s.Set(SettingsKey(channel), `{`)
 			},
 		},
 		{
-			name:    "incorrect type",
-			channel: "incorrect_type",
+			name:    "incorrect redis type",
+			channel: "incorrect_redis_type",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `true`)
+				s.HSet(SettingsKey(channel), "field", "value")
+				return nil
+			},
+		},
+		{
+			name:    "incorrect json type",
+			channel: "incorrect_json_type",
+			setup: func(channel string) error {
+				return s.Set(SettingsKey(channel), `true`)
 			},
 		},
 		{
 			name:    "incorrect property type",
 			channel: "incorrect_property_type",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clues_to_show":true}`)
+				return s.Set(SettingsKey(channel), `{"clues_to_show":true}`)
 			},
 		},
 	}
@@ -153,28 +152,24 @@ func TestSetSettings(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = c.Close() }()
 
-	key := func(s string) string {
-		return fmt.Sprintf("settings:%s", s)
-	}
-
 	tests := []struct {
 		name     string
 		channel  string
 		setup    func(channel string) error
-		settings Settings
+		settings *Settings
 	}{
 		{
 			name:     "no existing settings",
 			channel:  "no_existing",
-			settings: Settings{CluesToShow: OnlyAcrossCluesVisible},
+			settings: &Settings{CluesToShow: OnlyAcrossCluesVisible},
 		},
 		{
 			name:    "existing settings",
 			channel: "existing",
 			setup: func(channel string) error {
-				return s.Set(key(channel), `{"clue_font_size":"xlarge"}`)
+				return s.Set(SettingsKey(channel), `{"clue_font_size":"xlarge"}`)
 			},
-			settings: Settings{CluesToShow: OnlyDownCluesVisible},
+			settings: &Settings{CluesToShow: OnlyDownCluesVisible},
 		},
 	}
 
@@ -185,7 +180,7 @@ func TestSetSettings(t *testing.T) {
 			}
 
 			assert.NoError(t, SetSettings(c, test.channel, test.settings))
-			assert.True(t, s.Exists(key(test.channel)))
+			assert.True(t, s.Exists(SettingsKey(test.channel)))
 		})
 	}
 }
@@ -201,12 +196,16 @@ func TestSetSettings_Error(t *testing.T) {
 	tests := []struct {
 		name     string
 		channel  string
-		settings Settings
+		settings *Settings
 	}{
+		{
+			name:    "nil settings",
+			channel: "nil",
+		},
 		{
 			name:     "invalid settings",
 			channel:  "invalid",
-			settings: Settings{ClueFontSize: FontSize(17)},
+			settings: &Settings{ClueFontSize: FontSize(17)},
 		},
 	}
 
