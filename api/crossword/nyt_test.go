@@ -187,6 +187,30 @@ func TestParseXWordInfoResponse(t *testing.T) {
 			},
 		},
 		{
+			name:  "blocks",
+			input: load(t, "xwordinfo-success-20181231.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := [][]bool{
+					{false, false, false, false, false, true, false, false, false, false, false, true, false, false, false},
+					{false, false, false, false, false, true, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, true, false, false, false, false, true, false, false, false, false, false},
+					{true, false, false, false, false, false, false, true, true, false, false, false, true, true, true},
+					{true, true, true, false, false, false, false, false, false, false, false, false, false, false, true},
+					{false, false, false, false, false, true, true, false, false, false, false, false, false, false, false},
+					{false, false, false, true, true, false, false, false, false, false, true, true, false, false, false},
+					{false, false, false, false, false, false, false, false, true, true, false, false, false, false, false},
+					{true, false, false, false, false, false, false, false, false, false, false, false, true, true, true},
+					{true, true, true, false, false, false, true, true, false, false, false, false, false, false, true},
+					{false, false, false, false, false, true, false, false, false, false, true, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, true, false, false, false, false, false},
+					{false, false, false, true, false, false, false, false, false, true, false, false, false, false, false},
+				}
+				assert.Equal(t, expected, puzzle.CellBlocks)
+			},
+		},
+		{
 			name:  "cell clue numbers",
 			input: load(t, "xwordinfo-success-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {

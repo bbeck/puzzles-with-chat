@@ -121,6 +121,15 @@ func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 		}
 	}
 
+	var blocks [][]bool
+	for row := 0; row < raw.Size.Rows; row++ {
+		blocks = append(blocks, make([]bool, raw.Size.Cols))
+		for col := 0; col < raw.Size.Cols; col++ {
+			index := row*raw.Size.Cols + col
+			blocks[row][col] = raw.Grid[index] == "."
+		}
+	}
+
 	var numbers [][]int
 	for row := 0; row < raw.Size.Rows; row++ {
 		numbers = append(numbers, make([]int, raw.Size.Cols))
@@ -174,6 +183,7 @@ func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 	puzzle.PublishedDate = published
 	puzzle.Author = raw.Author
 	puzzle.Cells = cells
+	puzzle.CellBlocks = blocks
 	puzzle.CellClueNumbers = numbers
 	puzzle.CellCircles = circles
 	puzzle.CluesAcross = across

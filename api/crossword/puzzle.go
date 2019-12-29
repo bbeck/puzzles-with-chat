@@ -37,6 +37,13 @@ type Puzzle struct {
 	// of the cell.
 	Cells [][]string `json:"cells,omitempty"`
 
+	// The block attribute for each of the cells in the crossword as a 2D list.
+	// Cells that cannot be inputted into will contain an entry of true, all other
+	// cells will contain an entry of false.  Like cells the 2D list is first
+	// indexed by the row coordinate of the cell and then by the column
+	// coordinate.
+	CellBlocks [][]bool `json:"cell_blocks"`
+
 	// The clue numbers for each of the cells in the crossword as a 2D list.
 	// Cells that cannot be inputted into or that don't have a clue number will
 	// contain an entry of 0.  Like cells the 2D list is first indexed by the row
@@ -63,12 +70,24 @@ type Puzzle struct {
 	Notes string `json:"notes"`
 }
 
-// WithSolutionHidden temporarily removes the solution cells of the puzzle and
-// passes it to the provided callback.  After the callback is returned, the
-// solution cells are restored.
-func (p *Puzzle) WithSolutionHidden(fn func(*Puzzle)) {
-	cells := p.Cells
-	p.Cells = nil
-	fn(p)
-	p.Cells = cells
+// WithoutSolution returns a copy of the puzzle that has the solution cells
+// missing.  This makes it suitable to pass to a client that shouldn't know the
+// answers to the puzzle.
+func (p *Puzzle) WithoutSolution() *Puzzle {
+	var newPuzzle Puzzle
+	newPuzzle.Rows = p.Rows
+	newPuzzle.Cols = p.Cols
+	newPuzzle.Title = p.Title
+	newPuzzle.Publisher = p.Publisher
+	newPuzzle.PublishedDate = p.PublishedDate
+	newPuzzle.Author = p.Author
+	newPuzzle.Cells = nil
+	newPuzzle.CellBlocks = p.CellBlocks
+	newPuzzle.CellClueNumbers = p.CellClueNumbers
+	newPuzzle.CellCircles = p.CellCircles
+	newPuzzle.CluesAcross = p.CluesAcross
+	newPuzzle.CluesDown = p.CluesDown
+	newPuzzle.Notes = p.Notes
+
+	return &newPuzzle
 }

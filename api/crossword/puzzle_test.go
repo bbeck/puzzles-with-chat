@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPuzzle_WithSolutionHidden(t *testing.T) {
+func TestPuzzle_WithoutSolution(t *testing.T) {
 	tests := []struct {
 		name  string
 		cells [][]string
@@ -30,11 +30,8 @@ func TestPuzzle_WithSolutionHidden(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			p := &Puzzle{Cells: test.cells}
-			p.WithSolutionHidden(func(puzzle *Puzzle) {
-				assert.Nil(t, puzzle.Cells)
-			})
-			assert.Equal(t, test.cells, p.Cells)
+			puzzle := &Puzzle{Cells: test.cells}
+			assert.Nil(t, puzzle.WithoutSolution().Cells)
 		})
 	}
 }
