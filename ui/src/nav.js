@@ -22,7 +22,7 @@ export function Nav(props) {
         <StartPauseButton/>
         <ViewsDropdown channel={props.channel}/>
         <SettingsDropdown channel={props.channel} settings={props.settings}/>
-        <PuzzleDropdown/>
+        <PuzzleDropdown channel={props.channel}/>
       </ul>
     </nav>
   );
@@ -183,7 +183,19 @@ function SettingsDropdown(props) {
   );
 }
 
-function PuzzleDropdown() {
+function PuzzleDropdown(props) {
+  // Set the date of the puzzle to use
+  const onSetPuzzleDate = (e) => {
+    const elem = document.getElementById("puzzle-date-input");
+    const date = elem.value;
+
+    fetch(`/api/channel/${props.channel}/puzzle/date`,
+      {
+        method: "PUT",
+        body: JSON.stringify({"date": date}),
+      });
+  };
+
   return (
     <li className="nav-item dropdown">
       <button type="button" className="btn btn-dark dropdown-toggle" data-toggle="dropdown">
@@ -200,9 +212,9 @@ function PuzzleDropdown() {
               </small>
             </div>
             <div className="input-group">
-              <input type="date" className="form-control"/>
+              <input id="puzzle-date-input" type="date" className="form-control"/>
               <div className="input-group-append">
-                <button type="button" className="btn btn-dark">Load
+                <button type="button" className="btn btn-dark" onClick={onSetPuzzleDate}>Load
                 </button>
               </div>
             </div>
