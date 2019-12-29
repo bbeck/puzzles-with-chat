@@ -1,7 +1,8 @@
 import React from "react";
 import {Router} from "@reach/router";
-import {Nav} from "./nav";
+import {Crossword} from "./crossword";
 import {EventStream} from "./event-stream";
+import {Nav} from "./nav";
 
 function App() {
   return (
@@ -71,6 +72,8 @@ function Channel(props) {
     only_allow_correct_answers: false,
   });
 
+  const [state, setState] = React.useState({});
+
   React.useEffect(() => {
     events.setHandler(message => {
       const event = JSON.parse(message.data);
@@ -78,14 +81,18 @@ function Channel(props) {
       if (event.kind === "settings") {
         setSettings(event.payload);
       }
+
+      if (event.kind === "state") {
+        setState(event.payload);
+      }
     });
-  }, [events, setEventStream, setSettings]);
+  }, [events, setEventStream, setSettings, setState]);
 
 
   return (
     <React.Fragment>
       <Nav channel={props.channel} view={props.view} settings={settings}/>
-      <h1>Channel view</h1>
+      <Crossword view={props.view} state={state}/>
     </React.Fragment>
   );
 }
