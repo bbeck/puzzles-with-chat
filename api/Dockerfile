@@ -5,7 +5,6 @@ FROM golang:1.13-alpine AS development
 
 # Environment variables
 ENV CGO_ENABLED=0
-ENV GO111MODULE=on
 
 VOLUME /src
 WORKDIR /src
