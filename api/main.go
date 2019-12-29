@@ -12,6 +12,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 
 	"github.com/bbeck/twitch-plays-crosswords/api/channel"
+	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
 )
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 
 	// Register handlers for our paths.
 	api := router.Group("/api")
+	api.PUT("/channel/:channel/puzzle/date", UpdatePuzzleDate(pool, registry))
 	api.PUT("/channel/:channel/settings/:setting", UpdateChannelSetting(pool, registry))
 	api.GET("/channel/:channel/events", ChannelEventsHandler(pool, registry))
 
@@ -52,6 +54,65 @@ func NewRedisPool() *redis.Pool {
 			_, err := c.Do("PING")
 			return err
 		},
+	}
+}
+
+func UpdatePuzzleDate(pool *redis.Pool, registry *ClientRegistry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		channelName := c.Param("channel")
+
+		var payload map[string]string
+		if err := c.BindJSON(&payload); err != nil {
+			err = fmt.Errorf("unable to read request body: %+v", err)
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+
+		var puzzle *crossword.Puzzle
+		if payload["date"] != "" {
+			date := payload["date"]
+			p, err := crossword.LoadFromNewYorkTimes(date)
+			if err != nil {
+				err = fmt.Errorf("unable to load NYT puzzle for date %s: %+v", date, err)
+				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+
+			puzzle = p
+		}
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		// Save the puzzle to this channel's state
+		cells := make([][]string, puzzle.Rows)
+		for row := 0; row < puzzle.Rows; row++ {
+			cells[row] = make([]string, puzzle.Cols)
+		}
+
+		state := &channel.State{
+			Status:            channel.StatusCreated,
+			Puzzle:            puzzle,
+			Cells:             cells,
+			AcrossCluesFilled: make(map[int]bool),
+			DownCluesFilled:   make(map[int]bool),
+		}
+		if err := channel.SetState(conn, channelName, state); err != nil {
+			err = fmt.Errorf("unable to save puzzle puzzle for channel %s: %+v", channelName, err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		// Broadcast to all of the clients that the puzzle has been selected, making
+		// sure to not include the answers.  It's okay to overwrite the puzzle
+		// attribute because we just loaded this state instance from the database
+		// and will be discarding it immediately.
+		state.Puzzle = state.Puzzle.WithoutSolution()
+
+		registry.BroadcastEvent(channelName, Event{
+			Kind:    "state",
+			Payload: state,
+		})
 	}
 }
 
@@ -109,8 +170,7 @@ func UpdateChannelSetting(pool *redis.Pool, registry *ClientRegistry) gin.Handle
 		}
 
 		// Save the settings back to the database.
-		err = channel.SetSettings(conn, channelName, settings)
-		if err != nil {
+		if err = channel.SetSettings(conn, channelName, settings); err != nil {
 			err = fmt.Errorf("unable to save settings for channel %s: %+v", channelName, err)
 			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
@@ -157,7 +217,23 @@ func ChannelEventsHandler(pool *redis.Pool, registry *ClientRegistry) gin.Handle
 		}
 
 		// TODO: Send a periodic ping to keep the connection open?
-		// TODO: Send the current state of the puzzle if one is being solved.
+
+		// Send the current state of the puzzle if one is being solved, but make
+		// sure to mask the solution to the puzzle.
+		state, err := channel.GetState(conn, channelName)
+		if err != nil {
+			err = fmt.Errorf("unable to read state for channel %s: %+v", channelName, err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		if state.Puzzle != nil {
+			state.Puzzle = state.Puzzle.WithoutSolution()
+
+			stream <- Event{
+				Kind:    "state",
+				Payload: state,
+			}
+		}
 
 		// Register this client with the registry so that it can receive events for
 		// the channel.
