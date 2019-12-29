@@ -92,7 +92,7 @@ function Channel(props) {
   return (
     <React.Fragment>
       <Nav channel={props.channel} view={props.view} settings={settings}/>
-      <Crossword view={props.view} state={state}/>
+      <Crossword view={props.view} state={state} settings={settings}/>
     </React.Fragment>
   );
 }

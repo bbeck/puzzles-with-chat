@@ -6,13 +6,14 @@ import "./crossword.css";
 export function Crossword(props) {
   const state = props.state;
   const puzzle = state && state.puzzle;
+  const settings = props.settings;
+  const view = props.view;
+
   if (!state || !puzzle) {
     return (
       <h1>Crossword goes here</h1>
     );
   }
-
-  const view = props.view;
 
   return (
     <div id="crossword" data-size={Math.max(puzzle.cols, puzzle.rows)}>
@@ -27,6 +28,8 @@ export function Crossword(props) {
         down_clues={puzzle.clues_down}
         down_clues_filled={state.down_clues_filled}
         notes={puzzle.notes}
+        clue_font_size={settings.clue_font_size}
+        clues_to_show={settings.clues_to_show}
       />
     </div>
   );
@@ -113,26 +116,42 @@ function Clues(props) {
   const across_clues_filled = props.across_clues_filled;
   const down_clues = props.down_clues;
   const down_clues_filled = props.down_clues_filled;
-  const notes = props.notes || "";
+  const clue_notes = props.notes || "";
+  const clues_to_show = props.clues_to_show;
+  const clue_font_size = props.clue_font_size;
+
+  let across;
+  if (clues_to_show === "all" || clues_to_show === "across") {
+    across = <div className="across">
+      <div className="clue-title">Across</div>
+      <div id="across-clues" className="clue-list">
+        <ClueList clues={across_clues} filled={across_clues_filled} side="a"/>
+      </div>
+    </div>;
+  }
+
+  let down;
+  if (clues_to_show === "all" || clues_to_show === "down") {
+    down = <div className="down">
+      <div className="clue-title">Down</div>
+      <div id="down-clues" className="clue-list">
+        <ClueList clues={down_clues} filled={down_clues_filled} side="d"/>
+      </div>
+    </div>;
+  }
+
+  let notes;
+  if (clues_to_show !== "none") {
+    notes = <div id="clue-notes" className="notes" dangerouslySetInnerHTML={{__html: clue_notes}}/>;
+  }
 
   return (
-    // TODO: fix this font size
-    <div className="clues" data-font-size="normal">
+    <div className="clues" data-font-size={clue_font_size}>
       <div className="content">
-        <div className="across">
-          <div className="clue-title">Across</div>
-          <div id="across-clues" className="clue-list">
-            <ClueList clues={across_clues} filled={across_clues_filled} side="a"/>
-          </div>
-        </div>
-        <div className="down">
-          <div className="clue-title">Down</div>
-          <div id="down-clues" className="clue-list">
-            <ClueList clues={down_clues} filled={down_clues_filled} side="d"/>
-          </div>
-        </div>
+        {across}
+        {down}
       </div>
-      <div id="clue-notes" className="notes" dangerouslySetInnerHTML={{__html: notes}}/>
+      {notes}
     </div>
   );
 }
