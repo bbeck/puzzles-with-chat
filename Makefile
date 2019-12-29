@@ -12,6 +12,7 @@ help:
 	@echo '  status   	show status of all services or just the one specified by service= argument'
 	@echo '  ps       	show status of all services or just the one specified by service= argument'
 	@echo '  logs     	show logs of all services or just the one specified by service= argument'
+	@echo '  redis-cli  connect to the redis datastore'
 	@echo ''
 
 .PHONY: up
@@ -46,3 +47,7 @@ ps:
 .PHONY: logs
 logs:
 	@docker-compose logs --tail=100 -f $(service)
+
+.PHONE: redis-cli
+redis-cli:
+	@docker-compose exec redis redis-cli

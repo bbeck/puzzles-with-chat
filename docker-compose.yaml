@@ -11,6 +11,7 @@ services:
           nocopy: true
     ports:
       - 6379:6379/tcp
+    restart: unless-stopped
 
   api:
     build:
