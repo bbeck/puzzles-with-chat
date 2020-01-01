@@ -5,8 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -602,13 +600,8 @@ func TestFetch_Error(t *testing.T) {
 	}
 }
 
-func load(t *testing.T, filename string) io.ReadCloser {
-	f, err := os.Open(filepath.Join("testdata", filename))
-	require.NoError(t, err)
-	return f
-}
-
 func toString(t *testing.T, r io.ReadCloser) string {
+	t.Helper()
 	defer func() { _ = r.Close() }()
 
 	buf := bytes.NewBuffer(nil)
