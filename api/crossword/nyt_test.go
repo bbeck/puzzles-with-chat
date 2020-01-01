@@ -3,9 +3,9 @@ package crossword
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -121,7 +121,7 @@ func TestParseXWordInfoClue_Error(t *testing.T) {
 func TestParseXWordInfoResponse(t *testing.T) {
 	tests := []struct {
 		name   string
-		input  io.Reader
+		input  io.ReadCloser
 		verify func(t *testing.T, puzzle *Puzzle)
 	}{
 		{
@@ -458,6 +458,8 @@ func TestParseXWordInfoResponse(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			defer func() { _ = test.input.Close() }()
+
 			puzzle, err := ParseXWordInfoResponse(test.input)
 			require.NoError(t, err)
 			test.verify(t, puzzle)
@@ -600,15 +602,15 @@ func TestFetch_Error(t *testing.T) {
 	}
 }
 
-func load(t *testing.T, filename string) io.Reader {
-	path := filepath.Join("testdata", filename)
-	bs, err := ioutil.ReadFile(path)
+func load(t *testing.T, filename string) io.ReadCloser {
+	f, err := os.Open(filepath.Join("testdata", filename))
 	require.NoError(t, err)
-
-	return bytes.NewReader(bs)
+	return f
 }
 
-func toString(t *testing.T, r io.Reader) string {
+func toString(t *testing.T, r io.ReadCloser) string {
+	defer func() { _ = r.Close() }()
+
 	buf := bytes.NewBuffer(nil)
 	_, err := io.Copy(buf, r)
 	require.NoError(t, err)

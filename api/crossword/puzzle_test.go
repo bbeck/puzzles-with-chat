@@ -41,7 +41,7 @@ func TestPuzzle_WithoutSolution(t *testing.T) {
 func TestPuzzle_GetAnswerCoordinates(t *testing.T) {
 	tests := []struct {
 		name                       string
-		input                      io.Reader
+		input                      io.ReadCloser
 		num                        int
 		direction                  string
 		expectedMinX, expectedMinY int
@@ -111,6 +111,8 @@ func TestPuzzle_GetAnswerCoordinates(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			defer func() { _ = test.input.Close() }()
+
 			puzzle, err := ParseXWordInfoResponse(test.input)
 			require.NoError(t, err)
 
@@ -127,7 +129,7 @@ func TestPuzzle_GetAnswerCoordinates(t *testing.T) {
 func TestPuzzle_GetAnswerCoordinates_Error(t *testing.T) {
 	tests := []struct {
 		name      string
-		input     io.Reader
+		input     io.ReadCloser
 		num       int
 		direction string
 	}{
@@ -159,6 +161,8 @@ func TestPuzzle_GetAnswerCoordinates_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			defer func() { _ = test.input.Close() }()
+
 			puzzle, err := ParseXWordInfoResponse(test.input)
 			require.NoError(t, err)
 
