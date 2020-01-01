@@ -1,6 +1,7 @@
 package crossword
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -90,4 +91,54 @@ func (p *Puzzle) WithoutSolution() *Puzzle {
 	newPuzzle.Notes = p.Notes
 
 	return &newPuzzle
+}
+
+// GetAnswerCoordinates returns the min/max x/y coordinates for a clue.  If the
+// clue doesn't exist then an error is returned.
+func (p *Puzzle) GetAnswerCoordinates(num int, direction string) (int, int, int, int, error) {
+	// First, make sure this is a valid clue.
+	if direction == "a" {
+		_, ok := p.CluesAcross[num]
+		if !ok {
+			return 0, 0, 0, 0, fmt.Errorf("invalid clue %d%s", num, direction)
+		}
+	} else {
+		_, ok := p.CluesDown[num]
+		if !ok {
+			return 0, 0, 0, 0, fmt.Errorf("invalid clue %d%s", num, direction)
+		}
+	}
+
+	// Find the x, y coordinate where the answer begins.
+	var minX, minY int
+	for y := 0; y < p.Rows; y++ {
+		for x := 0; x < p.Cols; x++ {
+			if p.CellClueNumbers[y][x] == num {
+				minX = x
+				minY = y
+			}
+		}
+	}
+
+	// Determine the direction to step.
+	var dx, dy int
+	if direction == "a" {
+		dx = 1
+	} else {
+		dy = 1
+	}
+
+	// Now that we know the starting cell, let's traverse in the correct direction
+	// until we run into a black cell or the edge of the puzzle.
+	var maxX, maxY int
+	for x, y := minX, minY; x < p.Cols && y < p.Rows; x, y = x+dx, y+dy {
+		if p.CellBlocks[y][x] {
+			break
+		}
+
+		maxX = x
+		maxY = y
+	}
+
+	return minX, minY, maxX, maxY, nil
 }
