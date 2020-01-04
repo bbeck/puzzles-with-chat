@@ -3,6 +3,8 @@ package channel
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
@@ -36,6 +38,202 @@ type State struct {
 
 	// The total time spent on solving the puzzle up to the last start time.
 	TotalSolveDuration Duration `json:"total_solve_duration"`
+}
+
+// ApplyAnswer applies an answer for a clue to the state.  If the clue cannot
+// be identified or the answer doesn't fit property (too short or too long) then
+// an error will be returned.  If the onlyCorrect parameter is true then only
+// correct cells will be permitted and an error is returned if any part of the
+// answer is incorrect or would remove a correct cell.
+func (s *State) ApplyAnswer(clue string, answer string, onlyCorrect bool) error {
+	num, direction, err := ParseClue(clue)
+	if err != nil {
+		return err
+	}
+
+	cells, err := ParseAnswer(answer)
+	if err != nil {
+		return err
+	}
+
+	minX, minY, maxX, maxY, err := s.Puzzle.GetAnswerCoordinates(num, direction)
+	if err != nil {
+		return err
+	}
+
+	// Check to see if our cell values are compatible with the size of the answer.
+	if len(cells) != (maxX-minX)+(maxY-minY)+1 {
+		return fmt.Errorf("unable to apply answer %s to %s, incompatible sizes", answer, clue)
+	}
+
+	// Determine the way to iterate through the grid.
+	var dx, dy int
+	if direction == "a" {
+		dx = 1
+	} else {
+		dy = 1
+	}
+
+	// Check to see if the answer is correct when required.
+	if onlyCorrect {
+		for x, y := minX, minY; x <= maxX && y <= maxY; x, y = x+dx, y+dy {
+			existing := s.Cells[y][x]
+			expected := s.Puzzle.Cells[y][x]
+			desired := cells[y-minY+x-minX]
+
+			// We can't change a correct value to an incorrect or empty one.
+			if existing != "" && desired != existing {
+				return fmt.Errorf("unable to apply answer %s to %s, changes correct value", answer, clue)
+			}
+
+			// We can't write an incorrect value into a cell.
+			if desired != "" && desired != expected {
+				return fmt.Errorf("unable to apply answer %s to %s, incorrect", answer, clue)
+			}
+		}
+	}
+
+	// Write the cells of our answer.
+	for x, y := minX, minY; x <= maxX && y <= maxY; x, y = x+dx, y+dy {
+		s.Cells[y][x] = cells[y-minY+x-minX]
+	}
+
+	// Now that we've filled in an answer we may have completed one or more clues.
+	// Do a quick scan of all of the clues to make sure AcrossCluesFilled and
+	// DownCluesFilled are up to date.
+	for num := range s.Puzzle.CluesAcross {
+		minX, y, maxX, _, err := s.Puzzle.GetAnswerCoordinates(num, "a")
+		if err != nil {
+			return fmt.Errorf("somehow got invalid clue id %d from CluesAcross", num)
+		}
+
+		complete := true
+		for x := minX; x <= maxX; x++ {
+			if s.Cells[y][x] == "" {
+				complete = false
+				break
+			}
+		}
+
+		s.AcrossCluesFilled[num] = complete
+	}
+	for num := range s.Puzzle.CluesDown {
+		x, minY, _, maxY, err := s.Puzzle.GetAnswerCoordinates(num, "d")
+		if err != nil {
+			return fmt.Errorf("somehow got invalid clue id %d from CluesDown", num)
+		}
+
+		complete := true
+		for y := minY; y <= maxY; y++ {
+			if s.Cells[y][x] == "" {
+				complete = false
+				break
+			}
+		}
+
+		s.DownCluesFilled[num] = complete
+	}
+
+	// Also determine if the puzzle is finished with all correct answers and
+	// update the Status if so.
+	complete := true
+	for y := 0; y < s.Puzzle.Rows; y++ {
+		for x := 0; x < s.Puzzle.Cols; x++ {
+			if s.Cells[y][x] != s.Puzzle.Cells[y][x] {
+				complete = false
+			}
+		}
+	}
+	if complete {
+		s.Status = StatusComplete
+	}
+
+	// TODO: This method should probably also return information about whether or
+	// not the answer was correct, and if so how many clues where completed as a
+	// result of applying this answer.
+	return nil
+}
+
+// ParseClue parses the identifier of a clue into its number and direction.
+// If the clue cannot be parsed for some reason then an error will be returned.
+func ParseClue(clue string) (int, string, error) {
+	clue = strings.ToLower(strings.TrimSpace(clue))
+	if len(clue) <= 1 {
+		return 0, "", fmt.Errorf("unable to parse clue: %s", clue)
+	}
+
+	dir := clue[len(clue)-1:]
+	if dir != "a" && dir != "d" {
+		return 0, "", fmt.Errorf("unable to parse clue: %s", clue)
+	}
+
+	num, err := strconv.Atoi(clue[:len(clue)-1])
+	if err != nil {
+		return 0, "", fmt.Errorf("unable to parse clue: %s", clue)
+	}
+
+	return num, dir, nil
+}
+
+// ParseAnswer parses an answer string into a list of cell values.  The answer
+// string is parsed in such a way to look for cell values that contain multiple
+// characters (aka a rebus).  It does this by looking for parenthesized groups
+// of letters.  For example the string "(red)velvet" would be interpreted as
+// ["red", "v", "e", "l", "v", "e", "t"] and fit as the answer for a 7 cell
+// clue.
+//
+// Additionally if an answer contains a "." character anywhere that particular
+// cell will be left empty.  This allows strings like "....s" to be entered to
+// indicate that the answer is known to be plural, but the other letters aren't
+// known yet.  Within a rebus cell "." characters are kept as-is.
+//
+// Whitespace within answers is removed and ignored.  This makes it more natural
+// to specify answers like "red velvet cake".
+func ParseAnswer(answer string) ([]string, error) {
+	var cells []string
+	var inside bool
+
+	for _, c := range strings.ToUpper(answer) {
+		switch {
+		case c == ' ':
+			continue
+
+		case c == '(':
+			if inside {
+				return nil, fmt.Errorf("unable to parse answer, nested groups: %s", answer)
+			}
+			inside = true
+			cells = append(cells, "")
+
+		case c == ')':
+			if !inside {
+				return nil, fmt.Errorf("unable to parse answer, unbalanced parens: %s", answer)
+			}
+			inside = false
+
+		case inside:
+			if len(cells) != 0 {
+				cells[len(cells)-1] = cells[len(cells)-1] + string(c)
+			}
+
+		default:
+			if c != '.' {
+				cells = append(cells, string(c))
+			} else {
+				cells = append(cells, "")
+			}
+		}
+	}
+
+	if inside {
+		return nil, fmt.Errorf("unable to parse answer, unbalanced parens: %s", answer)
+	}
+
+	if len(cells) == 0 {
+		return nil, fmt.Errorf("unable to parse answer, empty cells: %s", answer)
+	}
+
+	return cells, nil
 }
 
 // The status of a channel's crossword solve.
