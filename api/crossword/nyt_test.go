@@ -456,7 +456,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer func() { _ = test.input.Close() }()
+			defer test.input.Close()
 
 			puzzle, err := ParseXWordInfoResponse(test.input)
 			require.NoError(t, err)
@@ -483,13 +483,13 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 			input: `{}`,
 		},
 		{
-			name:  "malformed published date",
-			input: `{"grid":["a","b","c","d"], "date":"hello world"}`,
+			name:  "malformed published json",
+			input: `{"grid":["a","b","c","d"], "json":"hello world"}`,
 		},
 		{
 			name: "malformed across clue",
 			input: `{
-								"date": "01/01/2019",
+								"json": "01/01/2019",
 								"grid": ["a","b","c","d"],
 								"clues": {
 									"across": [
@@ -506,7 +506,7 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 		{
 			name: "malformed down clue",
 			input: `{
-								"date": "01/01/2019",
+								"json": "01/01/2019",
 								"grid": ["a","b","c","d"],
 								"clues": {
 									"across": [
@@ -542,7 +542,7 @@ func TestFetch(t *testing.T) {
 
 	response, err := fetch(XWordInfoHTTPClient, server.URL)
 	if response != nil {
-		defer func() { _ = response.Body.Close() }()
+		defer response.Body.Close()
 	}
 	require.NoError(t, err)
 }
@@ -593,7 +593,7 @@ func TestFetch_Error(t *testing.T) {
 
 			response, err := fetch(client, url)
 			if response != nil {
-				defer func() { _ = response.Body.Close() }()
+				defer response.Body.Close()
 			}
 			require.Error(t, err)
 		})
@@ -602,7 +602,7 @@ func TestFetch_Error(t *testing.T) {
 
 func toString(t *testing.T, r io.ReadCloser) string {
 	t.Helper()
-	defer func() { _ = r.Close() }()
+	defer r.Close()
 
 	buf := bytes.NewBuffer(nil)
 	_, err := io.Copy(buf, r)

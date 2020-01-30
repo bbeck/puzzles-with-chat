@@ -1,4 +1,4 @@
-package channel
+package crossword
 
 import (
 	"encoding/json"
@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
 )
 
 // State represents the state of an active channel that is attempting to solve
@@ -18,18 +16,18 @@ type State struct {
 
 	// The crossword puzzle that's being solved.  May not always be present, for
 	// example when the state is being serialized to be sent to the browser.
-	Puzzle *crossword.Puzzle `json:"puzzle,omitempty"`
+	Puzzle *Puzzle `json:"puzzle,omitempty"`
 
 	// The currently filled in cells of the crossword.
-	Cells [][]string `json:"cells,omitempty"`
+	Cells [][]string `json:"cells"`
 
 	// Whether or not an across clue with a given clue number has had an answer
 	// filled in.
-	AcrossCluesFilled map[int]bool `json:"across_clues_filled,omitempty"`
+	AcrossCluesFilled map[int]bool `json:"across_clues_filled"`
 
 	// Whether or not a down clue with a given clue number has had an answer
 	// filled in.
-	DownCluesFilled map[int]bool `json:"down_clues_filled,omitempty"`
+	DownCluesFilled map[int]bool `json:"down_clues_filled"`
 
 	// The time that we last started or resumed solving the puzzle.  If the
 	// channel has not yet started solving the puzzle or is in a non-playing state

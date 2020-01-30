@@ -1,4 +1,4 @@
-package channel
+package crossword
 
 import (
 	"encoding/json"

@@ -1,4 +1,4 @@
-package channel
+package crossword
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ func TestGetState(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name     string
@@ -78,7 +78,7 @@ func TestGetState_UpdatesTTL(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name     string
@@ -132,7 +132,7 @@ func TestGetState_Error(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name    string
@@ -188,7 +188,7 @@ func TestSetState(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name    string
@@ -232,7 +232,7 @@ func TestSetState_Error(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name    string

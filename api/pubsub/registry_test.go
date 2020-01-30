@@ -1,16 +1,15 @@
-package main
+package pubsub
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
-func TestClientRegistry_RegisterClient_Error(t *testing.T) {
+func TestRegistry_Subscribe_Error(t *testing.T) {
 	tests := []struct {
 		name    string
-		channel string
+		channel Channel
 		stream  chan Event
 	}{
 		{
@@ -32,62 +31,62 @@ func TestClientRegistry_RegisterClient_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			registry := new(ClientRegistry)
+			registry := new(Registry)
 
-			_, err := registry.RegisterClient(test.channel, test.stream)
+			_, err := registry.Subscribe(test.channel, test.stream)
 			assert.Error(t, err)
 		})
 	}
 }
 
-func TestClientRegistry_DeregisterClient_DeregisteredClientStopsReceivingEvents(t *testing.T) {
-	registry := new(ClientRegistry)
+func TestRegistry_Unsubscribe_ClientStopsReceivingEvents(t *testing.T) {
+	registry := new(Registry)
 
 	stream := make(chan Event, 1)
-	id, err := registry.RegisterClient("channel", stream)
+	id, err := registry.Subscribe("channel", stream)
 	require.NoError(t, err)
 
-	registry.BroadcastEvent("channel", Event{})
+	registry.Publish("channel", Event{})
 	assert.Equal(t, 1, len(receiveAll(stream)))
 
-	registry.DeregisterClient("channel", id)
+	registry.Unsubscribe("channel", id)
 
-	registry.BroadcastEvent("channel", Event{})
+	registry.Publish("channel", Event{})
 	assert.Equal(t, 0, len(receiveAll(stream)))
 }
 
-func TestClientRegistry_DeregisterClient_MultipleTimes(t *testing.T) {
-	registry := new(ClientRegistry)
+func TestRegistry_Unsubscribe_EmptyRegistry(t *testing.T) {
+	registry := new(Registry)
+	registry.Unsubscribe("channel", "id")
+}
 
-	id, err := registry.RegisterClient("channel", make(chan Event, 1))
+func TestRegistry_Unsubscribe_NonExistingClientID(t *testing.T) {
+	registry := new(Registry)
+
+	_, err := registry.Subscribe("channel", make(chan Event, 1))
 	require.NoError(t, err)
 
-	registry.DeregisterClient("channel", id)
-	registry.DeregisterClient("channel", id)
+	registry.Unsubscribe("channel", "id")
 }
 
-func TestClientRegistry_DeregisterClient_NonExistingId(t *testing.T) {
-	registry := new(ClientRegistry)
+func TestRegistry_Unsubscribe_MultipleTimes(t *testing.T) {
+	registry := new(Registry)
 
-	_, err := registry.RegisterClient("channel", make(chan Event, 1))
+	id, err := registry.Subscribe("channel", make(chan Event, 1))
 	require.NoError(t, err)
 
-	registry.DeregisterClient("channel", "id")
+	registry.Unsubscribe("channel", id)
+	registry.Unsubscribe("channel", id)
 }
 
-func TestClientRegistry_DeregisterClient_EmptyRegistry(t *testing.T) {
-	registry := new(ClientRegistry)
-	registry.DeregisterClient("channel", "id")
-}
-
-func TestClientRegistry_BroadcastEvent(t *testing.T) {
+func TestRegistry_Publish(t *testing.T) {
 	type client struct {
-		channel  string
+		channel  Channel
 		expected []string
 	}
 
 	type event struct {
-		channel string
+		channel Channel
 		kind    string
 	}
 
@@ -136,20 +135,20 @@ func TestClientRegistry_BroadcastEvent(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			require.True(t, len(test.events) > 0)
 
-			registry := new(ClientRegistry)
+			registry := new(Registry)
 
 			// Create the streams for each client and register them with the registry.
 			streams := make([]chan Event, len(test.clients))
 			for i, client := range test.clients {
 				streams[i] = make(chan Event, len(test.events))
 
-				_, err := registry.RegisterClient(client.channel, streams[i])
+				_, err := registry.Subscribe(client.channel, streams[i])
 				require.NoError(t, err)
 			}
 
 			// Push all of the events to the registry.
 			for _, event := range test.events {
-				registry.BroadcastEvent(event.channel, Event{Kind: event.kind})
+				registry.Publish(event.channel, Event{Kind: event.kind})
 			}
 
 			// Verify that each client received its expected set of events.
@@ -164,19 +163,19 @@ func TestClientRegistry_BroadcastEvent(t *testing.T) {
 	}
 }
 
-func TestClientRegistry_BroadcastEvent_SkipsFullStream(t *testing.T) {
-	registry := new(ClientRegistry)
+func TestRegistry_Publish_SkipsPublishWhenStreamIsFull(t *testing.T) {
+	registry := new(Registry)
 
 	stream1 := make(chan Event, 1)
-	_, err1 := registry.RegisterClient("channel", stream1)
+	_, err1 := registry.Subscribe("channel", stream1)
 	require.NoError(t, err1)
 
 	stream2 := make(chan Event, 2)
-	_, err2 := registry.RegisterClient("channel", stream2)
+	_, err2 := registry.Subscribe("channel", stream2)
 	require.NoError(t, err2)
 
-	registry.BroadcastEvent("channel", Event{})
-	registry.BroadcastEvent("channel", Event{})
+	registry.Publish("channel", Event{})
+	registry.Publish("channel", Event{})
 
 	assert.Equal(t, 1, len(receiveAll(stream1)))
 	assert.Equal(t, 2, len(receiveAll(stream2)))

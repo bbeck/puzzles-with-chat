@@ -1,4 +1,4 @@
-package channel
+package crossword
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 // SettingsKey returns the key that should be used in redis to store a
 // particular channel's settings.
 func SettingsKey(name string) string {
-	return fmt.Sprintf("settings:%s", name)
+	return fmt.Sprintf("%s:crossword:settings", name)
 }
 
 // GetSettings will load settings for the provided channel name.  If the

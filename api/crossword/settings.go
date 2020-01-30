@@ -1,4 +1,4 @@
-package channel
+package crossword
 
 import (
 	"encoding/json"
@@ -6,7 +6,7 @@ import (
 )
 
 // Settings represents the optional behaviors that can be enabled or disabled
-// by a streamer for their channel.
+// by a streamer for their channel's crossword solves.
 type Settings struct {
 	// When enabled only correct answers will be filled into the puzzle grid.
 	OnlyAllowCorrectAnswers bool `json:"only_allow_correct_answers"`

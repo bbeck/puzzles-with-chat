@@ -1,4 +1,4 @@
-package channel
+package crossword
 
 import (
 	"testing"
@@ -15,7 +15,7 @@ func TestGetSettings(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name     string
@@ -94,7 +94,7 @@ func TestGetSettings_Error(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name    string
@@ -150,7 +150,7 @@ func TestSetSettings(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name     string
@@ -191,7 +191,7 @@ func TestSetSettings_Error(t *testing.T) {
 
 	c, err := redis.Dial("tcp", s.Addr())
 	require.NoError(t, err)
-	defer func() { _ = c.Close() }()
+	defer c.Close()
 
 	tests := []struct {
 		name     string

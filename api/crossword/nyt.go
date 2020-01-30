@@ -16,8 +16,13 @@ var XWordInfoHTTPClient = &http.Client{
 	Timeout: 5 * time.Second,
 }
 
+// A cache of puzzles to use instead of fetching form the xwordinfo site indexed
+// by date.  If an entry is int he cache then it's value will be returned from
+// LoadFromNewYorkTimes without making a network call.
+var XWordInfoPuzzleCache = make(map[string]*Puzzle)
+
 // LoadFromNewYorkTimes loads a crossword puzzle from the New York Times for a
-// particular date.
+// particular json.
 //
 // This method uses the xwordinfo.com JSON API to load a New York Times
 // crossword puzzle.  While organized slightly differently from the XPF API the
@@ -26,8 +31,16 @@ var XWordInfoHTTPClient = &http.Client{
 //
 // If the puzzle cannot be loaded or parsed then an error is returned.
 func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
-	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/Data.aspx?date=%s", date)
+	if puzzle, ok := XWordInfoPuzzleCache[date]; ok {
+		var err error
+		if puzzle == nil {
+			err = fmt.Errorf("nil puzzle for cache entry %s", date)
+		}
 
+		return puzzle, err
+	}
+
+	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/Data.aspx?date=%s", date)
 	response, err := fetch(XWordInfoHTTPClient, url)
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()

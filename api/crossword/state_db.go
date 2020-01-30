@@ -1,4 +1,4 @@
-package channel
+package crossword
 
 import (
 	"encoding/json"
@@ -12,15 +12,15 @@ import (
 var StateTTL = 4 * time.Hour
 
 // StateKey returns the key that should be used in redis to store a particular
-// channel's state.
+// crossword solve's state.
 func StateKey(name string) string {
-	return fmt.Sprintf("state:%s", name)
+	return fmt.Sprintf("%s:crossword:state", name)
 }
 
-// GetState loads the state for a channel from redis.  If the state can't be
-// loaded then an error will be returned.  If there is no state, then the zero
-// value will be returned.  After a state is read, its expiration time is
-// automatically updated.
+// GetState loads the state for a crossword solve from redis.  If the state
+// can't be loaded then an error will be returned.  If there is no state, then
+// the zero value will be returned.  After a state is read, its expiration time
+// is automatically updated.
 func GetState(c redis.Conn, name string) (*State, error) {
 	var state State
 
@@ -47,8 +47,8 @@ func GetState(c redis.Conn, name string) (*State, error) {
 	return &state, json.Unmarshal(bs, &state)
 }
 
-// SetState writes the state for a channel to redis.  If the settings can't be
-// property written then an error will be returned.
+// SetState writes the state for a channel's crossword solve to redis.  If the
+// settings can't be property written then an error will be returned.
 func SetState(c redis.Conn, name string, state *State) error {
 	if state == nil {
 		return errors.New("cannot save nil state")

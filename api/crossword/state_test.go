@@ -1,11 +1,10 @@
-package channel
+package crossword
 
 import (
 	"encoding/json"
 	"testing"
 	"time"
 
-	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +19,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 	}{
 		{
 			name:   "across answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -33,7 +32,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "down answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1d",
 			answer: "QTIP",
 			verify: func(t *testing.T, state *State) {
@@ -45,7 +44,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "overwriting across answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "XXXXX",
 			verify: func(t *testing.T, state *State) {
@@ -61,7 +60,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "overwriting down answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1d",
 			answer: "XXXX",
 			verify: func(t *testing.T, state *State) {
@@ -76,7 +75,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "unknown letters",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: ". AND .",
 			verify: func(t *testing.T, state *State) {
@@ -89,7 +88,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "delete part of answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "A AND Q",
 			verify: func(t *testing.T, state *State) {
@@ -105,7 +104,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "rebus",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "(RED)AND(BLUE)",
 			verify: func(t *testing.T, state *State) {
@@ -138,25 +137,25 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 	}{
 		{
 			name:   "across answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 		},
 		{
 			name:   "down answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1d",
 			answer: "QTIP",
 		},
 		{
 			name:   "unknown letters",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: ". AND .",
 		},
 		{
 			name:   "can specify unknown letters",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: ". AND .",
 			verify: func(t *testing.T, state *State) {
@@ -195,13 +194,13 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 	}{
 		{
 			name:   "cannot specify incorrect cell",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "R AND A",
 		},
 		{
 			name:   "cannot change correct cell",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State, err error) {
@@ -211,7 +210,7 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 		},
 		{
 			name:   "cannot clear correct cell",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State, err error) {
@@ -221,7 +220,7 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 		},
 		{
 			name:   "cannot incorrectly specify missing cell",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: ". AND A",
 			verify: func(t *testing.T, state *State, err error) {
@@ -255,7 +254,7 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 	}{
 		{
 			name:   "across answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -274,7 +273,7 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 		},
 		{
 			name:   "down answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1d",
 			answer: "QTIP",
 			verify: func(t *testing.T, state *State) {
@@ -293,7 +292,7 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 		},
 		{
 			name:   "across answer completes multiple down clues",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -319,7 +318,7 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 		},
 		{
 			name:   "down answer completes multiple across clues",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1d",
 			answer: "QTIP",
 			verify: func(t *testing.T, state *State) {
@@ -356,7 +355,7 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 	}{
 		{
 			name:   "single answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -365,7 +364,7 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 		},
 		{
 			name:   "complete and correct puzzle",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -406,7 +405,7 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 		},
 		{
 			name:   "complete and incorrect puzzle",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -466,37 +465,37 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 	}{
 		{
 			name:   "bad clue",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "xyz",
 			answer: "ABC",
 		},
 		{
 			name:   "invalid clue",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "199a",
 			answer: "ABC",
 		},
 		{
 			name:   "bad answer",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: ")Q AND A",
 		},
 		{
 			name:   "answer too short",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "ABC",
 		},
 		{
 			name:   "answer too long",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 		},
 		{
 			name:   "answer too short (rebus)",
-			puzzle: "xwordinfo-20181231.json",
+			puzzle: "xwordinfo-success-20181231.json",
 			clue:   "1a",
 			answer: "(Q AND A)",
 		},
@@ -931,7 +930,7 @@ func TestDuration_UnmarshalJSON_Error(t *testing.T) {
 
 func newState(t *testing.T, filename string) *State {
 	var s State
-	s.Puzzle = crossword.LoadTestPuzzle(t, filename)
+	s.Puzzle = LoadTestPuzzle(t, filename)
 
 	for y := 0; y < s.Puzzle.Rows; y++ {
 		s.Cells = append(s.Cells, make([]string, s.Puzzle.Cols))

@@ -111,7 +111,7 @@ func TestPuzzle_GetAnswerCoordinates(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer func() { _ = test.input.Close() }()
+			defer test.input.Close()
 
 			puzzle, err := ParseXWordInfoResponse(test.input)
 			require.NoError(t, err)
@@ -161,7 +161,7 @@ func TestPuzzle_GetAnswerCoordinates_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer func() { _ = test.input.Close() }()
+			defer test.input.Close()
 
 			puzzle, err := ParseXWordInfoResponse(test.input)
 			require.NoError(t, err)
