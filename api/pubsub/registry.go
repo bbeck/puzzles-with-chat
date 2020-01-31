@@ -56,6 +56,10 @@ func (r *Registry) Subscribe(channel Channel, stream chan<- Event) (ClientID, er
 		return "", errors.New("event stream must have a non-zero capacity")
 	}
 
+	// Generate a new id for the client, do this before acquiring the lock to
+	// minimize the amount of time that we hold the lock.
+	id := ClientID(xid.New().String())
+
 	r.Lock()
 	defer r.Unlock()
 
@@ -69,13 +73,12 @@ func (r *Registry) Subscribe(channel Channel, stream chan<- Event) (ClientID, er
 		r.streams[channel] = channelStreams
 	}
 
-	// Generate a new id for the client
-	id := ClientID(xid.New().String())
 	channelStreams[id] = stream
-
 	return id, nil
 }
 
+// Unsubscribe removes a client from a particular channel.  Once this method
+// returns no further events will be received on that client's stream.
 func (r *Registry) Unsubscribe(channel Channel, id ClientID) {
 	r.Lock()
 	defer r.Unlock()
@@ -88,6 +91,8 @@ func (r *Registry) Unsubscribe(channel Channel, id ClientID) {
 	delete(r.streams[channel], id)
 }
 
+// Publish sends an event to all subscribed clients of a given channel.  If a
+// client's stream is full the event will be skipped.
 func (r *Registry) Publish(channel Channel, event Event) {
 	r.Lock()
 	defer r.Unlock()
@@ -104,7 +109,6 @@ func (r *Registry) Publish(channel Channel, event Event) {
 		select {
 		case stream <- event: // success
 		default: // failure
-			// TODO: Return an error of some sort here?
 		}
 	}
 }
