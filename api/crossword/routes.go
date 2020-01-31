@@ -53,6 +53,7 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc 
 		}
 
 		// Apply the update to the settings in memory.
+		var shouldClearIncorrectCells bool
 		switch setting {
 		case "only_allow_correct_answers":
 			var value bool
@@ -62,7 +63,7 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc 
 				return
 			}
 			settings.OnlyAllowCorrectAnswers = value
-			// TODO: When changing this setting from false -> true if there is an active solve then update its state to clear any incorrect cells.
+			shouldClearIncorrectCells = value
 
 		case "clues_to_show":
 			var value ClueVisibility
@@ -95,11 +96,53 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc 
 			return
 		}
 
+		// Load the state and clear any incorrect cells if we changed a setting that
+		// requires this.  We do this after the setting is applied so that if there
+		// was an error earlier we don't modify the solve's state.
+		var updatedState *State
+		if shouldClearIncorrectCells {
+			state, err := GetState(conn, channel)
+			if err != nil {
+				err = fmt.Errorf("unable to load state for channel %s: %+v", channel, err)
+				_ = c.AbortWithError(http.StatusNotFound, err)
+				return
+			}
+
+			// There's no need to update cells if the puzzle hasn't been started yet
+			// or is already complete.
+			if state.Status != StatusCreated && state.Status != StatusComplete {
+				if err := state.ClearIncorrectCells(); err != nil {
+					err = fmt.Errorf("unable to clear incorrect cells for channel: %s: %+v", channel, err)
+					_ = c.AbortWithError(http.StatusInternalServerError, err)
+					return
+				}
+
+				if err := SetState(conn, channel, state); err != nil {
+					err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)
+					_ = c.AbortWithError(http.StatusInternalServerError, err)
+					return
+				}
+
+				updatedState = state
+			}
+		}
+
 		// Now broadcast the new settings to all of the clients in the channel.
 		registry.Publish(pubsub.Channel(channel), pubsub.Event{
 			Kind:    "settings",
 			Payload: settings,
 		})
+
+		if updatedState != nil {
+			// Broadcast the updated state to all of the clients, making sure to not
+			// include the answers.
+			updatedState.Puzzle = updatedState.Puzzle.WithoutSolution()
+
+			registry.Publish(pubsub.Channel(channel), pubsub.Event{
+				Kind:    "state",
+				Payload: updatedState,
+			})
+		}
 	}
 }
 

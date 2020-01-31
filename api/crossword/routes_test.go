@@ -66,6 +66,93 @@ func TestRoute_UpdateSetting(t *testing.T) {
 	verify(func(s *Settings) { assert.Equal(t, SizeXLarge, s.ClueFontSize) })
 }
 
+func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
+	// This acts as a small integration test toggling the OnlyAllowCorrectAnswers
+	// setting and ensuring that it clears any incorrect answer cells.
+	pool, conn, cleanup := NewRedisPool(t)
+	defer cleanup()
+
+	registry, events, cleanup := NewRegistry(t)
+	defer cleanup()
+
+	// Setup a cached entry for the date we're about to load to ensure that we
+	// don't make a network call during the test.
+	saved := XWordInfoPuzzleCache
+	XWordInfoPuzzleCache = map[string]*Puzzle{
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+	}
+	defer func() { XWordInfoPuzzleCache = saved }()
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(fn func(s *State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			// Ignore the setting change event we receive
+			if event.Kind == "settings" {
+				return
+			}
+
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(*State)
+			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, "channel")
+		require.NoError(t, err)
+		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
+		fn(state)
+	}
+
+	drainEvents := func() {
+		for {
+			select {
+			case <-events:
+			default:
+				return
+			}
+		}
+	}
+
+	router := gin.Default()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	require.Equal(t, http.StatusOK, response.Code)
+	drainEvents()
+
+	// Toggle the status, it should transition to solving.
+	response = PUT("/status", ``, router)
+	require.Equal(t, http.StatusOK, response.Code)
+	drainEvents()
+
+	// Apply an incorrect across answer.
+	response = PUT("/answer/1a", `"QNORA"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	drainEvents()
+
+	// Set the OnlyAllowCorrectAnswers setting to true
+	response = PUT("/setting/only_allow_correct_answers", `true`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(func(state *State) {
+		assert.False(t, state.AcrossCluesFilled[1])
+		assert.Equal(t, "Q", state.Cells[0][0])
+		assert.Equal(t, "", state.Cells[0][1])
+		assert.Equal(t, "", state.Cells[0][2])
+		assert.Equal(t, "", state.Cells[0][3])
+		assert.Equal(t, "A", state.Cells[0][4])
+	})
+}
+
 func TestRoute_UpdateSettings_Error(t *testing.T) {
 	tests := []struct {
 		name    string

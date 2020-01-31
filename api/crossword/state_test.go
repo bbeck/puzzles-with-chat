@@ -159,8 +159,8 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 			clue:   "1a",
 			answer: ". AND .",
 			verify: func(t *testing.T, state *State) {
-				require.NoError(t, state.ApplyAnswer("1a", "Q AND .", true))
-				require.NoError(t, state.ApplyAnswer("1a", "Q AND A", true))
+				assert.NoError(t, state.ApplyAnswer("1a", "Q AND .", true))
+				assert.NoError(t, state.ApplyAnswer("1a", "Q AND A", true))
 			},
 		},
 		{
@@ -506,6 +506,141 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 			s := newState(t, test.puzzle)
 			err := s.ApplyAnswer(test.clue, test.answer, false)
 			assert.Error(t, err)
+		})
+	}
+}
+
+func TestState_ClearIncorrectCells(t *testing.T) {
+	tests := []struct {
+		name    string
+		puzzle  string
+		answers map[string]string
+		verify  func(*testing.T, *State)
+	}{
+		{
+			name:   "correct across answer",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1a": "QANDA",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "A", state.Cells[0][1])
+				assert.Equal(t, "N", state.Cells[0][2])
+				assert.Equal(t, "D", state.Cells[0][3])
+				assert.Equal(t, "A", state.Cells[0][4])
+				assert.True(t, state.AcrossCluesFilled[1])
+			},
+		},
+		{
+			name:   "correct down answer",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1d": "QTIP",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "T", state.Cells[1][0])
+				assert.Equal(t, "I", state.Cells[2][0])
+				assert.Equal(t, "P", state.Cells[3][0])
+				assert.True(t, state.DownCluesFilled[1])
+			},
+		},
+		{
+			name:   "partially incorrect across answer",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1a": "QNORA",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "", state.Cells[0][1])
+				assert.Equal(t, "", state.Cells[0][2])
+				assert.Equal(t, "", state.Cells[0][3])
+				assert.Equal(t, "A", state.Cells[0][4])
+				assert.False(t, state.AcrossCluesFilled[1])
+			},
+		},
+		{
+			name:   "partially incorrect down answer",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1d": "QTOP",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "T", state.Cells[1][0])
+				assert.Equal(t, "", state.Cells[2][0])
+				assert.Equal(t, "P", state.Cells[3][0])
+				assert.False(t, state.DownCluesFilled[1])
+			},
+		},
+		{
+			name:   "completely incorrect across answer",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1a": "XXXXX",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "", state.Cells[0][0])
+				assert.Equal(t, "", state.Cells[0][1])
+				assert.Equal(t, "", state.Cells[0][2])
+				assert.Equal(t, "", state.Cells[0][3])
+				assert.Equal(t, "", state.Cells[0][4])
+				assert.False(t, state.AcrossCluesFilled[1])
+			},
+		},
+		{
+			name:   "completely incorrect down answer",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1d": "XXXX",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "", state.Cells[0][0])
+				assert.Equal(t, "", state.Cells[1][0])
+				assert.Equal(t, "", state.Cells[2][0])
+				assert.Equal(t, "", state.Cells[3][0])
+				assert.False(t, state.DownCluesFilled[1])
+			},
+		},
+		{
+			name:   "incorrect across answer clears completed down clue",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1a": "XXXXX",
+				"1d": "XTIP",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.False(t, state.DownCluesFilled[1])
+			},
+		},
+		{
+			name:   "incorrect down answer clears completed across clue",
+			puzzle: "xwordinfo-success-20181231.json",
+			answers: map[string]string{
+				"1a": "XANDA",
+				"1d": "XXXX",
+			},
+			verify: func(t *testing.T, state *State) {
+				assert.False(t, state.AcrossCluesFilled[1])
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s := newState(t, test.puzzle)
+
+			for clue, answer := range test.answers {
+				err := s.ApplyAnswer(clue, answer, false)
+				require.NoError(t, err)
+			}
+
+			err := s.ClearIncorrectCells()
+			assert.NoError(t, err)
+
+			test.verify(t, s)
 		})
 	}
 }

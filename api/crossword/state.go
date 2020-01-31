@@ -99,37 +99,9 @@ func (s *State) ApplyAnswer(clue string, answer string, onlyCorrect bool) error 
 	// Now that we've filled in an answer we may have completed one or more clues.
 	// Do a quick scan of all of the clues to make sure AcrossCluesFilled and
 	// DownCluesFilled are up to date.
-	for num := range s.Puzzle.CluesAcross {
-		minX, y, maxX, _, err := s.Puzzle.GetAnswerCoordinates(num, "a")
-		if err != nil {
-			return fmt.Errorf("somehow got invalid clue id %d from CluesAcross", num)
-		}
-
-		complete := true
-		for x := minX; x <= maxX; x++ {
-			if s.Cells[y][x] == "" {
-				complete = false
-				break
-			}
-		}
-
-		s.AcrossCluesFilled[num] = complete
-	}
-	for num := range s.Puzzle.CluesDown {
-		x, minY, _, maxY, err := s.Puzzle.GetAnswerCoordinates(num, "d")
-		if err != nil {
-			return fmt.Errorf("somehow got invalid clue id %d from CluesDown", num)
-		}
-
-		complete := true
-		for y := minY; y <= maxY; y++ {
-			if s.Cells[y][x] == "" {
-				complete = false
-				break
-			}
-		}
-
-		s.DownCluesFilled[num] = complete
+	err = s.UpdateFilledClues()
+	if err != nil {
+		return err
 	}
 
 	// Also determine if the puzzle is finished with all correct answers and
@@ -149,6 +121,67 @@ func (s *State) ApplyAnswer(clue string, answer string, onlyCorrect bool) error 
 	// TODO: This method should probably also return information about whether or
 	// not the answer was correct, and if so how many clues where completed as a
 	// result of applying this answer.
+	return nil
+}
+
+// ClearIncorrectCells will look at each filled in cell of the crossword and
+// clear it if it is filled in with an incorrect answer.  The AcrossCluesFilled
+// and DownCluesFilled fields will also be updated to indicate any clues that
+// are now unanswered due to cleared cells.
+func (s *State) ClearIncorrectCells() error {
+	for y := 0; y < s.Puzzle.Rows; y++ {
+		for x := 0; x < s.Puzzle.Cols; x++ {
+			if s.Cells[y][x] != "" && s.Cells[y][x] != s.Puzzle.Cells[y][x] {
+				s.Cells[y][x] = ""
+			}
+		}
+	}
+
+	// Now that we may have modified one or more cells we need to determine which
+	// clues are answered and which aren't.
+	return s.UpdateFilledClues()
+}
+
+// UpdateFilledClues looks at each clue in the puzzle and determines if a
+// complete answer has been provided for the clue, if so then the corresponding
+// entry in AcrossCluesFilled or DownCluesFilled will be set to true.  This
+// method doesn't check that the provided answer is correct, just that one is
+// present.
+func (s *State) UpdateFilledClues() error {
+	for num := range s.Puzzle.CluesAcross {
+		minX, y, maxX, _, err := s.Puzzle.GetAnswerCoordinates(num, "a")
+		if err != nil {
+			return fmt.Errorf("somehow got invalid clue id %d from CluesAcross", num)
+		}
+
+		complete := true
+		for x := minX; x <= maxX; x++ {
+			if s.Cells[y][x] == "" {
+				complete = false
+				break
+			}
+		}
+
+		s.AcrossCluesFilled[num] = complete
+	}
+
+	for num := range s.Puzzle.CluesDown {
+		x, minY, _, maxY, err := s.Puzzle.GetAnswerCoordinates(num, "d")
+		if err != nil {
+			return fmt.Errorf("somehow got invalid clue id %d from CluesDown", num)
+		}
+
+		complete := true
+		for y := minY; y <= maxY; y++ {
+			if s.Cells[y][x] == "" {
+				complete = false
+				break
+			}
+		}
+
+		s.DownCluesFilled[num] = complete
+	}
+
 	return nil
 }
 
