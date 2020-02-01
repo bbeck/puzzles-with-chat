@@ -2,24 +2,24 @@ package crossword
 
 import (
 	"encoding/json"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
+	"time"
 )
 
 func TestState_ApplyAnswer_Cells(t *testing.T) {
 	tests := []struct {
 		name   string
-		puzzle string
+		puzzle *Puzzle
+		setup  map[string]string // initial answers applied before the desired answer
 		clue   string
 		answer string
 		verify func(*testing.T, *State)
 	}{
 		{
 			name:   "across answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -32,7 +32,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "down answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1d",
 			answer: "QTIP",
 			verify: func(t *testing.T, state *State) {
@@ -44,13 +44,13 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "overwriting across answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1a": "XXXXX",
+			},
 			clue:   "1a",
-			answer: "XXXXX",
+			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
-				err := state.ApplyAnswer("1a", "Q AND A", false)
-				require.NoError(t, err)
-
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -60,13 +60,13 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "overwriting down answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1d": "XXXX",
+			},
 			clue:   "1d",
-			answer: "XXXX",
+			answer: "QTIP",
 			verify: func(t *testing.T, state *State) {
-				err := state.ApplyAnswer("1d", "QTIP", false)
-				require.NoError(t, err)
-
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "T", state.Cells[1][0])
 				assert.Equal(t, "I", state.Cells[2][0])
@@ -75,7 +75,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "unknown letters",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: ". AND .",
 			verify: func(t *testing.T, state *State) {
@@ -88,13 +88,13 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "delete part of answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1a": "Q AND A",
+			},
 			clue:   "1a",
-			answer: "A AND Q",
+			answer: ".AND.",
 			verify: func(t *testing.T, state *State) {
-				err := state.ApplyAnswer("1a", ".AND.", false)
-				require.NoError(t, err)
-
 				assert.Equal(t, "", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -104,7 +104,7 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 		},
 		{
 			name:   "rebus",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "(RED)AND(BLUE)",
 			verify: func(t *testing.T, state *State) {
@@ -119,7 +119,11 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(t, test.puzzle)
+			s := newState(test.puzzle)
+			for clue, answer := range test.setup {
+				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+			}
+
 			err := s.ApplyAnswer(test.clue, test.answer, false)
 			require.NoError(t, err)
 			test.verify(t, s)
@@ -130,56 +134,112 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 	tests := []struct {
 		name   string
-		puzzle string
+		puzzle *Puzzle
+		setup  map[string]string // initial answers applied before the desired answer
 		clue   string
 		answer string
 		verify func(*testing.T, *State)
 	}{
 		{
 			name:   "across answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "Q AND A",
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "A", state.Cells[0][1])
+				assert.Equal(t, "N", state.Cells[0][2])
+				assert.Equal(t, "D", state.Cells[0][3])
+				assert.Equal(t, "A", state.Cells[0][4])
+			},
 		},
 		{
 			name:   "down answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1d",
 			answer: "QTIP",
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "T", state.Cells[1][0])
+				assert.Equal(t, "I", state.Cells[2][0])
+				assert.Equal(t, "P", state.Cells[3][0])
+			},
 		},
 		{
 			name:   "unknown letters",
-			puzzle: "xwordinfo-success-20181231.json",
-			clue:   "1a",
-			answer: ". AND .",
-		},
-		{
-			name:   "can specify unknown letters",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: ". AND .",
 			verify: func(t *testing.T, state *State) {
-				assert.NoError(t, state.ApplyAnswer("1a", "Q AND .", true))
-				assert.NoError(t, state.ApplyAnswer("1a", "Q AND A", true))
+				assert.Equal(t, "", state.Cells[0][0])
+				assert.Equal(t, "A", state.Cells[0][1])
+				assert.Equal(t, "N", state.Cells[0][2])
+				assert.Equal(t, "D", state.Cells[0][3])
+				assert.Equal(t, "", state.Cells[0][4])
+			},
+		},
+		{
+			name:   "can fill in some unknown letters",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1a": ". AND .",
+			},
+			clue:   "1a",
+			answer: "Q AND .",
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "A", state.Cells[0][1])
+				assert.Equal(t, "N", state.Cells[0][2])
+				assert.Equal(t, "D", state.Cells[0][3])
+				assert.Equal(t, "", state.Cells[0][4])
+			},
+		},
+		{
+			name:   "can fill in all unknown letters",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1a": ". AND .",
+			},
+			clue:   "1a",
+			answer: "Q AND A",
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "Q", state.Cells[0][0])
+				assert.Equal(t, "A", state.Cells[0][1])
+				assert.Equal(t, "N", state.Cells[0][2])
+				assert.Equal(t, "D", state.Cells[0][3])
+				assert.Equal(t, "A", state.Cells[0][4])
 			},
 		},
 		{
 			name:   "rebus",
-			puzzle: "xwordinfo-rebus-20181227.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-rebus-20181227.json"),
 			clue:   "30a",
 			answer: "AERIAL RE(CON)",
+			verify: func(t *testing.T, state *State) {
+				assert.Equal(t, "A", state.Cells[6][0])
+				assert.Equal(t, "E", state.Cells[6][1])
+				assert.Equal(t, "R", state.Cells[6][2])
+				assert.Equal(t, "I", state.Cells[6][3])
+				assert.Equal(t, "A", state.Cells[6][4])
+				assert.Equal(t, "L", state.Cells[6][5])
+				assert.Equal(t, "R", state.Cells[6][6])
+				assert.Equal(t, "E", state.Cells[6][7])
+				assert.Equal(t, "CON", state.Cells[6][8])
+
+			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(t, test.puzzle)
+			s := newState(test.puzzle)
+			for clue, answer := range test.setup {
+				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+			}
+
 			err := s.ApplyAnswer(test.clue, test.answer, true)
 			require.NoError(t, err)
-
-			if test.verify != nil {
-				test.verify(t, s)
-			}
+			test.verify(t, s)
 		})
 	}
 }
@@ -187,59 +247,55 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 	tests := []struct {
 		name   string
-		puzzle string
+		puzzle *Puzzle
+		setup  map[string]string // initial answers applied before the desired answer
 		clue   string
 		answer string
-		verify func(*testing.T, *State, error)
 	}{
 		{
 			name:   "cannot specify incorrect cell",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "R AND A",
 		},
 		{
 			name:   "cannot change correct cell",
-			puzzle: "xwordinfo-success-20181231.json",
-			clue:   "1a",
-			answer: "Q AND A",
-			verify: func(t *testing.T, state *State, err error) {
-				require.NoError(t, err)
-				assert.Error(t, state.ApplyAnswer("1a", "R AND A", true))
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1a": "Q AND A",
 			},
+			clue:   "1a",
+			answer: "R AND A",
 		},
 		{
 			name:   "cannot clear correct cell",
-			puzzle: "xwordinfo-success-20181231.json",
-			clue:   "1a",
-			answer: "Q AND A",
-			verify: func(t *testing.T, state *State, err error) {
-				require.NoError(t, err)
-				assert.Error(t, state.ApplyAnswer("1a", ". AND A", true))
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1a": "Q AND A",
 			},
+			clue:   "1a",
+			answer: ". AND A",
 		},
 		{
 			name:   "cannot incorrectly specify missing cell",
-			puzzle: "xwordinfo-success-20181231.json",
-			clue:   "1a",
-			answer: ". AND A",
-			verify: func(t *testing.T, state *State, err error) {
-				require.NoError(t, err)
-				assert.Error(t, state.ApplyAnswer("1a", "R AND A", true))
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"1a": ". AND A",
 			},
+			clue:   "1a",
+			answer: "R AND A",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(t, test.puzzle)
-			err := s.ApplyAnswer(test.clue, test.answer, true)
-
-			if test.verify == nil {
-				assert.Error(t, err)
-			} else {
-				test.verify(t, s, err)
+			s := newState(test.puzzle)
+			for clue, answer := range test.setup {
+				require.NoError(t, s.ApplyAnswer(clue, answer, false))
 			}
+
+			err := s.ApplyAnswer(test.clue, test.answer, true)
+			assert.Error(t, err)
 		})
 	}
 }
@@ -247,14 +303,15 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 func TestState_ApplyAnswer_Filled(t *testing.T) {
 	tests := []struct {
 		name   string
-		puzzle string
+		puzzle *Puzzle
+		setup  map[string]string // initial answers applied before the desired answer
 		clue   string
 		answer string
 		verify func(*testing.T, *State)
 	}{
 		{
 			name:   "across answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -273,7 +330,7 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 		},
 		{
 			name:   "down answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1d",
 			answer: "QTIP",
 			verify: func(t *testing.T, state *State) {
@@ -292,15 +349,16 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 		},
 		{
 			name:   "across answer completes multiple down clues",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"14a": "THIRD",
+				"17a": "IM TOO OLD FOR THIS",
+				"19a": "PERU",
+				"22a": "DOG TAG",
+			},
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
-				require.NoError(t, state.ApplyAnswer("14a", "THIRD", false))
-				require.NoError(t, state.ApplyAnswer("17a", "IM TOO OLD FOR THIS", false))
-				require.NoError(t, state.ApplyAnswer("19a", "PERU", false))
-				require.NoError(t, state.ApplyAnswer("22a", "DOG TAG", false))
-
 				assert.True(t, state.DownCluesFilled[1])
 				assert.True(t, state.DownCluesFilled[2])
 				assert.True(t, state.DownCluesFilled[3])
@@ -318,15 +376,16 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 		},
 		{
 			name:   "down answer completes multiple across clues",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"2d": "AHMED",
+				"3d": "NITRO",
+				"4d": "DROUGHT",
+				"5d": "ADO",
+			},
 			clue:   "1d",
 			answer: "QTIP",
 			verify: func(t *testing.T, state *State) {
-				require.NoError(t, state.ApplyAnswer("2d", "AHMED", false))
-				require.NoError(t, state.ApplyAnswer("3d", "NITRO", false))
-				require.NoError(t, state.ApplyAnswer("4d", "DROUGHT", false))
-				require.NoError(t, state.ApplyAnswer("5d", "ADO", false))
-
 				assert.True(t, state.AcrossCluesFilled[1])
 				assert.True(t, state.AcrossCluesFilled[14])
 				assert.False(t, state.AcrossCluesFilled[17])
@@ -337,7 +396,11 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(t, test.puzzle)
+			s := newState(test.puzzle)
+			for clue, answer := range test.setup {
+				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+			}
+
 			err := s.ApplyAnswer(test.clue, test.answer, false)
 			require.NoError(t, err)
 			test.verify(t, s)
@@ -348,14 +411,15 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 func TestState_ApplyAnswer_Status(t *testing.T) {
 	tests := []struct {
 		name   string
-		puzzle string
+		puzzle *Puzzle
+		setup  map[string]string // initial answers applied before the desired answer
 		clue   string
 		answer string
 		verify func(*testing.T, *State)
 	}{
 		{
 			name:   "single answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
@@ -364,83 +428,83 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 		},
 		{
 			name:   "complete and correct puzzle",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"6a":  "ATTIC",
+				"11a": "HON",
+				"14a": "THIRD",
+				"15a": "LAID ASIDE",
+				"17a": "IM TOO OLD FOR THIS",
+				"19a": "PERU",
+				"20a": "LEAF",
+				"21a": "PEONS",
+				"22a": "DOG TAG",
+				"24a": "LOL",
+				"25a": "HAVE NO OOMPH",
+				"30a": "MATTE",
+				"33a": "IMPLORED",
+				"35a": "ERR",
+				"36a": "RANGE",
+				"38a": "EMO",
+				"39a": "WAIT HERE",
+				"42a": "EGYPT",
+				"44a": "BOO OFF STAGE",
+				"47a": "ERS",
+				"48a": "EUGENE",
+				"51a": "SHARI",
+				"54a": "SINN",
+				"56a": "WING",
+				"58a": "ITS A ZOO OUT THERE",
+				"61a": "STEGOSAUR",
+				"62a": "HIT ON",
+				"63a": "IPA",
+				"64a": "NURSE",
+				"65a": "OZONE",
+			},
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
-				require.NoError(t, state.ApplyAnswer("1a", "Q AND A", false))
-				require.NoError(t, state.ApplyAnswer("6a", "ATTIC", false))
-				require.NoError(t, state.ApplyAnswer("11a", "HON", false))
-				require.NoError(t, state.ApplyAnswer("14a", "THIRD", false))
-				require.NoError(t, state.ApplyAnswer("15a", "LAID ASIDE", false))
-				require.NoError(t, state.ApplyAnswer("17a", "IM TOO OLD FOR THIS", false))
-				require.NoError(t, state.ApplyAnswer("19a", "PERU", false))
-				require.NoError(t, state.ApplyAnswer("20a", "LEAF", false))
-				require.NoError(t, state.ApplyAnswer("21a", "PEONS", false))
-				require.NoError(t, state.ApplyAnswer("22a", "DOG TAG", false))
-				require.NoError(t, state.ApplyAnswer("24a", "LOL", false))
-				require.NoError(t, state.ApplyAnswer("25a", "HAVE NO OOMPH", false))
-				require.NoError(t, state.ApplyAnswer("30a", "MATTE", false))
-				require.NoError(t, state.ApplyAnswer("33a", "IMPLORED", false))
-				require.NoError(t, state.ApplyAnswer("35a", "ERR", false))
-				require.NoError(t, state.ApplyAnswer("36a", "RANGE", false))
-				require.NoError(t, state.ApplyAnswer("38a", "EMO", false))
-				require.NoError(t, state.ApplyAnswer("39a", "WAIT HERE", false))
-				require.NoError(t, state.ApplyAnswer("42a", "EGYPT", false))
-				require.NoError(t, state.ApplyAnswer("44a", "BOO OFF STAGE", false))
-				require.NoError(t, state.ApplyAnswer("47a", "ERS", false))
-				require.NoError(t, state.ApplyAnswer("48a", "EUGENE", false))
-				require.NoError(t, state.ApplyAnswer("51a", "SHARI", false))
-				require.NoError(t, state.ApplyAnswer("54a", "SINN", false))
-				require.NoError(t, state.ApplyAnswer("56a", "WING", false))
-				require.NoError(t, state.ApplyAnswer("58a", "ITS A ZOO OUT THERE", false))
-				require.NoError(t, state.ApplyAnswer("61a", "STEGOSAUR", false))
-				require.NoError(t, state.ApplyAnswer("62a", "HIT ON", false))
-				require.NoError(t, state.ApplyAnswer("63a", "IPA", false))
-				require.NoError(t, state.ApplyAnswer("64a", "NURSE", false))
-				require.NoError(t, state.ApplyAnswer("65a", "OZONE", false))
-
 				assert.Equal(t, StatusComplete, state.Status)
 			},
 		},
 		{
 			name:   "complete and incorrect puzzle",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
+				"6a":  "XXXXX",
+				"11a": "XXX",
+				"14a": "XXXXX",
+				"15a": "XXXXXXXXX",
+				"17a": "XXXXXXXXXXXXXXX",
+				"19a": "XXXX",
+				"20a": "XXXX",
+				"21a": "XXXXX",
+				"22a": "XXXXXX",
+				"24a": "XXX",
+				"25a": "XXXXXXXXXXX",
+				"30a": "XXXXX",
+				"33a": "XXXXXXXX",
+				"35a": "XXX",
+				"36a": "XXXXX",
+				"38a": "XXX",
+				"39a": "XXXXXXXX",
+				"42a": "XXXXX",
+				"44a": "XXXXXXXXXXX",
+				"47a": "XXX",
+				"48a": "XXXXXX",
+				"51a": "XXXXX",
+				"54a": "XXXX",
+				"56a": "XXXX",
+				"58a": "XXXXXXXXXXXXXXX",
+				"61a": "XXXXXXXXX",
+				"62a": "XXXXX",
+				"63a": "XXX",
+				"64a": "XXXXX",
+				"65a": "XXXXX",
+			},
 			clue:   "1a",
 			answer: "Q AND A",
 			verify: func(t *testing.T, state *State) {
-				require.NoError(t, state.ApplyAnswer("1a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("6a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("11a", "XXX", false))
-				require.NoError(t, state.ApplyAnswer("14a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("15a", "XXXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("17a", "XXXXXXXXXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("19a", "XXXX", false))
-				require.NoError(t, state.ApplyAnswer("20a", "XXXX", false))
-				require.NoError(t, state.ApplyAnswer("21a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("22a", "XXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("24a", "XXX", false))
-				require.NoError(t, state.ApplyAnswer("25a", "XXXXXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("30a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("33a", "XXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("35a", "XXX", false))
-				require.NoError(t, state.ApplyAnswer("36a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("38a", "XXX", false))
-				require.NoError(t, state.ApplyAnswer("39a", "XXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("42a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("44a", "XXXXXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("47a", "XXX", false))
-				require.NoError(t, state.ApplyAnswer("48a", "XXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("51a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("54a", "XXXX", false))
-				require.NoError(t, state.ApplyAnswer("56a", "XXXX", false))
-				require.NoError(t, state.ApplyAnswer("58a", "XXXXXXXXXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("61a", "XXXXXXXXX", false))
-				require.NoError(t, state.ApplyAnswer("62a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("63a", "XXX", false))
-				require.NoError(t, state.ApplyAnswer("64a", "XXXXX", false))
-				require.NoError(t, state.ApplyAnswer("65a", "XXXXX", false))
-
 				assert.Equal(t, StatusSolving, state.Status)
 			},
 		},
@@ -448,7 +512,11 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(t, test.puzzle)
+			s := newState(test.puzzle)
+			for clue, answer := range test.setup {
+				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+			}
+
 			err := s.ApplyAnswer(test.clue, test.answer, false)
 			require.NoError(t, err)
 			test.verify(t, s)
@@ -459,43 +527,43 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 func TestState_ApplyAnswer_Error(t *testing.T) {
 	tests := []struct {
 		name   string
-		puzzle string
+		puzzle *Puzzle
 		clue   string
 		answer string
 	}{
 		{
 			name:   "bad clue",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "xyz",
 			answer: "ABC",
 		},
 		{
 			name:   "invalid clue",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "199a",
 			answer: "ABC",
 		},
 		{
 			name:   "bad answer",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: ")Q AND A",
 		},
 		{
 			name:   "answer too short",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "ABC",
 		},
 		{
 			name:   "answer too long",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 		},
 		{
 			name:   "answer too short (rebus)",
-			puzzle: "xwordinfo-success-20181231.json",
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
 			clue:   "1a",
 			answer: "(Q AND A)",
 		},
@@ -503,7 +571,7 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(t, test.puzzle)
+			s := newState(test.puzzle)
 			err := s.ApplyAnswer(test.clue, test.answer, false)
 			assert.Error(t, err)
 		})
@@ -512,15 +580,15 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 
 func TestState_ClearIncorrectCells(t *testing.T) {
 	tests := []struct {
-		name    string
-		puzzle  string
-		answers map[string]string
-		verify  func(*testing.T, *State)
+		name   string
+		puzzle *Puzzle
+		setup  map[string]string
+		verify func(*testing.T, *State)
 	}{
 		{
 			name:   "correct across answer",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1a": "QANDA",
 			},
 			verify: func(t *testing.T, state *State) {
@@ -534,8 +602,8 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 		},
 		{
 			name:   "correct down answer",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1d": "QTIP",
 			},
 			verify: func(t *testing.T, state *State) {
@@ -548,8 +616,8 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 		},
 		{
 			name:   "partially incorrect across answer",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1a": "QNORA",
 			},
 			verify: func(t *testing.T, state *State) {
@@ -563,8 +631,8 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 		},
 		{
 			name:   "partially incorrect down answer",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1d": "QTOP",
 			},
 			verify: func(t *testing.T, state *State) {
@@ -577,8 +645,8 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 		},
 		{
 			name:   "completely incorrect across answer",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1a": "XXXXX",
 			},
 			verify: func(t *testing.T, state *State) {
@@ -592,8 +660,8 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 		},
 		{
 			name:   "completely incorrect down answer",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1d": "XXXX",
 			},
 			verify: func(t *testing.T, state *State) {
@@ -606,8 +674,8 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 		},
 		{
 			name:   "incorrect across answer clears completed down clue",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1a": "XXXXX",
 				"1d": "XTIP",
 			},
@@ -617,8 +685,8 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 		},
 		{
 			name:   "incorrect down answer clears completed across clue",
-			puzzle: "xwordinfo-success-20181231.json",
-			answers: map[string]string{
+			puzzle: LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+			setup: map[string]string{
 				"1a": "XANDA",
 				"1d": "XXXX",
 			},
@@ -630,16 +698,13 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(t, test.puzzle)
-
-			for clue, answer := range test.answers {
-				err := s.ApplyAnswer(clue, answer, false)
-				require.NoError(t, err)
+			s := newState(test.puzzle)
+			for clue, answer := range test.setup {
+				require.NoError(t, s.ApplyAnswer(clue, answer, false))
 			}
 
 			err := s.ClearIncorrectCells()
 			assert.NoError(t, err)
-
 			test.verify(t, s)
 		})
 	}
@@ -1063,9 +1128,9 @@ func TestDuration_UnmarshalJSON_Error(t *testing.T) {
 	}
 }
 
-func newState(t *testing.T, filename string) *State {
+func newState(puzzle *Puzzle) *State {
 	var s State
-	s.Puzzle = LoadTestPuzzle(t, filename)
+	s.Puzzle = puzzle
 
 	for y := 0; y < s.Puzzle.Rows; y++ {
 		s.Cells = append(s.Cells, make([]string, s.Puzzle.Cols))
@@ -1077,9 +1142,3 @@ func newState(t *testing.T, filename string) *State {
 
 	return &s
 }
-
-// TODO: Come back to these test cases and refactor them to make the verify
-// method more clear.  Right now it implies that all it's doing it verifying
-// the expected result of the test, but in reality a lot of them actually
-// perform the meaningful parts of the test.  This is misleading and not very
-// intuitive.
