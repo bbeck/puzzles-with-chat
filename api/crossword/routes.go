@@ -400,7 +400,7 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) gin.Handler
 			return
 		}
 
-		c.Header("Cache-Control", "no-cache")
+		c.Header("Cache-Control", "no-transform")
 		c.Header("Connection", "keep-alive")
 		c.Header("Content-Type", "text/event-stream")
 

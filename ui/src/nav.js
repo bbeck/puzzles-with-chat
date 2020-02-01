@@ -120,7 +120,7 @@ function SettingsDropdown(props) {
         return
       }
 
-      fetch(`/api/channel/${props.channel}/settings/${name}`,
+      fetch(`/api/${props.channel}/crossword/setting/${name}`,
         {
           method: "PUT",
           body: JSON.stringify(value),
@@ -189,7 +189,7 @@ function PuzzleDropdown(props) {
     const elem = document.getElementById("puzzle-date-input");
     const date = elem.value;
 
-    fetch(`/api/channel/${props.channel}/puzzle/date`,
+    fetch(`/api/${props.channel}/crossword/date`,
       {
         method: "PUT",
         body: JSON.stringify({"date": date}),

@@ -63,7 +63,7 @@ function Home() {
 
 function Channel(props) {
   const [events, setEventStream] = React.useState(
-    new EventStream(`/api/channel/${props.channel}/events`)
+    new EventStream(`/api/${props.channel}/crossword/events`)
   );
 
   const [settings, setSettings] = React.useState({
