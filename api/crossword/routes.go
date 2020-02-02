@@ -319,6 +319,14 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 			return
 		}
 
+		// If we just solved the puzzle then we should stop the timer.
+		if state.Status == StatusComplete {
+			now := time.Now()
+			total := state.TotalSolveDuration.Nanoseconds() + now.Sub(*state.LastStartTime).Nanoseconds()
+			state.LastStartTime = nil
+			state.TotalSolveDuration = Duration{time.Duration(total)}
+		}
+
 		// Save the updated state.
 		if err := SetState(conn, channel, state); err != nil {
 			err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)

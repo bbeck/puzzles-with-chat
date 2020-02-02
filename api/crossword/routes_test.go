@@ -625,6 +625,122 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	assert.False(t, state.DownCluesFilled[11])
 }
 
+func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
+	// This acts as a small integration test ensuring that the timer stops
+	// counting once the crossword has been solved.
+	pool, conn, cleanup := NewRedisPool(t)
+	defer cleanup()
+
+	registry, events, cleanup := NewRegistry(t)
+	defer cleanup()
+
+	// Setup a cached entry for the date we're about to load to ensure that we
+	// don't make a network call during the test.
+	saved := XWordInfoPuzzleCache
+	XWordInfoPuzzleCache = map[string]*Puzzle{
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+	}
+	defer func() { XWordInfoPuzzleCache = saved }()
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(fn func(s *State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(*State)
+			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, "channel")
+		require.NoError(t, err)
+		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
+		fn(state)
+	}
+
+	drainEvents := func() {
+		for {
+			select {
+			case <-events:
+			default:
+				return
+			}
+		}
+	}
+
+	router := gin.Default()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	require.Equal(t, http.StatusOK, response.Code)
+	drainEvents()
+
+	// Toggle the status, it should transition to solving.
+	response = PUT("/status", ``, router)
+	require.Equal(t, http.StatusOK, response.Code)
+	drainEvents()
+
+	// Solve the entire puzzle except for the last answer.
+	answers := map[string]string{
+		"1a":  "Q AND A",
+		"6a":  "ATTIC",
+		"11a": "HON",
+		"14a": "THIRD",
+		"15a": "LAID ASIDE",
+		"17a": "IM TOO OLD FOR THIS",
+		"19a": "PERU",
+		"20a": "LEAF",
+		"21a": "PEONS",
+		"22a": "DOG TAG",
+		"24a": "LOL",
+		"25a": "HAVE NO OOMPH",
+		"30a": "MATTE",
+		"33a": "IMPLORED",
+		"35a": "ERR",
+		"36a": "RANGE",
+		"38a": "EMO",
+		"39a": "WAIT HERE",
+		"42a": "EGYPT",
+		"44a": "BOO OFF STAGE",
+		"47a": "ERS",
+		"48a": "EUGENE",
+		"51a": "SHARI",
+		"54a": "SINN",
+		"56a": "WING",
+		"58a": "ITS A ZOO OUT THERE",
+		"61a": "STEGOSAUR",
+		"62a": "HIT ON",
+		"63a": "IPA",
+		"64a": "NURSE",
+	}
+	for clue, answer := range answers {
+		response = PUT(fmt.Sprintf("/answer/%s", clue), fmt.Sprintf(`"%s"`, answer), router)
+		assert.Equal(t, http.StatusOK, response.Code)
+	}
+	drainEvents()
+
+	// Apply the last answer, but wait a bit first to ensure that a non-zero
+	// amount of time has passed in the solve.
+	time.Sleep(10 * time.Millisecond)
+
+	response = PUT("/answer/65a", `"OZONE"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(func(state *State) {
+		require.Equal(t, StatusComplete, state.Status)
+		assert.Nil(t, state.LastStartTime)
+		assert.True(t, state.TotalSolveDuration.Seconds() > 0)
+	})
+}
+
 func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 	tests := []struct {
 		name     string
