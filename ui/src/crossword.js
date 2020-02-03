@@ -6,6 +6,7 @@ import "./crossword.css";
 export function Crossword(props) {
   const state = props.state;
   const puzzle = state && state.puzzle;
+  const status = state && state.status;
   const settings = props.settings;
   const view = props.view;
 
@@ -16,7 +17,7 @@ export function Crossword(props) {
   }
 
   return (
-    <div id="crossword" data-size={Math.max(puzzle.cols, puzzle.rows)}>
+    <div id="crossword" className={status === "created" || status === "paused" ? "blur" : ""} data-size={Math.max(puzzle.cols, puzzle.rows)}>
       <div className="puzzle">
         <Header title={puzzle.title} author={puzzle.author} date={puzzle.published}/>
         <Grid puzzle={puzzle} cells={state.cells} view={view}/>

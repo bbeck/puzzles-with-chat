@@ -19,7 +19,7 @@ export function Nav(props) {
       <div className="navbar-brand">Twitch Plays Crosswords</div>
 
       <ul className="navbar-nav ml-auto">
-        <StartPauseButton/>
+        <StartPauseButton channel={props.channel} status={props.status}/>
         <ViewsDropdown channel={props.channel}/>
         <SettingsDropdown channel={props.channel} settings={props.settings}/>
         <PuzzleDropdown channel={props.channel}/>
@@ -28,10 +28,31 @@ export function Nav(props) {
   );
 }
 
-function StartPauseButton() {
+function StartPauseButton(props) {
+  const status = props.status;
+
+  let message;
+  if (status === "created") {
+    message = "Start";
+  } else if (status === "paused") {
+    message = "Unpause";
+  } else if (status === "solving") {
+    message = "Pause";
+  } else if (status === undefined || status === "complete") {
+    return null;
+  }
+
+  // Toggle the status.
+  function toggle() {
+    fetch(`/api/${props.channel}/crossword/status`,
+      {
+        method: "PUT",
+      });
+  }
+
   return (
-    <form className="form-inline">
-      <button className="btn btn-success" type="button">Start</button>
+    <form className="form-inline nav-item">
+      <button className="btn btn-success" type="button" onClick={toggle}>{message}</button>
     </form>
   );
 }
@@ -117,15 +138,15 @@ function SettingsDropdown(props) {
   function update(name, value) {
     return function() {
       if (settings[name] === value) {
-        return
+        return;
       }
 
       fetch(`/api/${props.channel}/crossword/setting/${name}`,
         {
           method: "PUT",
           body: JSON.stringify(value),
-        })
-    }
+        });
+    };
   }
 
   return (

@@ -3,6 +3,10 @@
   max-width: 500px;
 }
 
+.navbar .nav-item {
+  padding-right: 3px;
+}
+
 .navbar .dropdown-menu small {
   white-space: normal;
 }
