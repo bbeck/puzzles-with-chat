@@ -6,20 +6,28 @@ import "./crossword.css";
 export function Crossword(props) {
   const state = props.state;
   const puzzle = state && state.puzzle;
-  const status = state && state.status;
-  const settings = props.settings;
-  const view = props.view;
-
   if (!state || !puzzle) {
     return (
       <h1>Crossword goes here</h1>
     );
   }
 
+  const status = state.status;
+  const last_start_time = state.last_start_time;
+  const total_solve_duration = state.total_solve_duration;
+  const settings = props.settings;
+  const view = props.view;
+
   return (
     <div id="crossword" className={status === "created" || status === "paused" ? "blur" : ""} data-size={Math.max(puzzle.cols, puzzle.rows)}>
       <div className="puzzle">
-        <Header title={puzzle.title} author={puzzle.author} date={puzzle.published}/>
+        <Header
+          title={puzzle.title}
+          author={puzzle.author}
+          date={puzzle.published}
+          last_start_time={last_start_time}
+          total_solve_duration={total_solve_duration}
+        />
         <Grid puzzle={puzzle} cells={state.cells} view={view}/>
         <Footer/>
       </div>
@@ -37,20 +45,73 @@ export function Crossword(props) {
 }
 
 function Header(props) {
+  // Format an ISO-8601 datetime string as an ISO-8601 date string.
   const formatDate = (s) => {
     const date = s.split("T")[0];
     const [year, month, day] = date.split("-");
     return year + "-" + month + "-" + day;
   };
 
-  // TODO: Enable the timer below
   return (
     <div className="header">
       <div className="title" dangerouslySetInnerHTML={{__html: props.title}}/>
       <div className="author">by {props.author}</div>
       <div className="date">{formatDate(props.date)}</div>
-      <div className="timer">0h 00m 00s</div>
+      <Timer last_start_time={props.last_start_time} total_solve_duration={props.total_solve_duration}/>
     </div>
+  );
+}
+
+function Timer(props) {
+  // Parse a duration string (1h10m3s) into the total number of seconds.
+  const parseDuration = (duration) => {
+    let re = /(?:(?<h>[0-9]+)h)?(?:(?<m>[0-9]+)m)?(?:(?<s>[0-9.]+)s)?/;
+    let match = re.exec(duration);
+
+    return (parseInt(match.groups.h || 0, 10))*3600 +
+      (parseInt(match.groups.m || 0, 10))*60 +
+      Math.round(parseFloat(match.groups.s || 0));
+  };
+
+  // Format a total number of seconds as a duration string.
+  const formatDuration = (total) => {
+    let hours = parseInt(total / 3600);
+
+    let mins = parseInt((total - hours * 3600) / 60);
+    if (mins < 10) {
+      mins = "0" + mins;
+    }
+
+    let secs = parseInt(total - hours * 3600 - mins * 60);
+    if (secs < 10) {
+      secs = "0" + secs;
+    }
+
+    return hours + "h " + mins + "m " + secs + "s";
+  };
+
+  const last_start_time = Date.parse(props.last_start_time) / 1000;
+  const total_solve_duration = parseDuration(props.total_solve_duration);
+  const [duration, setDuration] = React.useState("0h 00m 00s");
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      // The total duration is comprised of 2 parts, the total_solve_duration
+      // that we're provided from the server as well as the number of seconds
+      // that have elapsed since the puzzle was last started.
+      let total = total_solve_duration;
+      if (!isNaN(last_start_time)) {
+        const now = new Date();
+        total += now.getTime() / 1000 - last_start_time;
+      }
+
+      setDuration(formatDuration(total));
+    }, 1000);
+    return () => clearInterval(interval)
+  }, [last_start_time, total_solve_duration, duration, setDuration]);
+
+  return (
+    <div className="timer">{duration}</div>
   );
 }
 
