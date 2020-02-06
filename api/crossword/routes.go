@@ -15,27 +15,36 @@ func RegisterRoutes(router gin.IRouter, pool *redis.Pool) {
 }
 
 func RegisterRoutesWithRegistry(router gin.IRouter, pool *redis.Pool, registry *pubsub.Registry) {
-	group := router.Group("/:channel/crossword")
+	router.GET("/crossword", GetActiveCrosswords(pool))
 
-	// Update the crossword settings.
-	group.PUT("/setting/:setting", UpdateSetting(pool, registry))
-
-	// Update the date of the puzzle the channel is going going to solve.
-	// TODO: This takes more than just the date as input, maybe it shouldn't be /date.
-	group.PUT("/date", UpdateCrosswordDate(pool, registry))
-
-	// Toggle the play/pause status for the channel's current solve.
-	group.PUT("/status", ToggleCrosswordStatus(pool, registry))
-
-	// Update an answer for a channel's clue.
-	group.PUT("/answer/:clue", UpdateCrosswordAnswer(pool, registry))
-
-	// Follow the state of the channel's solve by receiving a server-side event
-	// for each update to the channel's crossword settings or the puzzle's state.
-	group.GET("/events", GetCrosswordEvents(pool, registry))
+	channel := router.Group("/crossword/:channel")
+	{
+		channel.PUT("/setting/:setting", UpdateCrosswordSetting(pool, registry))
+		// TODO: This takes more than just the date as input, maybe it shouldn't be /date.
+		channel.PUT("/date", UpdateCrosswordDate(pool, registry))
+		channel.PUT("/status", ToggleCrosswordStatus(pool, registry))
+		channel.PUT("/answer/:clue", UpdateCrosswordAnswer(pool, registry))
+		channel.GET("/events", GetCrosswordEvents(pool, registry))
+	}
 }
 
-func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
+func GetActiveCrosswords(pool *redis.Pool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		names, err := GetChannelNamesWithState(conn)
+		if err != nil {
+			err = fmt.Errorf("unable to load channels with active crossword solves: %+v", err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, names)
+	}
+}
+
+func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		channel := c.Param("channel")
 		setting := c.Param("setting")

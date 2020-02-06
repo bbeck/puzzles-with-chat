@@ -19,7 +19,59 @@ import (
 	"time"
 )
 
-func TestRoute_UpdateSetting(t *testing.T) {
+var Channel = TestChannel{"channel"}
+
+func TestRoute_GetActiveCrosswords(t *testing.T) {
+	// This acts as a small integration test creating crossword solves and making
+	// sure they're returned by the /crossword handler.
+	pool, _, cleanup := NewRedisPool(t)
+	defer cleanup()
+
+	registry, _, cleanup := NewRegistry(t)
+	defer cleanup()
+
+	// Setup a cached entry for the date we're about to load to ensure that we
+	// don't make a network call during the test.
+	saved := XWordInfoPuzzleCache
+	XWordInfoPuzzleCache = map[string]*Puzzle{
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+	}
+	defer func() { XWordInfoPuzzleCache = saved }()
+
+	router := gin.Default()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	var names []string // The channel names of the active crossword solves
+
+	// Make sure we have no active solves.
+	response := GET("/", router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.NoError(t, response.JSON(&names))
+	assert.Nil(t, names)
+
+	// Start a crossword
+	response = Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	require.Equal(t, http.StatusOK, response.Code)
+
+	// Make sure we have an active solve in our channel.
+	response = GET("/", router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.NoError(t, response.JSON(&names))
+	assert.Equal(t, []string{Channel.name}, names)
+
+	// Start a crossword in another channel.
+	channel2 := TestChannel{"channel2"}
+	response = channel2.PUT("/date", `{"date": "2018-12-31"}`, router)
+	require.Equal(t, http.StatusOK, response.Code)
+
+	// We should now have 2 solves.
+	response = GET("/", router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.NoError(t, response.JSON(&names))
+	assert.Equal(t, []string{Channel.name, channel2.name}, names)
+}
+
+func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 	// This acts as a small integration test updating each setting in turn and
 	// making sure the proper value is written to the database and that clients
 	// receive events notifying them of the setting change.
@@ -53,20 +105,20 @@ func TestRoute_UpdateSetting(t *testing.T) {
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	// Update each setting, one at a time.
-	response := PUT("/setting/only_allow_correct_answers", `true`, router)
+	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(s *Settings) { assert.True(t, s.OnlyAllowCorrectAnswers) })
 
-	response = PUT("/setting/clues_to_show", `"none"`, router)
+	response = Channel.PUT("/setting/clues_to_show", `"none"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(s *Settings) { assert.Equal(t, NoCluesVisible, s.CluesToShow) })
 
-	response = PUT("/setting/clue_font_size", `"xlarge"`, router)
+	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(s *Settings) { assert.Equal(t, SizeXLarge, s.ClueFontSize) })
 }
 
-func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
+func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 	// This acts as a small integration test toggling the OnlyAllowCorrectAnswers
 	// setting and ensuring that it clears any incorrect answer cells.
 	pool, conn, cleanup := NewRedisPool(t)
@@ -126,22 +178,22 @@ func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Toggle the status, it should transition to solving.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Apply an incorrect across answer.
-	response = PUT("/answer/1a", `"QNORA"`, router)
+	response = Channel.PUT("/answer/1a", `"QNORA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Set the OnlyAllowCorrectAnswers setting to true
-	response = PUT("/setting/only_allow_correct_answers", `true`, router)
+	response = Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.False(t, state.AcrossCluesFilled[1])
@@ -153,7 +205,7 @@ func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateSettings_Error(t *testing.T) {
+func TestRoute_UpdateCrosswordSetting_Error(t *testing.T) {
 	tests := []struct {
 		name    string
 		setting string
@@ -189,7 +241,7 @@ func TestRoute_UpdateSettings_Error(t *testing.T) {
 			router := gin.Default()
 			RegisterRoutes(router, pool)
 
-			response := PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
+			response := Channel.PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
 			assert.NotEqual(t, http.StatusOK, response.Code)
 		})
 	}
@@ -241,7 +293,7 @@ func TestRoute_UpdateCrosswordDate(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.Equal(t, StatusCreated, state.Status)
@@ -285,7 +337,7 @@ func TestRoute_UpdateCrosswordDate_Error(t *testing.T) {
 			router := gin.Default()
 			RegisterRoutes(router, pool)
 
-			response := PUT("/date", test.payload, router)
+			response := Channel.PUT("/date", test.payload, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -346,12 +398,12 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Toggle the status, it should transition to solving.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.Equal(t, StatusSolving, state.Status)
@@ -362,7 +414,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	// sleep for at least a nanosecond first so that the solve was unpaused for
 	// a non-zero duration.
 	time.Sleep(1 * time.Nanosecond)
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.Equal(t, StatusPaused, state.Status)
@@ -371,7 +423,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	})
 
 	// Toggle the status again, it should transition back to solving.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.Equal(t, StatusSolving, state.Status)
@@ -387,7 +439,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 
 	// Try to toggle the status one more time.  Now that the puzzle is complete
 	// it should return a HTTP error.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 	state, err = GetState(conn, "channel")
 	require.NoError(t, err)
@@ -449,17 +501,17 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Toggle the status, it should transition to solving.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Apply a correct across answer.
-	response = PUT("/answer/1a", `"QANDA"`, router)
+	response = Channel.PUT("/answer/1a", `"QANDA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.True(t, state.AcrossCluesFilled[1])
@@ -471,7 +523,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	})
 
 	// Apply a correct down answer.
-	response = PUT("/answer/1d", `"QTIP"`, router)
+	response = Channel.PUT("/answer/1d", `"QTIP"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.True(t, state.DownCluesFilled[1])
@@ -482,7 +534,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	})
 
 	// Apply an incorrect across answer.
-	response = PUT("/answer/6a", `"FLOOR"`, router)
+	response = Channel.PUT("/answer/6a", `"FLOOR"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.True(t, state.AcrossCluesFilled[6])
@@ -494,7 +546,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	})
 
 	// Apply an incorrect down answer.
-	response = PUT("/answer/11d", `"HEYA"`, router)
+	response = Channel.PUT("/answer/11d", `"HEYA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.True(t, state.DownCluesFilled[11])
@@ -505,12 +557,12 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	})
 
 	// Pause the solve.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Try to apply an answer.
-	response = PUT("/answer/6a", `"ATTIC"`, router)
+	response = Channel.PUT("/answer/6a", `"ATTIC"`, router)
 	assert.Equal(t, http.StatusConflict, response.Code)
 }
 
@@ -576,17 +628,17 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	err = SetSettings(conn, "channel", settings)
 	require.NoError(t, err)
 
-	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Toggle the status, it should transition to solving.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Apply a correct across answer.
-	response = PUT("/answer/1a", `"QANDA"`, router)
+	response = Channel.PUT("/answer/1a", `"QANDA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.True(t, state.AcrossCluesFilled[1])
@@ -598,7 +650,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	})
 
 	// Apply a correct down answer.
-	response = PUT("/answer/1d", `"QTIP"`, router)
+	response = Channel.PUT("/answer/1d", `"QTIP"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.True(t, state.DownCluesFilled[1])
@@ -609,7 +661,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	})
 
 	// Apply an incorrect across answer.
-	response = PUT("/answer/6a", `"FLOOR"`, router)
+	response = Channel.PUT("/answer/6a", `"FLOOR"`, router)
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 
 	state, err := GetState(conn, "channel")
@@ -617,7 +669,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	assert.False(t, state.AcrossCluesFilled[6])
 
 	// Apply an incorrect down answer.
-	response = PUT("/answer/11d", `"HEYA"`, router)
+	response = Channel.PUT("/answer/11d", `"HEYA"`, router)
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 
 	state, err = GetState(conn, "channel")
@@ -680,12 +732,12 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
 	// Toggle the status, it should transition to solving.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -723,7 +775,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 		"64a": "NURSE",
 	}
 	for clue, answer := range answers {
-		response = PUT(fmt.Sprintf("/answer/%s", clue), fmt.Sprintf(`"%s"`, answer), router)
+		response = Channel.PUT(fmt.Sprintf("/answer/%s", clue), fmt.Sprintf(`"%s"`, answer), router)
 		assert.Equal(t, http.StatusOK, response.Code)
 	}
 	drainEvents()
@@ -732,7 +784,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	// amount of time has passed in the solve.
 	time.Sleep(10 * time.Millisecond)
 
-	response = PUT("/answer/65a", `"OZONE"`, router)
+	response = Channel.PUT("/answer/65a", `"OZONE"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		require.Equal(t, StatusComplete, state.Status)
@@ -778,14 +830,14 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 			router := gin.Default()
 			RegisterRoutes(router, pool)
 
-			response := PUT("/date", `{"date": "2018-12-31"}`, router)
+			response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 			require.Equal(t, http.StatusOK, response.Code)
 
 			// Toggle the status, it should transition to solving.
-			response = PUT("/status", ``, router)
+			response = Channel.PUT("/status", ``, router)
 			require.Equal(t, http.StatusOK, response.Code)
 
-			response = PUT("/answer/1a", test.json, router)
+			response = Channel.PUT("/answer/1a", test.json, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -813,25 +865,25 @@ func TestRoute_GetCrosswordEvents(t *testing.T) {
 
 	// Connect to the stream when there's no puzzle selected, we should receive
 	// just the channel's settings.
-	_, stop := SSE("/events", router)
+	_, stop := Channel.SSE("/events", router)
 	events := stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "settings", events[0].Kind)
 
 	// Select a puzzle
-	response := PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// Now reconnect to the stream and we should receive both the puzzle and the
 	// channel's current state.
-	flush, stop := SSE("/events", router)
+	flush, stop := Channel.SSE("/events", router)
 	events = flush()
 	assert.Equal(t, 2, len(events))
 	assert.Equal(t, "settings", events[0].Kind)
 	assert.Equal(t, "state", events[1].Kind)
 
 	// Toggle the status to solving, this should cause the state to be sent again.
-	response = PUT("/status", ``, router)
+	response = Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
 	events = flush()
@@ -839,7 +891,7 @@ func TestRoute_GetCrosswordEvents(t *testing.T) {
 	assert.Equal(t, "state", events[0].Kind)
 
 	// Now specify an answer, this should cause the state to be sent again.
-	response = PUT("/answer/1a", `"QANDA"`, router)
+	response = Channel.PUT("/answer/1a", `"QANDA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 
 	events = flush()
@@ -882,8 +934,36 @@ func NewRegistry(t *testing.T) (*pubsub.Registry, <-chan pubsub.Event, func()) {
 	}
 }
 
+type TestChannel struct {
+	name string
+}
+
+func (c TestChannel) GET(url string, router *gin.Engine) *TestResponseRecorder {
+	url = path.Join(c.name, url)
+	return GET(url, router)
+}
+
+func (c TestChannel) PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
+	url = path.Join(c.name, url)
+	return PUT(url, body, router)
+}
+
+func (c TestChannel) SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+	url = path.Join(c.name, url)
+	return SSE(url, router)
+}
+
+func GET(url string, router *gin.Engine) *TestResponseRecorder {
+	url = path.Join("/crossword", url)
+	request := httptest.NewRequest(http.MethodGet, url, nil)
+
+	recorder := CreateTestResponseRecorder()
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
 func PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
-	url = path.Join("/channel/crossword", url)
+	url = path.Join("/crossword", url)
 	request := httptest.NewRequest(http.MethodPut, url, strings.NewReader(body))
 
 	recorder := CreateTestResponseRecorder()
@@ -898,6 +978,7 @@ func PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
 // the main thread wishes to close the connection to the router the stop method
 // can be called and it will return any unread events.
 func SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+	url = path.Join("/crossword", url)
 	recorder := CreateTestResponseRecorder()
 
 	flush = func() []pubsub.Event {
@@ -926,7 +1007,6 @@ func SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func
 		return flush()
 	}
 
-	url = path.Join("/channel/crossword", url)
 	request := httptest.NewRequest(http.MethodGet, url, nil)
 	go router.ServeHTTP(recorder, request)
 
@@ -957,6 +1037,10 @@ func (r *TestResponseRecorder) CloseNotify() <-chan bool {
 
 func (r *TestResponseRecorder) closeClient() {
 	r.closeChannel <- true
+}
+
+func (r *TestResponseRecorder) JSON(target interface{}) error {
+	return json.NewDecoder(r.Body).Decode(target)
 }
 
 func CreateTestResponseRecorder() *TestResponseRecorder {

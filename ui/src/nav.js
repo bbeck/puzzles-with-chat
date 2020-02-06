@@ -44,7 +44,7 @@ function StartPauseButton(props) {
 
   // Toggle the status.
   function toggle() {
-    fetch(`/api/${props.channel}/crossword/status`,
+    fetch(`/api/crossword/${props.channel}/status`,
       {
         method: "PUT",
       });
@@ -141,7 +141,7 @@ function SettingsDropdown(props) {
         return;
       }
 
-      fetch(`/api/${props.channel}/crossword/setting/${name}`,
+      fetch(`/api/crossword/${props.channel}/setting/${name}`,
         {
           method: "PUT",
           body: JSON.stringify(value),
@@ -210,7 +210,7 @@ function PuzzleDropdown(props) {
     const elem = document.getElementById("puzzle-date-input");
     const date = elem.value;
 
-    fetch(`/api/${props.channel}/crossword/date`,
+    fetch(`/api/crossword/${props.channel}/date`,
       {
         method: "PUT",
         body: JSON.stringify({"date": date}),

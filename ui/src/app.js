@@ -15,6 +15,14 @@ function App() {
 }
 
 function Home() {
+  const [channels, setChannels] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(`/api/crossword`)
+      .then(response => response.json())
+      .then(channels => setChannels(channels));
+  }, [setChannels]);
+
   return (
     <div>
       <Nav/>
@@ -36,22 +44,7 @@ function Home() {
           you'll find a list of all of the solving sessions that are in
           progress. Please click through to the streamer you were looking for.
         </p>
-
-        {/*{{if .rooms}}*/}
-        {/*<p>*/}
-        {/*  <div className="list-group">*/}
-        {/*    {{range .rooms}}*/}
-        {/*    <a className="list-group-item list-group-item-action"*/}
-        {/*       href="/{{.}}">{{.}}</a>*/}
-        {/*    {{end}}*/}
-        {/*  </div>*/}
-        {/*</p>*/}
-        {/*{{else}}*/}
-        <div className="alert alert-primary">
-          We're sorry, there doesn't appear to be any active solves right now.
-        </div>
-        {/*{{end}}*/}
-
+        <ActiveChannelList channels={channels}/>
         <p>
           Questions? Comments? Feedback? Feel free to whisper @mistaeksweremade
           on Twitch.
@@ -61,9 +54,35 @@ function Home() {
   );
 }
 
+function ActiveChannelList(props) {
+  const channels = props.channels;
+  if (!channels || channels.length === 0) {
+    return (
+      <div className="alert alert-primary">
+        We're sorry, there doesn't appear to be any active solves right now.
+      </div>
+    );
+  }
+
+  const links = [];
+  for (let i = 0; i < channels.length; i++) {
+    links.push(
+      <a className="list-group-item list-group-item-action" href={`/${channels[i]}`} key={channels[i]}>
+        {channels[i]}
+      </a>
+    );
+  }
+
+  return (
+    <div className="list-group mb-3">
+      {links}
+    </div>
+  );
+}
+
 function Channel(props) {
   const [events, setEventStream] = React.useState(
-    new EventStream(`/api/${props.channel}/crossword/events`)
+    new EventStream(`/api/crossword/${props.channel}/events`)
   );
 
   const [settings, setSettings] = React.useState({

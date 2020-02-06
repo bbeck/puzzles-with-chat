@@ -11,6 +11,93 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGetChannelNamesWithState(t *testing.T) {
+	s, err := miniredis.Run()
+	require.NoError(t, err)
+
+	c, err := redis.Dial("tcp", s.Addr())
+	require.NoError(t, err)
+	defer c.Close()
+
+	tests := []struct {
+		name   string
+		setup  func() error
+		verify func(t *testing.T, names []string)
+	}{
+		{
+			name: "no active channels",
+			verify: func(t *testing.T, names []string) {
+				assert.Nil(t, names)
+			},
+		},
+		{
+			name: "one active channel",
+			setup: func() error {
+				return s.Set(StateKey("channel1"), "")
+			},
+			verify: func(t *testing.T, names []string) {
+				assert.Equal(t, []string{"channel1"}, names)
+			},
+		},
+		{
+			name: "three active channels",
+			setup: func() error {
+				if err := s.Set(StateKey("channel1"), ""); err != nil {
+					return err
+				}
+				if err := s.Set(StateKey("channel2"), ""); err != nil {
+					return err
+				}
+				return s.Set(StateKey("channel3"), "")
+			},
+			verify: func(t *testing.T, names []string) {
+				assert.Equal(t, []string{"channel1", "channel2", "channel3"}, names)
+			},
+		},
+		{
+			name: "active channels are sorted",
+			setup: func() error {
+				if err := s.Set(StateKey("channel2"), ""); err != nil {
+					return err
+				}
+				if err := s.Set(StateKey("channel3"), ""); err != nil {
+					return err
+				}
+				return s.Set(StateKey("channel1"), "")
+			},
+			verify: func(t *testing.T, names []string) {
+				assert.Equal(t, []string{"channel1", "channel2", "channel3"}, names)
+			},
+		},
+		{
+			name: "many active channels",
+			setup: func() error {
+				for i := 0; i < 10000; i++ {
+					if err := s.Set(StateKey(fmt.Sprintf("channel%d", i)), ""); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+			verify: func(t *testing.T, names []string) {
+				assert.Equal(t, 10000, len(names))
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.setup != nil {
+				require.NoError(t, test.setup())
+			}
+
+			actual, err := GetChannelNamesWithState(c)
+			require.NoError(t, err)
+			test.verify(t, actual)
+		})
+	}
+}
+
 func TestGetState(t *testing.T) {
 	s, err := miniredis.Run()
 	require.NoError(t, err)

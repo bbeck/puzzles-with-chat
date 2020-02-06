@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -15,6 +17,44 @@ var StateTTL = 4 * time.Hour
 // crossword solve's state.
 func StateKey(name string) string {
 	return fmt.Sprintf("%s:crossword:state", name)
+}
+
+// GetChannelNamesWithState loads the name of all channels that currently have
+// a state present in redis.  If there are no channels then an empty slice is
+// returned.  This method does not update the expiration times of any state.
+func GetChannelNamesWithState(c redis.Conn) ([]string, error) {
+	cursor := 0
+
+	var names []string
+	for {
+		fields, err := redis.Values(c.Do("SCAN", cursor, "MATCH", "*:crossword:state"))
+		if err != nil {
+			return nil, err
+		}
+
+		cursor, err = redis.Int(fields[0], nil)
+		if err != nil {
+			return nil, err
+		}
+
+		keys, err := redis.Strings(fields[1], nil)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, key := range keys {
+			name := strings.Replace(key, ":crossword:state", "", 1)
+			names = append(names, name)
+		}
+
+		// Check if we need to stop.
+		if cursor == 0 {
+			break
+		}
+	}
+
+	sort.Strings(names)
+	return names, nil
 }
 
 // GetState loads the state for a crossword solve from redis.  If the state
