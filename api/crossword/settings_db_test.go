@@ -61,6 +61,14 @@ func TestGetSettings(t *testing.T) {
 			expected: &Settings{ClueFontSize: SizeLarge},
 		},
 		{
+			name:    "show notes",
+			channel: "show_notes",
+			setup: func(channel string) error {
+				return s.Set(SettingsKey(channel), `{"show_notes":true}`)
+			},
+			expected: &Settings{ShowNotes: true},
+		},
+		{
 			name:    "gets correct settings",
 			channel: "correct_key",
 			setup: func(channel string) error {

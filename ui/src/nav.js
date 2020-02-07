@@ -198,6 +198,20 @@ function SettingsDropdown(props) {
               <button type="button" className={settings.clue_font_size === "xlarge" ? "btn btn-success" : "btn btn-dark"} onClick={update("clue_font_size", "xlarge")}>Extra Large</button>
             </div>
           </div>
+          <div className="dropdown-divider"/>
+          <div className="dropdown-item">
+            <div className="lead">Show notes</div>
+            <div>
+              <small className="text-muted">
+                This setting enables showing the notes about the puzzle when
+                they are present.  The notes are usually notes from the puzzle's
+                constructor, but there are also sometimes notes from a solver
+                that may contain spoilers.  Be careful when enabling this
+                setting.
+              </small>
+            </div>
+            <Switch checked={settings.show_notes} onClick={update("show_notes", !settings.show_notes)}/>
+          </div>
         </form>
       </div>
     </li>

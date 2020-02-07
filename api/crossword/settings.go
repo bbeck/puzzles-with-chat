@@ -17,6 +17,9 @@ type Settings struct {
 
 	// What font size should the clues be rendered with.
 	ClueFontSize FontSize `json:"clue_font_size"`
+
+	// Whether or not notes field should shown.
+	ShowNotes bool `json:"show_notes"`
 }
 
 // ClueVisibility is an enumeration representing which clues should be shown.

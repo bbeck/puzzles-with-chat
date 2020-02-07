@@ -116,6 +116,10 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(s *Settings) { assert.Equal(t, SizeXLarge, s.ClueFontSize) })
+
+	response = Channel.PUT("/setting/show_notes", `true`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(func(s *Settings) { assert.True(t, s.ShowNotes) })
 }
 
 func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
@@ -230,6 +234,11 @@ func TestRoute_UpdateCrosswordSetting_Error(t *testing.T) {
 			name:    "invalid setting name",
 			setting: "foo_bar_baz",
 			json:    `false`,
+		},
+		{
+			name:    "show_notes",
+			setting: "show_notes",
+			json:    `{`,
 		},
 	}
 

@@ -89,6 +89,7 @@ function Channel(props) {
     clues_to_show: "all",
     clue_font_size: "normal",
     only_allow_correct_answers: false,
+    show_notes: false,
   });
 
   const [state, setState] = React.useState({});

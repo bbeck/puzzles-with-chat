@@ -39,6 +39,7 @@ export function Crossword(props) {
         notes={puzzle.notes}
         clue_font_size={settings.clue_font_size}
         clues_to_show={settings.clues_to_show}
+        show_notes={settings.show_notes}
       />
     </div>
   );
@@ -181,6 +182,7 @@ function Clues(props) {
   const clue_notes = props.notes || "";
   const clues_to_show = props.clues_to_show;
   const clue_font_size = props.clue_font_size;
+  const show_notes = props.show_notes;
 
   let across;
   if (clues_to_show === "all" || clues_to_show === "across") {
@@ -204,7 +206,30 @@ function Clues(props) {
 
   let notes;
   if (clues_to_show !== "none") {
-    notes = <div id="clue-notes" className="notes" dangerouslySetInnerHTML={{__html: clue_notes}}/>;
+    // If there are notes and we want to display them render them into the notes
+    // element.
+    if (clue_notes !== "" && show_notes) {
+      notes = (
+        <div
+          id="clue-notes"
+          className="notes"
+          dangerouslySetInnerHTML={{__html: clue_notes}}
+        />
+      );
+    }
+
+    // If there are notes, but we don't want to display them, then show an
+    // informational message instead.
+    if (clue_notes !== "" && !show_notes) {
+      notes = (
+        <div id="clue-notes" className="notes">
+          <p>
+            This puzzle contains notes, please consider enabling the 'Show
+            notes' setting.  <em>WARNING: Notes may container spoilers.</em>
+          </p>
+        </div>
+      );
+    }
   }
 
   return (

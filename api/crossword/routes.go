@@ -92,6 +92,15 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 			}
 			settings.ClueFontSize = value
 
+		case "show_notes":
+			var value bool
+			if err := c.BindJSON(&value); err != nil {
+				err = fmt.Errorf("unable to parse crossword show notes setting json %v: %+v", value, err)
+				_ = c.AbortWithError(http.StatusBadRequest, err)
+				return
+			}
+			settings.ShowNotes = value
+
 		default:
 			err = fmt.Errorf("unrecognized crossword setting name %s", setting)
 			_ = c.AbortWithError(http.StatusBadRequest, err)
