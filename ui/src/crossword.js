@@ -96,6 +96,8 @@ function Timer(props) {
   const [duration, setDuration] = React.useState("0h 00m 00s");
 
   React.useEffect(() => {
+    // Update the timer a bit more frequently than once a second so that it
+    // initializes quickly and also reflects the true time a bit better.
     const interval = setInterval(() => {
       // The total duration is comprised of 2 parts, the total_solve_duration
       // that we're provided from the server as well as the number of seconds
@@ -107,7 +109,7 @@ function Timer(props) {
       }
 
       setDuration(formatDuration(total));
-    }, 1000);
+    }, 500);
     return () => clearInterval(interval)
   }, [last_start_time, total_solve_duration, duration, setDuration]);
 
