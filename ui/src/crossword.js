@@ -64,57 +64,63 @@ function Header(props) {
 }
 
 function Timer(props) {
-  // Parse a duration string (1h10m3s) into the total number of seconds.
-  const parseDuration = (duration) => {
+  // Parse the duration string (1h10m3s) into the total number of seconds.
+  const total_solve_duration = ((duration) => {
     let re = /(?:(?<h>[0-9]+)h)?(?:(?<m>[0-9]+)m)?(?:(?<s>[0-9.]+)s)?/;
     let match = re.exec(duration);
 
-    return (parseInt(match.groups.h || 0, 10))*3600 +
-      (parseInt(match.groups.m || 0, 10))*60 +
+    return (parseInt(match.groups.h || 0, 10)) * 3600 +
+      (parseInt(match.groups.m || 0, 10)) * 60 +
       Math.round(parseFloat(match.groups.s || 0));
-  };
+  })(props.total_solve_duration);
 
-  // Format a total number of seconds as a duration string.
-  const formatDuration = (total) => {
-    let hours = parseInt(total / 3600);
-
-    let mins = parseInt((total - hours * 3600) / 60);
-    if (mins < 10) {
-      mins = "0" + mins;
-    }
-
-    let secs = parseInt(total - hours * 3600 - mins * 60);
-    if (secs < 10) {
-      secs = "0" + secs;
-    }
-
-    return hours + "h " + mins + "m " + secs + "s";
-  };
-
+  // Convert the last start time into a timestamp as a number of seconds since
+  // the epoch.  If there isn't a last start time, then this will return NaN.
   const last_start_time = Date.parse(props.last_start_time) / 1000;
-  const total_solve_duration = parseDuration(props.total_solve_duration);
-  const [duration, setDuration] = React.useState("0h 00m 00s");
+
+  // Given an amount of time that the solve has gone for in the past as well as
+  // time time that the current segment was started at, compute the total
+  // duration in seconds that the solve has been going for.
+  const compute = (total, start) => {
+    if (!isNaN(start)) {
+      total += new Date().getTime() / 1000 - start;
+    }
+    return Math.round(total);
+  };
+
+  const [total, setTotal] = React.useState(
+    compute(total_solve_duration, last_start_time)
+  );
 
   React.useEffect(() => {
-    // Update the timer a bit more frequently than once a second so that it
-    // initializes quickly and also reflects the true time a bit better.
     const interval = setInterval(() => {
-      // The total duration is comprised of 2 parts, the total_solve_duration
-      // that we're provided from the server as well as the number of seconds
-      // that have elapsed since the puzzle was last started.
-      let total = total_solve_duration;
-      if (!isNaN(last_start_time)) {
-        const now = new Date();
-        total += now.getTime() / 1000 - last_start_time;
-      }
-
-      setDuration(formatDuration(total));
+      const total = compute(total_solve_duration, last_start_time);
+      setTotal(total);
     }, 500);
     return () => clearInterval(interval)
-  }, [last_start_time, total_solve_duration, duration, setDuration]);
+  }, [total_solve_duration, last_start_time, setTotal]);
 
   return (
-    <div className="timer">{duration}</div>
+    <div className="timer">
+      <Duration total={total}/>
+    </div>
+  );
+}
+
+function Duration(props) {
+  const pad = (n) => {
+    return (n < 10) ? "0" + n : n;
+  };
+
+  const total = props.total;
+  const hours = Math.floor(total / 3600);
+  const minutes = pad(Math.floor(total % 3600 / 60));
+  const seconds = pad(Math.floor(total % 60));
+
+  return (
+    <React.Fragment>
+      {`${hours}h ${minutes}m ${seconds}s`}
+    </React.Fragment>
   );
 }
 
