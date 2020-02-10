@@ -275,7 +275,7 @@ function ClueList(props) {
     items.push(
       <li id={number + side} className={filled[number] ? "filled" : ""} key={number}>
         <span className="number">{number}</span>
-        <span className="clue">{clues[number]}</span>
+        <span className="clue" dangerouslySetInnerHTML={{__html: clues[number]}}/>
       </li>
     );
   }
