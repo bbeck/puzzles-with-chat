@@ -81,7 +81,7 @@ function ActiveChannelList(props) {
 }
 
 function Channel(props) {
-  const [events, setEventStream] = React.useState(
+  const [stream] = React.useState(
     new EventStream(`/api/crossword/${props.channel}/events`)
   );
 
@@ -95,19 +95,36 @@ function Channel(props) {
   const [state, setState] = React.useState({});
 
   React.useEffect(() => {
-    events.setHandler(message => {
+    stream.setHandler(message => {
       const event = JSON.parse(message.data);
+      switch(event.kind) {
+        case "settings":
+          setSettings(event.payload);
+          break;
 
-      if (event.kind === "settings") {
-        setSettings(event.payload);
-      }
+        case "state":
+          setState(event.payload);
+          break;
 
-      if (event.kind === "state") {
-        setState(event.payload);
+        case "show_clue":
+          // This is a bit of a hack since we just reach into the DOM to grab
+          // the clue element, but this is just presentation logic and not
+          // state, so trying to pull a reference to the clue element from deep
+          // within the component hierarchy is quite complicated and much uglier
+          // than this hack.
+          const clue = document.getElementById(event.payload);
+          if (clue !== null) {
+            clue.scrollIntoView();
+            clue.classList.add("shown");
+            setTimeout(() => clue.classList.remove("shown"), 2500);
+          }
+          break;
+
+        default:
+          console.log("unhandled event:", event);
       }
     });
-  }, [events, setEventStream, setSettings, setState]);
-
+  }, [stream, setSettings, setState]);
 
   return (
     <React.Fragment>

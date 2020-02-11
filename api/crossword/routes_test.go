@@ -852,6 +852,82 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 	}
 }
 
+func TestRoute_ShowCrosswordClue(t *testing.T) {
+	// This acts as a small integration test requesting clues to be shown and
+	// making sure events are properly emitted.
+	pool, _, cleanup := NewRedisPool(t)
+	defer cleanup()
+
+	registry, events, cleanup := NewRegistry(t)
+	defer cleanup()
+
+	// Setup a cached entry for the date we're about to load to ensure that we
+	// don't make a network call during the test.
+	saved := XWordInfoPuzzleCache
+	XWordInfoPuzzleCache = map[string]*Puzzle{
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+	}
+	defer func() { XWordInfoPuzzleCache = saved }()
+
+	// Ensure that we have received the proper event.
+	verify := func(fn func(clue string)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "show_clue", event.Kind)
+			fn(event.Payload.(string))
+
+		default:
+			assert.Fail(t, "no show_clue event available")
+		}
+	}
+
+	drainEvents := func() {
+		for {
+			select {
+			case <-events:
+			default:
+				return
+			}
+		}
+	}
+
+	router := gin.Default()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	require.Equal(t, http.StatusOK, response.Code)
+	drainEvents()
+
+	// Request showing an across clue.
+	response = Channel.GET("/show/1a", router)
+	require.Equal(t, http.StatusOK, response.Code)
+	verify(func(clue string) {
+		assert.Equal(t, "1a", clue)
+	})
+
+	// Request showing a down clue.
+	response = Channel.GET("/show/16d", router)
+	require.Equal(t, http.StatusOK, response.Code)
+	verify(func(clue string) {
+		assert.Equal(t, "16d", clue)
+	})
+
+	// Request showing a malformed clue.
+	response = Channel.GET("/show/1x", router)
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	// Request showing a properly formed, but non-existent clue.  This doesn't
+	// fail because it doesn't mutate the state of the puzzle in any way.
+	response = Channel.GET("/show/999a", router)
+	require.Equal(t, http.StatusOK, response.Code)
+	verify(func(clue string) {
+		assert.Equal(t, "999a", clue)
+	})
+}
+
 func TestRoute_GetCrosswordEvents(t *testing.T) {
 	// This acts as a small integration test ensuring that the event stream
 	// receives the events put into a registry.

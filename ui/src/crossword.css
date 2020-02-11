@@ -340,7 +340,7 @@
 }
 #crossword .clues .clue-list li {
   font-family: sans-serif;
-  transition: background-color 2s;
+  transition: background-color 1s;
   transition-timing-function: ease-in-out;
 }
 #crossword .clues .clue-list li.filled {

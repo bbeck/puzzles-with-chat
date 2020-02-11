@@ -24,6 +24,7 @@ func RegisterRoutesWithRegistry(router gin.IRouter, pool *redis.Pool, registry *
 		channel.PUT("/date", UpdateCrosswordDate(pool, registry))
 		channel.PUT("/status", ToggleCrosswordStatus(pool, registry))
 		channel.PUT("/answer/:clue", UpdateCrosswordAnswer(pool, registry))
+		channel.GET("/show/:clue", ShowCrosswordClue(registry))
 		channel.GET("/events", GetCrosswordEvents(pool, registry))
 	}
 }
@@ -361,6 +362,29 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 		registry.Publish(pubsub.Channel(channel), pubsub.Event{
 			Kind:    "state",
 			Payload: state,
+		})
+	}
+}
+
+// ShowCrosswordClue sends an event to all clients of a channel requesting that
+// they update their view to make the specified clue visible.  If the specified
+// clue isn't structured as a proper clue number and direction than an error
+// will be returned.
+func ShowCrosswordClue(registry *pubsub.Registry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		channel := c.Param("channel")
+		clue := c.Param("clue")
+
+		_, _, err := ParseClue(clue)
+		if err != nil {
+			err = fmt.Errorf("malformed clue (%s): %+v", clue, err)
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+
+		registry.Publish(pubsub.Channel(channel), pubsub.Event{
+			Kind:    "show_clue",
+			Payload: clue,
 		})
 	}
 }
