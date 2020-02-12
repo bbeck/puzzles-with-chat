@@ -17,8 +17,6 @@ services:
     build:
       context: api
       target: development
-      args:
-        ENVIRONMENT: dev
     command: >-
       reflex
         --start-service
@@ -29,6 +27,7 @@ services:
         sh -c 'go run .'
     container_name: twitch-plays-crosswords-api
     depends_on:
+      - converter
       - redis
     environment:
       GIN_MODE: release # debug only prints warning messages on startup
@@ -59,6 +58,27 @@ services:
       - 3000
     ports:
       - 3000:3000/tcp
+    restart: unless-stopped
+
+  converter:
+    build:
+      context: converter
+      args:
+        REQUIREMENTS_FILENAME: requirements-dev.txt
+    working_dir: "/usr/src/app"
+    container_name: twitch-plays-crosswords-converter
+    environment:
+      PYTHON_UNBUFFERED: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+      FLASK_ENV: "development"
+    volumes:
+      - type: bind
+        source: "./converter"
+        target: "/usr/src/app"
+    expose:
+      - 5001
+    ports:
+      - 5001:5001/tcp
     restart: unless-stopped
 
 volumes:
