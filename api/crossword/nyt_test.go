@@ -124,7 +124,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 	}{
 		{
 			name:  "size",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 15, puzzle.Cols)
 				assert.Equal(t, 15, puzzle.Rows)
@@ -132,21 +132,21 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "title",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "NY Times, Mon, Dec 31, 2018", puzzle.Title)
 			},
 		},
 		{
 			name:  "publisher",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "The New York Times", puzzle.Publisher)
 			},
 		},
 		{
 			name:  "published date",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 2018, puzzle.PublishedDate.Year())
 				assert.Equal(t, time.December, puzzle.PublishedDate.Month())
@@ -155,14 +155,14 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "author",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "Brian Thomas", puzzle.Author)
 			},
 		},
 		{
 			name:  "cells",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]string{
 					{"Q", "A", "N", "D", "A", "", "A", "T", "T", "I", "C", "", "H", "O", "N"},
@@ -186,7 +186,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "blocks",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, false, true, false, false, false, false, false, true, false, false, false},
@@ -210,7 +210,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "cell clue numbers",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]int{
 					{1, 2, 3, 4, 5, 0, 6, 7, 8, 9, 10, 0, 11, 12, 13},
@@ -234,7 +234,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "cell circles (none)",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
@@ -258,7 +258,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "cell circles",
-			input: load(t, "xwordinfo-circles-20181216.json"),
+			input: load(t, "xwordinfo-nyt-20181216-circles.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
@@ -288,7 +288,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "across clues",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := map[int]string{
 					1:  "Exchange after a lecture, informally",
@@ -328,7 +328,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "down clues",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := map[int]string{
 					1:  `Brand of swabs`,
@@ -380,14 +380,14 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "notes",
-			input: load(t, "xwordinfo-success-20181231.json"),
+			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "", puzzle.Notes)
 			},
 		},
 		{
 			name:  "rebus",
-			input: load(t, "xwordinfo-rebus-20181227.json"),
+			input: load(t, "xwordinfo-nyt-20181227-rebus.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "CON", puzzle.Cells[6][8])
 				assert.Equal(t, "CON", puzzle.Cells[7][7])
@@ -398,7 +398,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "non-square dimensions",
-			input: load(t, "xwordinfo-nonsquare-20180621.json"),
+			input: load(t, "xwordinfo-nyt-20180621-nonsquare.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 13, puzzle.Rows)
 				assert.Equal(t, 17, puzzle.Cols)
@@ -406,7 +406,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "non-square cells",
-			input: load(t, "xwordinfo-nonsquare-20180621.json"),
+			input: load(t, "xwordinfo-nyt-20180621-nonsquare.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 13, puzzle.Rows)
 				assert.Equal(t, 17, puzzle.Cols)
@@ -431,14 +431,14 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "notepad",
-			input: load(t, "xwordinfo-notepad-20180119.json"),
+			input: load(t, "xwordinfo-nyt-20180119-notepad.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.NotEmpty(t, puzzle.Notes)
 			},
 		},
 		{
 			name:  "notepad + jnotes",
-			input: load(t, "xwordinfo-notepad-and-jnotes-20110513.json"),
+			input: load(t, "xwordinfo-nyt-20110513-notepad-and-jnotes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.NotEmpty(t, puzzle.Notes)
 
@@ -522,7 +522,7 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 		},
 		{
 			name:  "missing puzzle response",
-			input: toString(t, load(t, "xwordinfo-failure-19000513.json")),
+			input: toString(t, load(t, "xwordinfo-nyt-19000513-failure.json")),
 		},
 	}
 

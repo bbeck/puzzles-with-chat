@@ -34,7 +34,7 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -135,7 +135,7 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -270,7 +270,7 @@ func TestRoute_UpdateCrosswordDate(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -365,7 +365,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -468,7 +468,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -588,7 +588,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -699,7 +699,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -832,7 +832,7 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 
 			saved := XWordInfoPuzzleCache
 			XWordInfoPuzzleCache = map[string]*Puzzle{
-				"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+				"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 			}
 			defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -865,7 +865,7 @@ func TestRoute_ShowCrosswordClue(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
@@ -941,7 +941,7 @@ func TestRoute_GetCrosswordEvents(t *testing.T) {
 	// don't make a network call during the test.
 	saved := XWordInfoPuzzleCache
 	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-success-20181231.json"),
+		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
 	}
 	defer func() { XWordInfoPuzzleCache = saved }()
 
