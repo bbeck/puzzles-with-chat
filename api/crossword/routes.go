@@ -19,9 +19,8 @@ func RegisterRoutesWithRegistry(router gin.IRouter, pool *redis.Pool, registry *
 
 	channel := router.Group("/crossword/:channel")
 	{
+		channel.PUT("", UpdateCrossword(pool, registry))
 		channel.PUT("/setting/:setting", UpdateCrosswordSetting(pool, registry))
-		// TODO: This takes more than just the date as input, maybe it shouldn't be /date.
-		channel.PUT("/date", UpdateCrosswordDate(pool, registry))
 		channel.PUT("/status", ToggleCrosswordStatus(pool, registry))
 		channel.PUT("/answer/:clue", UpdateCrosswordAnswer(pool, registry))
 		channel.GET("/show/:clue", ShowCrosswordClue(registry))
@@ -42,6 +41,88 @@ func GetActiveCrosswords(pool *redis.Pool) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, names)
+	}
+}
+
+// UpdateCrossword changes the crossword that's currently being solved for a
+// channel.
+func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		channel := c.Param("channel")
+
+		// Since there are multiple ways to specify which crossword to solve we'll
+		// parse the payload into a generic map instead of a specific object.
+		var payload map[string]string
+		if err := c.BindJSON(&payload); err != nil {
+			err = fmt.Errorf("unable to read request body: %+v", err)
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+
+		var puzzle *Puzzle
+
+		// New York Times date
+		if date := payload["new_york_times_date"]; date != "" {
+			p, err := LoadFromNewYorkTimes(date)
+			if err != nil {
+				err = fmt.Errorf("unable to load NYT puzzle for date %s: %+v", date, err)
+				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+
+			puzzle = p
+		}
+
+		// .puz file upload
+		if encoded := payload["puz_file_bytes"]; encoded != "" {
+			p, err := LoadFromEncodedPuzFile(encoded)
+			if err != nil {
+				err = fmt.Errorf("unable to load puzzle from bytes: %+v", err)
+				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+
+			puzzle = p
+		}
+
+		if puzzle == nil {
+			err := fmt.Errorf("unable to determine puzzle from payload: %+v", payload)
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		// Save the puzzle to this channel's state
+		cells := make([][]string, puzzle.Rows)
+		for row := 0; row < puzzle.Rows; row++ {
+			cells[row] = make([]string, puzzle.Cols)
+		}
+
+		state := &State{
+			Status:            StatusCreated,
+			Puzzle:            puzzle,
+			Cells:             cells,
+			AcrossCluesFilled: make(map[int]bool),
+			DownCluesFilled:   make(map[int]bool),
+		}
+		if err := SetState(conn, channel, state); err != nil {
+			err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		// Broadcast to all of the clients that the puzzle has been selected, making
+		// sure to not include the answers.  It's okay to overwrite the puzzle
+		// attribute because we just wrote this state instance to the database
+		// and will be discarding it immediately publishing.
+		state.Puzzle = state.Puzzle.WithoutSolution()
+
+		registry.Publish(pubsub.Channel(channel), pubsub.Event{
+			Kind:    "state",
+			Payload: state,
+		})
 	}
 }
 
@@ -162,72 +243,6 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 				Payload: updatedState,
 			})
 		}
-	}
-}
-
-func UpdateCrosswordDate(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		channel := c.Param("channel")
-
-		// Since there are multiple ways to specify which crossword to solve we'll
-		// parse the payload into a generic map instead of a specific object.
-		var payload map[string]string
-		if err := c.BindJSON(&payload); err != nil {
-			err = fmt.Errorf("unable to read request body: %+v", err)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
-			return
-		}
-
-		var puzzle *Puzzle
-		if date := payload["date"]; date != "" {
-			p, err := LoadFromNewYorkTimes(date)
-			if err != nil {
-				err = fmt.Errorf("unable to load NYT puzzle for date %s: %+v", date, err)
-				_ = c.AbortWithError(http.StatusInternalServerError, err)
-				return
-			}
-
-			puzzle = p
-		}
-
-		if puzzle == nil {
-			err := fmt.Errorf("unable to determine puzzle from payload: %+v", payload)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
-			return
-		}
-
-		conn := pool.Get()
-		defer func() { _ = conn.Close() }()
-
-		// Save the puzzle to this channel's state
-		cells := make([][]string, puzzle.Rows)
-		for row := 0; row < puzzle.Rows; row++ {
-			cells[row] = make([]string, puzzle.Cols)
-		}
-
-		state := &State{
-			Status:            StatusCreated,
-			Puzzle:            puzzle,
-			Cells:             cells,
-			AcrossCluesFilled: make(map[int]bool),
-			DownCluesFilled:   make(map[int]bool),
-		}
-		if err := SetState(conn, channel, state); err != nil {
-			err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-
-		// Broadcast to all of the clients that the puzzle has been selected, making
-		// sure to not include the answers.  It's okay to overwrite the puzzle
-		// attribute because we just wrote this state instance to the database
-		// and will be discarding it immediately publishing.
-		state.Puzzle = state.Puzzle.WithoutSolution()
-
-		registry.Publish(pubsub.Channel(channel), pubsub.Event{
-			Kind:    "state",
-			Payload: state,
-		})
 	}
 }
 

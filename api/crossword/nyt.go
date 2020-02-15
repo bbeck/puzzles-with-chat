@@ -16,11 +16,6 @@ var XWordInfoHTTPClient = &http.Client{
 	Timeout: 5 * time.Second,
 }
 
-// A cache of puzzles to use instead of fetching form the xwordinfo site indexed
-// by date.  If an entry is int he cache then it's value will be returned from
-// LoadFromNewYorkTimes without making a network call.
-var XWordInfoPuzzleCache = make(map[string]*Puzzle)
-
 // LoadFromNewYorkTimes loads a crossword puzzle from the New York Times for a
 // particular json.
 //
@@ -31,17 +26,16 @@ var XWordInfoPuzzleCache = make(map[string]*Puzzle)
 //
 // If the puzzle cannot be loaded or parsed then an error is returned.
 func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
-	if puzzle, ok := XWordInfoPuzzleCache[date]; ok {
-		var err error
-		if puzzle == nil {
-			err = fmt.Errorf("nil puzzle for cache entry %s", date)
-		}
+	if testCachedPuzzle != nil {
+		return testCachedPuzzle, nil
+	}
 
-		return puzzle, err
+	if testCachedError != nil {
+		return nil, testCachedError
 	}
 
 	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/Data.aspx?date=%s", date)
-	response, err := fetch(XWordInfoHTTPClient, url)
+	response, err := FetchXWordInfo(XWordInfoHTTPClient, url)
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
 	}
@@ -57,7 +51,7 @@ func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
 	return puzzle, nil
 }
 
-func fetch(client *http.Client, url string) (*http.Response, error) {
+func FetchXWordInfo(client *http.Client, url string) (*http.Response, error) {
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create http request at %s: %v", url, err)
@@ -102,7 +96,7 @@ type XWordInfoPuzzle struct {
 	} `json:"answers"`
 }
 
-// ParseXwordInfoResponse converts a JSON response from xwordinfo.com into a
+// ParseXWordInfoResponse converts a JSON response from xwordinfo.com into a
 // puzzle object.
 func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 	var raw XWordInfoPuzzle

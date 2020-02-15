@@ -219,16 +219,54 @@ function SettingsDropdown(props) {
 }
 
 function PuzzleDropdown(props) {
-  // Set the date of the puzzle to use
-  const onSetPuzzleDate = (e) => {
-    const elem = document.getElementById("puzzle-date-input");
-    const date = elem.value;
-
-    fetch(`/api/crossword/${props.channel}/date`,
+  // Select a puzzle for the channel.
+  const setPuzzle = (payload) => {
+    return fetch(`/api/crossword/${props.channel}`,
       {
         method: "PUT",
-        body: JSON.stringify({"date": date}),
+        body: JSON.stringify(payload),
       });
+  };
+
+  // Helper to read a file or blob to its bytes.
+  const read = (f) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsBinaryString(f);
+  });
+
+  // Select a New York Times puzzle for a specific date.
+  const onNewYorkTimesDateSelected = (date) => {
+    if (!date) {
+      return;
+    }
+
+    return setPuzzle({"new_york_times_date": date});
+  };
+
+  // Select a .puz puzzle based on a URL to the .puz file.
+  const onPuzUrlSelected = (url) => {
+    if (!url) {
+      return;
+    }
+
+    return fetch(url)
+      .then(response => response.blob())
+      .then(read)
+      .then(btoa)
+      .then(bs => setPuzzle({"puz_file_bytes": bs}));
+  };
+
+  // Select a .puz puzzle based on the uploaded .puz file.
+  const onPuzFileSelected = (file) => {
+    if (!file) {
+      return;
+    }
+
+    return read(file)
+      .then(btoa)
+      .then(bs => setPuzzle({"puz_file_bytes": bs}));
   };
 
   return (
@@ -247,10 +285,9 @@ function PuzzleDropdown(props) {
               </small>
             </div>
             <div className="input-group">
-              <input id="puzzle-date-input" type="date" className="form-control"/>
+              <input id="new-york-times-date-input" type="date" className="form-control"/>
               <div className="input-group-append">
-                <button type="button" className="btn btn-dark" onClick={onSetPuzzleDate}>Load
-                </button>
+                <label htmlFor="new-york-times-date-input" className="btn btn-dark" onClick={e => onNewYorkTimesDateSelected(e.target.control.value)}>Load</label>
               </div>
             </div>
           </div>
@@ -264,9 +301,9 @@ function PuzzleDropdown(props) {
               </small>
             </div>
             <div className="input-group">
-              <input type="url" className="form-control"/>
+              <input id="puz-url-input" type="url" className="form-control" />
               <div className="input-group-append">
-                <button type="button" className="btn btn-dark">Load</button>
+                <label htmlFor="puz-url-input" className="btn btn-dark" onClick={e => onPuzUrlSelected(e.target.control.value)}>Load</label>
               </div>
             </div>
           </div>
@@ -281,8 +318,8 @@ function PuzzleDropdown(props) {
               </small>
             </div>
             <div className="input-group">
-              <button type="button" className="btn btn-dark">Choose file</button>
-              <input type="file" className="d-none" accept=".puz"/>
+              <input id="puz-file-input" type="file" accept=".puz" className="d-none" onChange={e => onPuzFileSelected(e.target.files[0])}/>
+              <label htmlFor="puz-file-input" className="btn btn-dark" onClick={e => {e.target.control.value = null}}>Choose file</label>
             </div>
           </div>
         </form>

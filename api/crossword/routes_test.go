@@ -2,6 +2,7 @@ package crossword
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/alicebob/miniredis"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
@@ -30,13 +31,9 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	registry, _, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
@@ -50,7 +47,7 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	assert.Nil(t, names)
 
 	// Start a crossword
-	response = Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response = Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// Make sure we have an active solve in our channel.
@@ -61,7 +58,7 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 
 	// Start a crossword in another channel.
 	channel2 := TestChannel{"channel2"}
-	response = channel2.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response = channel2.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// We should now have 2 solves.
@@ -131,13 +128,9 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 	registry, events, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -182,7 +175,7 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -256,23 +249,19 @@ func TestRoute_UpdateCrosswordSetting_Error(t *testing.T) {
 	}
 }
 
-func TestRoute_UpdateCrosswordDate(t *testing.T) {
-	// This acts as a small integration test updating the date of the crossword
-	// we're working on and ensuring the proper values are written to the
-	// database.
+func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
+	// This acts as a small integration test updating the date of the New York
+	// Times crossword we're working on and ensuring the proper values are written
+	// to the database.
 	pool, conn, cleanup := NewRedisPool(t)
 	defer cleanup()
 
 	registry, events, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -302,7 +291,7 @@ func TestRoute_UpdateCrosswordDate(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state *State) {
 		assert.Equal(t, StatusCreated, state.Status)
@@ -314,23 +303,88 @@ func TestRoute_UpdateCrosswordDate(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateCrosswordDate_Error(t *testing.T) {
+func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
+	// This acts as a small integration test uploading a .puz fle of the crossword
+	// we're working on and ensuring the proper values are written to the
+	// database.
+	pool, conn, cleanup := NewRedisPool(t)
+	defer cleanup()
+
+	registry, events, cleanup := NewRegistry(t)
+	defer cleanup()
+
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "converter-wp-20051206.json")
+	defer cleanup()
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(fn func(s *State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(*State)
+			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, "channel")
+		require.NoError(t, err)
+		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
+		fn(state)
+	}
+
+	router := gin.Default()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	response := Channel.PUT("/", `{"puz_file_bytes": "unused"}`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(func(state *State) {
+		assert.Equal(t, StatusCreated, state.Status)
+		assert.NotNil(t, state.Puzzle)
+		assert.Equal(t, 0, len(state.AcrossCluesFilled))
+		assert.Equal(t, 0, len(state.DownCluesFilled))
+		assert.Nil(t, state.LastStartTime)
+		assert.Equal(t, 0., state.TotalSolveDuration.Seconds())
+	})
+}
+
+func TestRoute_UpdateCrossword_Error(t *testing.T) {
 	tests := []struct {
-		name     string
-		payload  string
-		cache    map[string]*Puzzle
-		expected int
+		name        string
+		payload     string
+		forcedError error
+		expected    int
 	}{
 		{
-			name:     "malformed payload",
-			payload:  `{"date": }`,
+			name:     "bad json",
+			payload:  `{"new_york_times_date": }`,
 			expected: http.StatusBadRequest,
 		},
 		{
-			name:     "bad date", // causes LoadFromNewYorkTimes to return an error
-			payload:  `{"date": "bad"}`,
-			cache:    map[string]*Puzzle{"bad": nil},
-			expected: http.StatusInternalServerError,
+			name:     "invalid json",
+			payload:  `{}`,
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:        "nyt error",
+			payload:     `{"new_york_times_date": "bad"}`,
+			forcedError: errors.New("forced error"),
+			expected:    http.StatusInternalServerError,
+		},
+		{
+			name:        "puz error",
+			payload:     `{"puz_file_bytes": "bad"}`,
+			forcedError: errors.New("forced error"),
+			expected:    http.StatusInternalServerError,
 		},
 	}
 
@@ -339,14 +393,13 @@ func TestRoute_UpdateCrosswordDate_Error(t *testing.T) {
 			pool, _, cleanup := NewRedisPool(t)
 			defer cleanup()
 
-			saved := XWordInfoPuzzleCache
-			XWordInfoPuzzleCache = test.cache
-			defer func() { XWordInfoPuzzleCache = saved }()
+			cleanup = ForceErrorDuringLoad(test.forcedError)
+			defer cleanup()
 
 			router := gin.Default()
 			RegisterRoutes(router, pool)
 
-			response := Channel.PUT("/date", test.payload, router)
+			response := Channel.PUT("/", test.payload, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -361,13 +414,9 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	registry, events, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -407,7 +456,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -464,13 +513,9 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	registry, events, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -510,7 +555,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -584,13 +629,9 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	registry, events, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -637,7 +678,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	err = SetSettings(conn, "channel", settings)
 	require.NoError(t, err)
 
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -695,13 +736,9 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	registry, events, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -741,7 +778,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -830,16 +867,14 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 			pool, _, cleanup := NewRedisPool(t)
 			defer cleanup()
 
-			saved := XWordInfoPuzzleCache
-			XWordInfoPuzzleCache = map[string]*Puzzle{
-				"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			}
-			defer func() { XWordInfoPuzzleCache = saved }()
+			// Force a specific puzzle to be loaded so we don't make a network call.
+			cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+			defer cleanup()
 
 			router := gin.Default()
 			RegisterRoutes(router, pool)
 
-			response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+			response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 			require.Equal(t, http.StatusOK, response.Code)
 
 			// Toggle the status, it should transition to solving.
@@ -861,13 +896,9 @@ func TestRoute_ShowCrosswordClue(t *testing.T) {
 	registry, events, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	// Ensure that we have received the proper event.
 	verify := func(fn func(clue string)) {
@@ -897,7 +928,7 @@ func TestRoute_ShowCrosswordClue(t *testing.T) {
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -937,13 +968,9 @@ func TestRoute_GetCrosswordEvents(t *testing.T) {
 	registry, _, cleanup := NewRegistry(t)
 	defer cleanup()
 
-	// Setup a cached entry for the date we're about to load to ensure that we
-	// don't make a network call during the test.
-	saved := XWordInfoPuzzleCache
-	XWordInfoPuzzleCache = map[string]*Puzzle{
-		"2018-12-31": LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-	}
-	defer func() { XWordInfoPuzzleCache = saved }()
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	defer cleanup()
 
 	router := gin.Default()
 	RegisterRoutesWithRegistry(router, pool, registry)
@@ -956,7 +983,7 @@ func TestRoute_GetCrosswordEvents(t *testing.T) {
 	assert.Equal(t, "settings", events[0].Kind)
 
 	// Select a puzzle
-	response := Channel.PUT("/date", `{"date": "2018-12-31"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// Now reconnect to the stream and we should receive both the puzzle and the

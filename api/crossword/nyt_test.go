@@ -534,20 +534,20 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 	}
 }
 
-func TestFetch(t *testing.T) {
+func TestFetchXWordInfo(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
 	defer server.Close()
 
-	response, err := fetch(XWordInfoHTTPClient, server.URL)
+	response, err := FetchXWordInfo(XWordInfoHTTPClient, server.URL)
 	if response != nil {
 		defer response.Body.Close()
 	}
 	require.NoError(t, err)
 }
 
-func TestFetch_Error(t *testing.T) {
+func TestFetchXWordInfo_Error(t *testing.T) {
 	tests := []struct {
 		name    string
 		url     string
@@ -591,7 +591,7 @@ func TestFetch_Error(t *testing.T) {
 				client = XWordInfoHTTPClient
 			}
 
-			response, err := fetch(client, url)
+			response, err := FetchXWordInfo(client, url)
 			if response != nil {
 				defer response.Body.Close()
 			}
