@@ -378,6 +378,14 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 			Kind:    "state",
 			Payload: state,
 		})
+
+		// If we've just finished the solve then send a complete event as well.
+		if state.Status == StatusComplete {
+			registry.Publish(pubsub.Channel(channel), pubsub.Event{
+				Kind:    "complete",
+				Payload: nil,
+			})
+		}
 	}
 }
 

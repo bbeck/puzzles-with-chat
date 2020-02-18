@@ -2,6 +2,7 @@ import React from "react";
 import {Router} from "@reach/router";
 import {Crossword} from "./crossword";
 import {EventStream} from "./event-stream";
+import {Fireworks} from "./fireworks";
 import {Nav} from "./nav";
 
 function App() {
@@ -94,6 +95,8 @@ function Channel(props) {
 
   const [state, setState] = React.useState({});
 
+  const [showFireworks, setShowFireworks] = React.useState(false);
+
   React.useEffect(() => {
     stream.setHandler(message => {
       const event = JSON.parse(message.data);
@@ -120,16 +123,22 @@ function Channel(props) {
           }
           break;
 
+        case "complete":
+          setShowFireworks(true);
+          setTimeout(() => setShowFireworks(false), 20000);
+          break;
+
         default:
           console.log("unhandled event:", event);
       }
     });
-  }, [stream, setSettings, setState]);
+  }, [stream, setSettings, setState, setShowFireworks]);
 
   return (
     <React.Fragment>
       <Nav channel={props.channel} view={props.view} settings={settings} status={state.status}/>
       <Crossword view={props.view} state={state} settings={settings}/>
+      {showFireworks && <Fireworks/>}
     </React.Fragment>
   );
 }
