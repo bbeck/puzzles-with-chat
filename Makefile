@@ -3,16 +3,17 @@ help:
 	@echo 'Usage: make [TARGET] [EXTRA_ARGUMENTS]'
 	@echo ''
 	@echo 'Targets:'
-	@echo '  help     	show this help text'
-	@echo '  up       	start all services in the foreground or just the one specified by service= argument'
-	@echo '  start    	start all services in the background or just the one specified by service= argument'
-	@echo '  restart  	restart all services or just the one specified by service= argument'
-	@echo '  stop     	stop all services or just the one specified by service= argument'
-	@echo '  down     	down all services and remove their data/images/etc.'
-	@echo '  status   	show status of all services or just the one specified by service= argument'
-	@echo '  ps       	show status of all services or just the one specified by service= argument'
-	@echo '  logs     	show logs of all services or just the one specified by service= argument'
-	@echo '  redis-cli  connect to the redis datastore'
+	@echo '  help     	 show this help text'
+	@echo '  up       	 start all services in the foreground or just the one specified by service= argument'
+	@echo '  start    	 start all services in the background or just the one specified by service= argument'
+	@echo '  restart  	 restart all services or just the one specified by service= argument'
+	@echo '  stop     	 stop all services or just the one specified by service= argument'
+	@echo '  down     	 down all services and remove their data/images/etc.'
+	@echo '  status   	 show status of all services or just the one specified by service= argument'
+	@echo '  ps       	 show status of all services or just the one specified by service= argument'
+	@echo '  logs     	 show logs of all services or just the one specified by service= argument'
+	@echo '  redis-cli   connect to the redis datastore'
+	@echo '  connect-bot connect to the local bot interface to send commands'
 	@echo ''
 
 .PHONY: up
@@ -48,6 +49,10 @@ ps:
 logs:
 	@docker-compose logs --tail=100 -f $(service)
 
-.PHONE: redis-cli
+.PHONY: redis-cli
 redis-cli:
 	@docker-compose exec redis redis-cli
+
+.PHONY: connect-bot
+connect-bot:
+	@nc localhost 5002

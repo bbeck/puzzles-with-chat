@@ -42,6 +42,34 @@ services:
       - 5000:5000/tcp
     restart: unless-stopped
 
+  bot:
+    build:
+      context: bot
+      target: development
+    command: >-
+      reflex
+        --start-service
+        --decoration="none"
+        --regex='\.go$$'
+        --inverse-regex='\.gen.go$$'
+      --
+        sh -c 'go run .'
+    container_name: twitch-plays-crosswords-bot
+    depends_on:
+      - api
+    environment:
+      API_HOST: "api:5000"
+      ENV: "local"  # local (twitch disabled), development, or production
+      TWITCH_USERNAME:
+      TWITCH_OAUTH_TOKEN:
+    volumes:
+      - type: bind
+        source: "./bot"
+        target: "/src"
+    ports:
+      - 5002:5002/tcp  # this is only needed to test locally
+    restart: unless-stopped
+
   ui:
     build:
       context: ui
