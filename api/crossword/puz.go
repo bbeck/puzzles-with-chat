@@ -5,18 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/bbeck/twitch-plays-crosswords/api/web"
 	"io"
-	"net/http"
-	"time"
 )
 
-// The HTTP client to use when communicating with puzzle converter service.
-var ConverterHTTPClient = &http.Client{
-	Timeout: 5 * time.Second,
-}
-
 // The URL to the converter service.
-const ConverterURL = "http://converter:5001/puz"
+const ConverterURL = "http://converter:5001/puz" // TODO: Environment variable?
 
 // LoadFromEncodedPuzFile loads a crossword puzzle from the base64 encoded bytes
 // of the .puz file using the converter service.
@@ -37,7 +31,7 @@ func LoadFromEncodedPuzFile(encoded string) (*Puzzle, error) {
 		return nil, err
 	}
 
-	response, err := FetchConverterPuz(ConverterHTTPClient, ConverterURL, bytes.NewReader(bs))
+	response, err := web.Post(ConverterURL, bytes.NewReader(bs))
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
 	}
@@ -62,22 +56,4 @@ func ParseConverterResponse(in io.Reader) (*Puzzle, error) {
 	}
 
 	return puzzle, nil
-}
-
-func FetchConverterPuz(client *http.Client, url string, in io.Reader) (*http.Response, error) {
-	request, err := http.NewRequest("POST", url, in)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create converter http request: %v", err)
-	}
-
-	response, err := client.Do(request)
-	if err != nil {
-		return response, fmt.Errorf("unable to get crossword from converter: %v", err)
-	}
-
-	if response.StatusCode != 200 {
-		return response, fmt.Errorf("received non-200 response when converting crossword: %v", err)
-	}
-
-	return response, nil
 }

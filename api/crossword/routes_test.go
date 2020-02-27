@@ -20,7 +20,8 @@ import (
 	"time"
 )
 
-var Channel = TestChannel{"channel"}
+var Global = CrosswordRoute{}
+var Channel = ChannelRoute{"channel"}
 
 func TestRoute_GetActiveCrosswords(t *testing.T) {
 	// This acts as a small integration test creating crossword solves and making
@@ -41,7 +42,7 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	var names []string // The channel names of the active crossword solves
 
 	// Make sure we have no active solves.
-	response := GET("/", router)
+	response := Global.GET("/", router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.NoError(t, response.JSON(&names))
 	assert.Nil(t, names)
@@ -51,21 +52,21 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// Make sure we have an active solve in our channel.
-	response = GET("/", router)
+	response = Global.GET("/", router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.NoError(t, response.JSON(&names))
-	assert.Equal(t, []string{Channel.name}, names)
+	assert.Equal(t, []string{Channel.channel}, names)
 
 	// Start a crossword in another channel.
-	channel2 := TestChannel{"channel2"}
+	channel2 := ChannelRoute{"channel2"}
 	response = channel2.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// We should now have 2 solves.
-	response = GET("/", router)
+	response = Global.GET("/", router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.NoError(t, response.JSON(&names))
-	assert.Equal(t, []string{Channel.name, channel2.name}, names)
+	assert.Equal(t, []string{Channel.channel, channel2.channel}, names)
 }
 
 func TestRoute_UpdateCrosswordSetting(t *testing.T) {
@@ -1046,26 +1047,11 @@ func NewRegistry(t *testing.T) (*pubsub.Registry, <-chan pubsub.Event, func()) {
 	}
 }
 
-type TestChannel struct {
-	name string
-}
+// CrosswordRoute is a client that makes requests against the URL of the global
+// crossword route, not associated with any particular channel.
+type CrosswordRoute struct{}
 
-func (c TestChannel) GET(url string, router *gin.Engine) *TestResponseRecorder {
-	url = path.Join(c.name, url)
-	return GET(url, router)
-}
-
-func (c TestChannel) PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
-	url = path.Join(c.name, url)
-	return PUT(url, body, router)
-}
-
-func (c TestChannel) SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
-	url = path.Join(c.name, url)
-	return SSE(url, router)
-}
-
-func GET(url string, router *gin.Engine) *TestResponseRecorder {
+func (r CrosswordRoute) GET(url string, router *gin.Engine) *TestResponseRecorder {
 	url = path.Join("/crossword", url)
 	request := httptest.NewRequest(http.MethodGet, url, nil)
 
@@ -1073,8 +1059,7 @@ func GET(url string, router *gin.Engine) *TestResponseRecorder {
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
-
-func PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
+func (r CrosswordRoute) PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
 	url = path.Join("/crossword", url)
 	request := httptest.NewRequest(http.MethodPut, url, strings.NewReader(body))
 
@@ -1089,7 +1074,7 @@ func PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
 // the flush method can be called and it will return any queued up events.  When
 // the main thread wishes to close the connection to the router the stop method
 // can be called and it will return any unread events.
-func SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+func (r CrosswordRoute) SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
 	url = path.Join("/crossword", url)
 	recorder := CreateTestResponseRecorder()
 
@@ -1123,6 +1108,27 @@ func SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func
 	go router.ServeHTTP(recorder, request)
 
 	return flush, stop
+}
+
+// ChannelRoute is a client that makes requests against the URL of a particular
+// user's channel.
+type ChannelRoute struct {
+	channel string
+}
+
+func (r ChannelRoute) GET(url string, router *gin.Engine) *TestResponseRecorder {
+	url = path.Join(r.channel, url)
+	return Global.GET(url, router)
+}
+
+func (r ChannelRoute) PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
+	url = path.Join(r.channel, url)
+	return Global.PUT(url, body, router)
+}
+
+func (r ChannelRoute) SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+	url = path.Join(r.channel, url)
+	return Global.SSE(url, router)
 }
 
 func RandomString(n int) string {

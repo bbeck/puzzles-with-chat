@@ -3,21 +3,20 @@ package crossword
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/bbeck/twitch-plays-crosswords/api/web"
 	"html"
 	"io"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// The HTTP client to use when communicating with the xwordinfo site.
-var XWordInfoHTTPClient = &http.Client{
-	Timeout: 5 * time.Second,
+var XWordInfoHeaders = map[string]string{
+	"Referer": "https://www.xwordinfo.com/JSON",
 }
 
 // LoadFromNewYorkTimes loads a crossword puzzle from the New York Times for a
-// particular json.
+// particular date.
 //
 // This method uses the xwordinfo.com JSON API to load a New York Times
 // crossword puzzle.  While organized slightly differently from the XPF API the
@@ -35,7 +34,7 @@ func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
 	}
 
 	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/Data.aspx?date=%s", date)
-	response, err := FetchXWordInfo(XWordInfoHTTPClient, url)
+	response, err := web.GetWithHeaders(url, XWordInfoHeaders)
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
 	}
@@ -49,25 +48,6 @@ func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
 	}
 
 	return puzzle, nil
-}
-
-func FetchXWordInfo(client *http.Client, url string) (*http.Response, error) {
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create http request at %s: %v", url, err)
-	}
-	request.Header.Add("Referer", "https://www.xwordinfo.com/JSON")
-
-	response, err := client.Do(request)
-	if err != nil {
-		return response, fmt.Errorf("unable to get crossword at %s: %v", url, err)
-	}
-
-	if response.StatusCode != 200 {
-		return response, fmt.Errorf("received non-200 response when getting crossword at %s: %v", url, err)
-	}
-
-	return response, nil
 }
 
 // XWordInfoPuzzle is a representation of the response from the xwordinfo.com

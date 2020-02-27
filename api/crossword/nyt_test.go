@@ -3,8 +3,6 @@ package crossword
 import (
 	"bytes"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -529,72 +527,6 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := ParseXWordInfoResponse(strings.NewReader(test.input))
-			require.Error(t, err)
-		})
-	}
-}
-
-func TestFetchXWordInfo(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-	}))
-	defer server.Close()
-
-	response, err := FetchXWordInfo(XWordInfoHTTPClient, server.URL)
-	if response != nil {
-		defer response.Body.Close()
-	}
-	require.NoError(t, err)
-}
-
-func TestFetchXWordInfo_Error(t *testing.T) {
-	tests := []struct {
-		name    string
-		url     string
-		client  *http.Client
-		respond func(http.ResponseWriter)
-	}{
-		{
-			name: "error creating request (bad url)",
-			url:  ":",
-		},
-		{
-			name:   "error in client.Do (timeout)",
-			client: &http.Client{Timeout: 1 * time.Millisecond},
-			respond: func(writer http.ResponseWriter) {
-				time.Sleep(10 * time.Millisecond)
-				writer.WriteHeader(200)
-			},
-		},
-		{
-			name: "non-200 response",
-			respond: func(writer http.ResponseWriter) {
-				writer.WriteHeader(404)
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				test.respond(w)
-			}))
-			defer server.Close()
-
-			url := test.url
-			if url == "" {
-				url = server.URL
-			}
-
-			client := test.client
-			if client == nil {
-				client = XWordInfoHTTPClient
-			}
-
-			response, err := FetchXWordInfo(client, url)
-			if response != nil {
-				defer response.Body.Close()
-			}
 			require.Error(t, err)
 		})
 	}
