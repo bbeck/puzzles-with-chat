@@ -73,6 +73,18 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFun
 			puzzle = p
 		}
 
+		// Wall Street Journal date
+		if date := payload["wall_street_journal_date"]; date != "" {
+			p, err := LoadFromWallStreetJournal(date)
+			if err != nil {
+				err = fmt.Errorf("unable to load WSJ puzzle for date %s: %+v", date, err)
+				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				return
+			}
+
+			puzzle = p
+		}
+
 		// .puz file upload
 		if encoded := payload["puz_file_bytes"]; encoded != "" {
 			p, err := LoadFromEncodedPuzFile(encoded)

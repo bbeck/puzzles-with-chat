@@ -1,6 +1,7 @@
 package crossword
 
 import (
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
 	"os"
@@ -41,6 +42,12 @@ func LoadTestPuzzle(t *testing.T, filename string) *Puzzle {
 
 	case strings.HasPrefix(filename, "converter-"):
 		puzzle, err = ParseConverterResponse(in)
+
+	case strings.HasPrefix(filename, "herbach-"):
+		puzzle, err = ParseConverterResponse(in)
+
+	default:
+		assert.Failf(t, "unrecognized filename prefix", "filename: %s", filename)
 	}
 
 	require.NoError(t, err)

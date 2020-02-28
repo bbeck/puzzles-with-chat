@@ -245,6 +245,15 @@ function PuzzleDropdown(props) {
     return setPuzzle({"new_york_times_date": date});
   };
 
+  // Select a Wall Street Journal puzzle for a specific date.
+  const onWallStreetJournalDateSelected = (date) => {
+    if (!date) {
+      return;
+    }
+
+    return setPuzzle({"wall_street_journal_date": date});
+  };
+
   // Select a .puz puzzle based on a URL to the .puz file.
   const onPuzUrlSelected = (url) => {
     if (!url) {
@@ -288,6 +297,22 @@ function PuzzleDropdown(props) {
               <input id="new-york-times-date-input" type="date" className="form-control"/>
               <div className="input-group-append">
                 <label htmlFor="new-york-times-date-input" className="btn btn-dark" onClick={e => onNewYorkTimesDateSelected(e.target.control.value)}>Load</label>
+              </div>
+            </div>
+          </div>
+          <div className="dropdown-divider"/>
+          <div className="dropdown-item">
+            <div className="lead">Wall Street Journal</div>
+            <div>
+              <small className="text-muted">
+                Select a date to solve that day's puzzle from the archives of
+                the Wall Street Journal.
+              </small>
+            </div>
+            <div className="input-group">
+              <input id="wall-street-journal-date-input" type="date" className="form-control"/>
+              <div className="input-group-append">
+                <label htmlFor="wall-street-journal-date-input" className="btn btn-dark" onClick={e => onWallStreetJournalDateSelected(e.target.control.value)}>Load</label>
               </div>
             </div>
           </div>

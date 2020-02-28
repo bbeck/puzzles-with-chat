@@ -304,6 +304,60 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 	})
 }
 
+func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
+	// This acts as a small integration test updating the date of the Wall Street
+	// Journal crossword we're working on and ensuring the proper values are
+	// written to the database.
+	pool, conn, cleanup := NewRedisPool(t)
+	defer cleanup()
+
+	registry, events, cleanup := NewRegistry(t)
+	defer cleanup()
+
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "herbach-wsj-20190102.json")
+	defer cleanup()
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(fn func(s *State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(*State)
+			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, "channel")
+		require.NoError(t, err)
+		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
+		fn(state)
+	}
+
+	router := gin.Default()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	response := Channel.PUT("/", `{"wall_street_journal_date": "2019-01-02"}`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(func(state *State) {
+		assert.Equal(t, StatusCreated, state.Status)
+		assert.NotNil(t, state.Puzzle)
+		assert.Equal(t, 0, len(state.AcrossCluesFilled))
+		assert.Equal(t, 0, len(state.DownCluesFilled))
+		assert.Nil(t, state.LastStartTime)
+		assert.Equal(t, 0., state.TotalSolveDuration.Seconds())
+	})
+}
+
 func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 	// This acts as a small integration test uploading a .puz fle of the crossword
 	// we're working on and ensuring the proper values are written to the
@@ -378,6 +432,12 @@ func TestRoute_UpdateCrossword_Error(t *testing.T) {
 		{
 			name:        "nyt error",
 			payload:     `{"new_york_times_date": "bad"}`,
+			forcedError: errors.New("forced error"),
+			expected:    http.StatusInternalServerError,
+		},
+		{
+			name:        "wsj error",
+			payload:     `{"wall_street_journal_date": "bad"}`,
 			forcedError: errors.New("forced error"),
 			expected:    http.StatusInternalServerError,
 		},
