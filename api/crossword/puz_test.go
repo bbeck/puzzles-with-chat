@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func Test_LoadFromEncodedPuzFile_Error(t *testing.T) {
+func TestLoadFromEncodedPuzFile_Error(t *testing.T) {
 	tests := []struct {
 		name    string
 		encoded string
@@ -32,7 +32,7 @@ func Test_LoadFromEncodedPuzFile_Error(t *testing.T) {
 	}
 }
 
-func Test_ConvertPuzBytes(t *testing.T) {
+func TestConvertPuzBytes(t *testing.T) {
 	tests := []struct {
 		name     string
 		response io.ReadCloser
@@ -359,7 +359,7 @@ func Test_ConvertPuzBytes(t *testing.T) {
 	}
 }
 
-func Test_ConvertPuzBytes_Error(t *testing.T) {
+func TestConvertPuzBytes_Error(t *testing.T) {
 	tests := []struct {
 		name    string
 		setup   func(*httptest.Server)
@@ -404,7 +404,7 @@ func Test_ConvertPuzBytes_Error(t *testing.T) {
 	}
 }
 
-func Test_ParseConverterResponse_Error(t *testing.T) {
+func TestParseConverterResponse_Error(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
