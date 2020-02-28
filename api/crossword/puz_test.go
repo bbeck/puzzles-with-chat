@@ -4,56 +4,79 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-func Test_ParseConverterResponse(t *testing.T) {
+func Test_LoadFromEncodedPuzFile_Error(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  io.ReadCloser
-		verify func(t *testing.T, puzzle *Puzzle)
+		name    string
+		encoded string
 	}{
 		{
-			name:  "size",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:    "non-base64 encoded input",
+			encoded: "not base64",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := LoadFromEncodedPuzFile(test.encoded)
+			require.Error(t, err)
+		})
+	}
+}
+
+func Test_ConvertPuzBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		response io.ReadCloser
+		verify   func(t *testing.T, puzzle *Puzzle)
+	}{
+		{
+			name:     "size",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 15, puzzle.Cols)
 				assert.Equal(t, 15, puzzle.Rows)
 			},
 		},
 		{
-			name:  "title",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "title",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "NY Times, Fri, Sep 12, 2008", puzzle.Title)
 			},
 		},
 		{
-			name:  "publisher",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "publisher",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "", puzzle.Publisher) // .puz files don't contain a publisher field
 			},
 		},
 		{
-			name:  "published date",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "published date",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, time.Time{}, puzzle.PublishedDate) // .puz files don't contain a published date field
 			},
 		},
 		{
-			name:  "author",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "author",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "Natan Last / Will Shortz", puzzle.Author)
 			},
 		},
 		{
-			name:  "cells",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "cells",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]string{
 					{"P", "A", "S", "O", "D", "O", "B", "L", "E", "", "", "G", "R", "U", "B"},
@@ -76,8 +99,8 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "blocks",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "blocks",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, false, false, false, false, false, true, true, false, false, false, false},
@@ -100,8 +123,8 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "cell clue numbers",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "cell clue numbers",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]int{
 					{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 10, 11, 12, 13},
@@ -124,8 +147,8 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "cell circles (none)",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "cell circles (none)",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
@@ -148,8 +171,8 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "cell circles",
-			input: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
+			name:     "cell circles",
+			response: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{true, true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, true},
@@ -166,8 +189,8 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "across clues",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "across clues",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := map[int]string{
 					1:  `Dance that simulates the drama of a bullfight`,
@@ -208,8 +231,8 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "down clues",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "down clues",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := map[int]string{
 					1:  `Early Inverness resident`,
@@ -254,15 +277,15 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "notes",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			name:     "notes",
+			response: load(t, "converter-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.True(t, strings.HasPrefix(puzzle.Notes, "TEEN PUZZLEMAKER WEEK"))
 			},
 		},
 		{
-			name:  "rebus",
-			input: load(t, "converter-nyt-20080914-rebus.json"),
+			name:     "rebus",
+			response: load(t, "converter-nyt-20080914-rebus.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "JAN", puzzle.Cells[3][6])
 				assert.Equal(t, "FEB", puzzle.Cells[2][10])
@@ -279,16 +302,16 @@ func Test_ParseConverterResponse(t *testing.T) {
 			},
 		},
 		{
-			name:  "non-square dimensions",
-			input: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
+			name:     "non-square dimensions",
+			response: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 9, puzzle.Rows)
 				assert.Equal(t, 24, puzzle.Cols)
 			},
 		},
 		{
-			name:  "non-square cells",
-			input: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
+			name:     "non-square cells",
+			response: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]string{
 					{"O", "N", "E", "G", "", "L", "E", "S", "", "D", "O", "L", "L", "A", "R", "", "H", "B", "O", "", "Z", "O", "N", "E"},
@@ -307,11 +330,76 @@ func Test_ParseConverterResponse(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer test.input.Close()
+			// These tests manipulate the environment to let the ConvertPuzBytes
+			// method know where the test HTTP server is at, so we save a copy before
+			// each test to ensure that it doesn't get permanently changed by the test
+			// case.
+			saved := SaveEnvironmentVars()
+			defer RestoreEnvironmentVars(saved)
 
-			puzzle, err := ParseConverterResponse(test.input)
+			// Get the bytes of the response
+			bs, err := ioutil.ReadAll(test.response)
+			test.response.Close()
+			require.NoError(t, err)
+
+			// Setup a test server that returns our desired input.
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(200)
+				w.Write(bs)
+			}))
+			defer server.Close()
+
+			// Tell the ConvertPuzBytes method the host/port of the server.
+			os.Setenv("CONVERTER_HOST", server.Listener.Addr().String())
+
+			puzzle, err := ConvertPuzBytes([]byte("unused"))
 			require.NoError(t, err)
 			test.verify(t, puzzle)
+		})
+	}
+}
+
+func Test_ConvertPuzBytes_Error(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(*httptest.Server)
+		respond func(http.ResponseWriter)
+	}{
+		{
+			name: "no CONVERTER_HOST environment variable defined",
+		},
+		{
+			name: "service returns error",
+			setup: func(server *httptest.Server) {
+				os.Setenv("CONVERTER_HOST", server.Listener.Addr().String())
+			},
+			respond: func(w http.ResponseWriter) {
+				w.WriteHeader(400)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// These tests manipulate the environment to let the ConvertPuzBytes
+			// method know where the test HTTP server is at, so we save a copy before
+			// each test to ensure that it doesn't get permanently changed by the test
+			// case.
+			saved := SaveEnvironmentVars()
+			defer RestoreEnvironmentVars(saved)
+
+			// Setup a test server that returns our desired input.
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				test.respond(w)
+			}))
+			defer server.Close()
+
+			if test.setup != nil {
+				test.setup(server)
+			}
+
+			_, err := ConvertPuzBytes([]byte("unused"))
+			require.Error(t, err)
 		})
 	}
 }

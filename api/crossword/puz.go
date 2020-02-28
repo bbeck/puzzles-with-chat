@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/web"
 	"io"
+	"os"
 )
 
-// The URL to the converter service.
-const ConverterURL = "http://converter:5001/puz" // TODO: Environment variable?
-
 // LoadFromEncodedPuzFile loads a crossword puzzle from the base64 encoded bytes
-// of the .puz file using the converter service.
+// of the .puz file and uses the converter service to convert it into a puzzle
+// object.
 //
 // If the puzzle cannot be loaded or parsed then an error is returned.
 func LoadFromEncodedPuzFile(encoded string) (*Puzzle, error) {
@@ -31,7 +31,19 @@ func LoadFromEncodedPuzFile(encoded string) (*Puzzle, error) {
 		return nil, err
 	}
 
-	response, err := web.Post(ConverterURL, bytes.NewReader(bs))
+	return ConvertPuzBytes(bs)
+}
+
+// ConvertPuzBytes takes the bytes of a .puz file and uses the converter service
+// to convert it into a puzzle object.
+func ConvertPuzBytes(bs []byte) (*Puzzle, error) {
+	host, ok := os.LookupEnv("CONVERTER_HOST")
+	if !ok {
+		return nil, errors.New("unable to determine converter service hostname")
+	}
+
+	url := fmt.Sprintf("http://%s/puz", host)
+	response, err := web.Post(url, bytes.NewReader(bs))
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
 	}
@@ -39,12 +51,7 @@ func LoadFromEncodedPuzFile(encoded string) (*Puzzle, error) {
 		return nil, err
 	}
 
-	var puzzle Puzzle
-	if err := json.NewDecoder(response.Body).Decode(&puzzle); err != nil {
-		return nil, fmt.Errorf("unable to parse JSON response: %v", err)
-	}
-
-	return &puzzle, nil
+	return ParseConverterResponse(response.Body)
 }
 
 // ParseConverterResponse converts a JSON response from the puzzle converter

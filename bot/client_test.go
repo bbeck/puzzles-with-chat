@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"net"
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
@@ -76,30 +75,12 @@ func TestNewClient(t *testing.T) {
 		},
 	}
 
-	save := func() map[string]string {
-		defer os.Clearenv()
-
-		vars := make(map[string]string)
-		for _, env := range os.Environ() {
-			parts := strings.SplitN(env, "=", 2)
-			vars[parts[0]] = parts[1]
-		}
-		return vars
-	}
-
-	restore := func(vars map[string]string) {
-		os.Clearenv()
-		for key, value := range vars {
-			os.Setenv(key, value)
-		}
-	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// These tests manipulate the environment, so we save a copy before each
 			// test to ensure that it doesn't get permanently changed by the test case.
-			saved := save()
-			defer restore(saved)
+			saved := SaveEnvironmentVars()
+			defer RestoreEnvironmentVars(saved)
 
 			if test.setup != nil {
 				test.setup()

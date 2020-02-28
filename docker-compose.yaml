@@ -31,6 +31,7 @@ services:
       - redis
     environment:
       GIN_MODE: release # debug only prints warning messages on startup
+      CONVERTER_HOST: "converter:5001"
       REDIS_HOST: "redis:6379"
     volumes:
       - type: bind
