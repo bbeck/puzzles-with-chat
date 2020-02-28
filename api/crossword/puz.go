@@ -8,8 +8,15 @@ import (
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/web"
 	"io"
+	"net/http"
 	"os"
+	"time"
 )
+
+// The HTTP client to use when communicating with the converter service.
+var ConverterServiceHTTPClient = &http.Client{
+	Timeout: 10 * time.Second, // puzpy is a bit slow on some .puz files
+}
 
 // LoadFromEncodedPuzFile loads a crossword puzzle from the base64 encoded bytes
 // of the .puz file and uses the converter service to convert it into a puzzle
@@ -43,7 +50,7 @@ func ConvertPuzBytes(bs []byte) (*Puzzle, error) {
 	}
 
 	url := fmt.Sprintf("http://%s/puz", host)
-	response, err := web.Post(url, bytes.NewReader(bs))
+	response, err := web.PostWithClient(ConverterServiceHTTPClient, url, bytes.NewReader(bs))
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
 	}
