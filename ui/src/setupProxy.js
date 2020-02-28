@@ -5,7 +5,6 @@ module.exports = function (app) {
     '/api',
     proxy({
       target: 'http://api:5000',
-      timeout: 10000,
     })
   );
 };
