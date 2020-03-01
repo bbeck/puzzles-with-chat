@@ -19,4 +19,5 @@ RUN apk --no-cache add --virtual .deps gcc musl-dev python3-dev libffi-dev opens
 # Copy over all of our source.
 COPY . ./
 
+EXPOSE 5000
 CMD ["python", "server.py"]

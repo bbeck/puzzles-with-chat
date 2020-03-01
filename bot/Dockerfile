@@ -31,13 +31,13 @@ COPY . .
 RUN go get && \
     go build -o /bot
 
+# Expose the local client port only in the development image.
+EXPOSE 5000
 
 ####################
 # Production image
 ####################
 FROM scratch
-
-EXPOSE 5000
 
 # Copy over the static executable and certs (needed because we call into http
 # APIs).

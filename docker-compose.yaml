@@ -18,20 +18,21 @@ services:
       - redis
     environment:
       GIN_MODE: release # debug only prints warning messages on startup
-      CONVERTER_HOST: "converter:5001"
+      CONVERTER_HOST: "converter:5000"
       REDIS_HOST: "redis:6379"
     volumes:
       - type: bind
         source: "./api"
         target: "/src"
-    ports:
-      - 5000:5000/tcp
+    expose:
+      - 5000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
     restart: unless-stopped
 
   bot:
+    container_name: twitch-plays-crosswords-bot
     build:
       context: bot
       target: development
@@ -43,7 +44,6 @@ services:
         --inverse-regex='\.gen.go$$'
       --
         sh -c 'go run .'
-    container_name: twitch-plays-crosswords-bot
     depends_on:
       - api
     environment:
@@ -56,9 +56,9 @@ services:
         source: "./bot"
         target: "/src"
     expose:
-      - 5002           # this is only needed to test locally
+      - 5000           # this is only needed for the local TCP listener
     ports:
-      - 5002:5002/tcp  # this is only needed to test locally
+      - 5000:5000/tcp  # this is only needed to test locally
     restart: unless-stopped
 
   converter:
@@ -76,8 +76,8 @@ services:
       - type: bind
         source: "./converter"
         target: "/usr/src/app"
-    ports:
-      - 5001:5001/tcp
+    expose:
+      - 5000
     restart: unless-stopped
 
   proxy:
@@ -86,16 +86,14 @@ services:
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:8080"
+      - "--entrypoints.web.address=:3000"
     volumes:
       - type: bind
         source: "/var/run/docker.sock"
         target: "/var/run/docker.sock"
         read_only: true
-    expose:
-      - 8080
     ports:
-      - 8080:8080/tcp
+      - 3000:3000/tcp
     restart: unless-stopped
 
   redis:
@@ -107,6 +105,8 @@ services:
         target: "/data"
         volume:
           nocopy: true
+    expose:
+      - 6379
     ports:
       - 6379:6379/tcp
     restart: unless-stopped
@@ -123,8 +123,8 @@ services:
       - type: bind
         source: "./ui"
         target: "/src"
-    ports:
-      - 3000:3000/tcp
+    expose:
+      - 5000
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ui.rule=PathPrefix(`/`)"

@@ -25,6 +25,9 @@ COPY . .
 RUN npm run build && \
     mv build /build
 
+# In development mode listen on port 5000.
+EXPOSE 5000
+
 ####################
 # Production image
 ####################
@@ -37,5 +40,5 @@ RUN npm install -g serve
 COPY --from=development /build/ /build
 
 WORKDIR /build
-EXPOSE 3000
-CMD serve -l 3000 -s
+EXPOSE 5000
+CMD serve -l 5000 -s

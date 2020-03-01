@@ -55,4 +55,4 @@ redis-cli:
 
 .PHONY: connect-bot
 connect-bot:
-	@nc localhost 5002
+	@nc localhost 5000

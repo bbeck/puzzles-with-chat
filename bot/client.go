@@ -92,7 +92,7 @@ func (c *LocalClient) Depart(string)  {}
 // use the connection as a means for providing input into the bot.  Only one
 // connection at a time is supported.
 func (c *LocalClient) Connect() error {
-	address := ":5002"
+	address := ":5000"
 	if c.port != 0 {
 		address = fmt.Sprintf(":%d", c.port)
 	}
