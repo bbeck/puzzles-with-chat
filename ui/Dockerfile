@@ -11,7 +11,9 @@ WORKDIR /src
 # that we don't have to repeat the download each time a source file changes.
 COPY package.json /src
 COPY package-lock.json /src
-RUN npm install
+RUN npm config set progress=false && \
+    npm config set depth=0        && \
+    npm install --loglevel warn
 
 # Copy all of the source code into the image so that it can be seen.  When
 # running via docker-compose in development mode we'll override this and instead
@@ -19,10 +21,21 @@ RUN npm install
 # version of the source.
 COPY . .
 
-# npm run build?
+# Create a production build of the current code
+RUN npm run build && \
+    mv build /build
 
 ####################
 # Production image
 ####################
+FROM node:13.2-alpine
 
+# Install the serve tool to use to run our app.
+RUN npm install -g serve
+
+# Copy the static build over.
+COPY --from=development /build/ /build
+
+WORKDIR /build
 EXPOSE 3000
+CMD serve -l 3000 -s
