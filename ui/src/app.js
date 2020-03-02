@@ -106,6 +106,9 @@ function Channel(props) {
           break;
 
         case "state":
+          // If we get a state update while watching the fireworks animation,
+          // then finish the show and start the new puzzle.
+          setShowFireworks(false);
           setState(event.payload);
           break;
 

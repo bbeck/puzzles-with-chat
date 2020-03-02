@@ -26,7 +26,6 @@ export class Fireworks extends React.Component {
     const canvas = this.canvasRef.current;
     canvas.width = Fireworks.screen.w;
     canvas.height = Fireworks.screen.h;
-    this.context = canvas.getContext("2d");
   }
 
   componentWillUnmount() {
@@ -54,8 +53,11 @@ export class Fireworks extends React.Component {
   }
 
   update() {
-    this.context.fillStyle = "rgba(0, 0, 0, 0.05)";
-    this.context.fillRect(0, 0, Fireworks.screen.w, Fireworks.screen.h);
+    const canvas = this.canvasRef.current;
+
+    const context = canvas.getContext("2d");
+    context.fillStyle = "rgba(0, 0, 0, 0.05)";
+    context.fillRect(0, 0, Fireworks.screen.w, Fireworks.screen.h);
 
     // Update the rockets
     const newRockets = [];
@@ -63,7 +65,7 @@ export class Fireworks extends React.Component {
       const rocket = this.rockets[i];
 
       rocket.update();
-      rocket.render(this.context);
+      rocket.render(context);
 
       // Determine if we should add smoke.
       if (Math.random() < 0.6) {
@@ -99,7 +101,7 @@ export class Fireworks extends React.Component {
       particle.update();
 
       if (particle.exists()) {
-        particle.render(this.context);
+        particle.render(context);
         newParticles.push(particle);
       }
     }
