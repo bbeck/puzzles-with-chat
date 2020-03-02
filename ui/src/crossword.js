@@ -53,11 +53,19 @@ function Header(props) {
     return year + "-" + month + "-" + day;
   };
 
+  // The .puz file format doesn't contain a field for the puzzle's publish date,
+  // so when we load a .puz file the date comes across as 0001-01-01.  Detect
+  // when this happens and when it does don't include the date in the header.
+  let date;
+  if (props.date !== "0001-01-01T00:00:00Z") {
+    date = <div className="date">{formatDate(props.date)}</div>;
+  }
+
   return (
     <div className="header">
       <div className="title" dangerouslySetInnerHTML={{__html: props.title}}/>
       <div className="author">by {props.author}</div>
-      <div className="date">{formatDate(props.date)}</div>
+      {date}
       <Timer last_start_time={props.last_start_time} total_solve_duration={props.total_solve_duration}/>
     </div>
   );

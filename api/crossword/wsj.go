@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/web"
 	"io/ioutil"
-	"strings"
+	"time"
 )
 
 // LoadFromWallStreetJournal loads a crossword puzzle from the Wall Street
@@ -25,13 +25,14 @@ func LoadFromWallStreetJournal(date string) (*Puzzle, error) {
 		return nil, testCachedError
 	}
 
-	parts := strings.Split(date, "-")
-	year := parts[0][2:]
-	month := parts[1]
-	day := parts[2]
+	published, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		err = fmt.Errorf("unable to parse date %s: %+v", date, err)
+		return nil, err
+	}
 
 	// First, download the .puz file from the herbach.dnsalias.com site.
-	url := fmt.Sprintf("http://herbach.dnsalias.com/wsj/wsj%s%s%s.puz", year, month, day)
+	url := fmt.Sprintf("http://herbach.dnsalias.com/wsj/wsj%02d%02d%02d.puz", published.Year()-2000, published.Month(), published.Day())
 	response, err := web.Get(url)
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
@@ -46,5 +47,12 @@ func LoadFromWallStreetJournal(date string) (*Puzzle, error) {
 	}
 
 	// Next, convert the .puz file to a puzzle using the .puz converter.
-	return ConvertPuzBytes(bs)
+	puzzle, err := ConvertPuzBytes(bs)
+	if err == nil {
+		// Normally .puz files don't have puzzle dates recorded in them, but we
+		// happen to know the date for this puzzle, so fill it in.
+		puzzle.PublishedDate = published
+	}
+
+	return puzzle, err
 }
