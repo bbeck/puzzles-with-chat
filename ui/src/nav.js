@@ -4,6 +4,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./nav.css";
 
 export function Nav(props) {
+  const [errorMessage, setErrorMessage] = React.useState(null);
+
   // If we're not on the streamer view then don't show the controls that can
   // modify the state of the application.
   if (!props.view || props.view !== "streamer") {
@@ -14,15 +16,25 @@ export function Nav(props) {
     );
   }
 
+  let error;
+  if (errorMessage !== null) {
+    error = (
+    <div className="navbar-text text-danger ml-auto mr-auto">
+      <strong>{errorMessage}</strong>
+    </div>
+    );
+  }
+
   return (
     <nav className="navbar navbar-expand navbar-dark text-light bg-dark">
       <div className="navbar-brand">Twitch Plays Crosswords</div>
+      {error}
 
       <ul className="navbar-nav ml-auto">
         <StartPauseButton channel={props.channel} status={props.status}/>
         <ViewsDropdown channel={props.channel}/>
         <SettingsDropdown channel={props.channel} settings={props.settings}/>
-        <PuzzleDropdown channel={props.channel}/>
+        <PuzzleDropdown channel={props.channel} setErrorMessage={setErrorMessage}/>
       </ul>
     </nav>
   );
@@ -219,13 +231,23 @@ function SettingsDropdown(props) {
 }
 
 function PuzzleDropdown(props) {
-  // Select a puzzle for the channel.
+  // Select a puzzle for the channel.  If the puzzle fails to load properly
+  // then a simple error message will be displayed until a page reload or a
+  // successful puzzle load.
   const setPuzzle = (payload) => {
     return fetch(`/api/crossword/${props.channel}`,
       {
         method: "PUT",
         body: JSON.stringify(payload),
-      });
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Unable to load puzzle.")
+        }
+
+        props.setErrorMessage(null);
+      })
+      .catch(error => props.setErrorMessage(error.message));
   };
 
   // Helper to read a file or blob to its bytes.
