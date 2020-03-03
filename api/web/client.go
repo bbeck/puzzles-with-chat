@@ -41,7 +41,7 @@ func GetWithClient(client *http.Client, url string, headers map[string]string) (
 	}
 
 	if response.StatusCode != 200 {
-		return response, fmt.Errorf("received non-200 response for GET from url %s: %v", url, err)
+		return response, fmt.Errorf("received %d response for GET from url %s", response.StatusCode, url)
 	}
 
 	return response, nil
@@ -67,7 +67,7 @@ func PostWithClient(client *http.Client, url string, body io.Reader) (*http.Resp
 	}
 
 	if response.StatusCode != 200 {
-		return response, fmt.Errorf("received non-200 response for POST to url %s: %v", url, err)
+		return response, fmt.Errorf("received %d response for POST to url %s", response.StatusCode, url)
 	}
 
 	return response, nil
