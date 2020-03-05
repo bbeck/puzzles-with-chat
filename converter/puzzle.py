@@ -70,9 +70,6 @@ def load_puz_puzzle_from_bytes(bs):
     if data.is_solution_locked():
         return None
 
-    if data.is_solution_locked():
-        return None
-
     numbering = data.clue_numbering()
     rebus = data.rebus()
 
