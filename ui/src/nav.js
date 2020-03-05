@@ -1,4 +1,13 @@
 import React from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import formatISO from "date-fns/formatISO";
+import {
+  isNewYorkTimesDateAllowed,
+  isWallStreetJournalDateAllowed,
+  nytFirstPuzzleDate,
+  wsjFirstPuzzleDate
+} from "./allowed-dates";
 import "bootstrap/dist/js/bootstrap.bundle.min";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./nav.css";
@@ -264,6 +273,7 @@ function PuzzleDropdown(props) {
       return;
     }
 
+    date = formatISO(date, {representation: "date"});
     return setPuzzle({"new_york_times_date": date});
   };
 
@@ -273,6 +283,7 @@ function PuzzleDropdown(props) {
       return;
     }
 
+    date = formatISO(date, {representation: "date"});
     return setPuzzle({"wall_street_journal_date": date});
   };
 
@@ -316,10 +327,11 @@ function PuzzleDropdown(props) {
               </small>
             </div>
             <div className="input-group">
-              <input id="new-york-times-date-input" type="date" className="form-control"/>
-              <div className="input-group-append">
-                <label htmlFor="new-york-times-date-input" className="btn btn-dark" onClick={e => onNewYorkTimesDateSelected(e.target.control.value)}>Load</label>
-              </div>
+              <DateChooser
+                onClick={onNewYorkTimesDateSelected}
+                filterDate={isNewYorkTimesDateAllowed}
+                minDate={nytFirstPuzzleDate}
+              />
             </div>
           </div>
           <div className="dropdown-divider"/>
@@ -332,10 +344,11 @@ function PuzzleDropdown(props) {
               </small>
             </div>
             <div className="input-group">
-              <input id="wall-street-journal-date-input" type="date" className="form-control"/>
-              <div className="input-group-append">
-                <label htmlFor="wall-street-journal-date-input" className="btn btn-dark" onClick={e => onWallStreetJournalDateSelected(e.target.control.value)}>Load</label>
-              </div>
+              <DateChooser
+                onClick={onWallStreetJournalDateSelected}
+                filterDate={isWallStreetJournalDateAllowed}
+                minDate={wsjFirstPuzzleDate}
+              />
             </div>
           </div>
           <div className="dropdown-divider"/>
@@ -372,6 +385,29 @@ function PuzzleDropdown(props) {
         </form>
       </div>
     </li>
+  );
+}
+
+function DateChooser(props) {
+  const [selectedDate, setSelectedDate] = React.useState(null);
+
+  return (
+    <React.Fragment>
+      <DatePicker
+        className="form-control"
+        placeholderText="mm/dd/yyyy"
+        selected={selectedDate}
+        onChange={setSelectedDate}
+        filterDate={props.filterDate}
+        maxDate={new Date()}
+        minDate={props.minDate}
+        showYearDropdown={true}
+        dropdownMode="select"
+      />
+      <div className="input-group-append">
+        <button type="button" className="btn btn-dark" onClick={() => props.onClick(selectedDate)}>Load</button>
+      </div>
+    </React.Fragment>
   );
 }
 

@@ -45,6 +45,24 @@
 
 
 /*
+  Fix for react-datepicker not rending its input correctly within a bootstrap
+  input group.
+
+  When react-datepicker renders it includes a div with a class of
+  react-datepicker-wrapper.  Unfortunately the styling of this is incompatible
+  with a bootstrap input group.  So we override its styling to be the same as
+  a bootstrap form-control element within an input group.  This makes it look
+  consistent with other bootstrap form controls.
+ */
+.react-datepicker-wrapper {
+  position: relative;
+  flex: 1 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+
+/*
   Sliding toggle switches.  A toggle switch is built up of two components, the
   first is an invisible checkbox that stores the state of the switch.  The
   second is a slider that can be either left (unchecked) or right (checked).
@@ -120,4 +138,3 @@
 .switch .slider.round:before {
   border-radius: 50%;
 }
-
