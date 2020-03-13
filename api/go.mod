@@ -12,4 +12,5 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	golang.org/x/net v0.0.0-20191116160921-f9c825593386 // indirect
+	golang.org/x/text v0.3.0
 )

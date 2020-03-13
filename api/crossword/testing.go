@@ -1,6 +1,7 @@
 package crossword
 
 import (
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -40,11 +41,9 @@ func LoadTestPuzzle(t *testing.T, filename string) *Puzzle {
 	case strings.HasPrefix(filename, "xwordinfo-"):
 		puzzle, err = ParseXWordInfoResponse(in)
 
-	case strings.HasPrefix(filename, "converter-"):
-		puzzle, err = ParseConverterResponse(in)
-
-	case strings.HasPrefix(filename, "herbach-"):
-		puzzle, err = ParseConverterResponse(in)
+	case strings.HasPrefix(filename, "puzzle-"):
+		puzzle = new(Puzzle)
+		err = json.NewDecoder(in).Decode(puzzle)
 
 	default:
 		assert.Failf(t, "unrecognized filename prefix", "filename: %s", filename)
@@ -68,26 +67,4 @@ func ForcePuzzleToBeLoaded(t *testing.T, filename string) func() {
 func ForceErrorDuringLoad(err error) func() {
 	testCachedError = err
 	return func() { testCachedError = nil }
-}
-
-// SaveEnvironmentVars saves all of the environment variables and then clears
-// the environment.  The saved variables are returned so that they can be
-// restored later.
-func SaveEnvironmentVars() map[string]string {
-	defer os.Clearenv()
-
-	vars := make(map[string]string)
-	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", 2)
-		vars[parts[0]] = parts[1]
-	}
-	return vars
-}
-
-// RestoreEnvironmentVars restores a set of saved environment variables.
-func RestoreEnvironmentVars(vars map[string]string) {
-	os.Clearenv()
-	for key, value := range vars {
-		_ = os.Setenv(key, value)
-	}
 }

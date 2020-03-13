@@ -14,11 +14,9 @@ services:
       --
         sh -c 'go run .'
     depends_on:
-      - converter
       - redis
     environment:
       GIN_MODE: release # debug only prints warning messages on startup
-      CONVERTER_HOST: "converter:5000"
       REDIS_HOST: "redis:6379"
     volumes:
       - type: bind
@@ -59,25 +57,6 @@ services:
       - 5000           # this is only needed for the local TCP listener
     ports:
       - 5000:5000/tcp  # this is only needed to test locally
-    restart: unless-stopped
-
-  converter:
-    container_name: twitch-plays-crosswords-converter
-    build:
-      context: converter
-      args:
-        REQUIREMENTS_FILENAME: requirements-dev.txt
-    working_dir: "/usr/src/app"
-    environment:
-      PYTHON_UNBUFFERED: "true"
-      PYTHONDONTWRITEBYTECODE: "1"
-      FLASK_ENV: "development"
-    volumes:
-      - type: bind
-        source: "./converter"
-        target: "/usr/src/app"
-    expose:
-      - 5000
     restart: unless-stopped
 
   proxy:

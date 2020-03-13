@@ -54,7 +54,7 @@ redis-cli:
 	@docker image rm "twitch-plays-crosswords-$*"
 
 .PHONY: deploy
-deploy: api.tar bot.tar converter.tar ui.tar
+deploy: api.tar bot.tar ui.tar
 	@scp $^ homelab:~/
 	@ssh homelab 'for name in $^; do docker load -i $${name}; done && rm $^'
 	@ssh homelab 'sudo systemctl restart docker-compose@twitch-plays-crosswords && docker image prune -f'

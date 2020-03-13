@@ -315,7 +315,7 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 	defer cleanup()
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "herbach-wsj-20190102.json")
+	cleanup = ForcePuzzleToBeLoaded(t, "puzzle-wsj-20190102.json")
 	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing
@@ -369,7 +369,7 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 	defer cleanup()
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "converter-wp-20051206.json")
+	cleanup = ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
 	defer cleanup()
 
 	// Ensure that we have received the proper event and wrote the proper thing

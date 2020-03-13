@@ -18,7 +18,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 	}{
 		{
 			name:  "size",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 15, puzzle.Cols)
 				assert.Equal(t, 15, puzzle.Rows)
@@ -26,35 +26,35 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "title",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, `December 6, 2005 - "Split Pea Soup"`, puzzle.Title)
 			},
 		},
 		{
 			name:  "publisher",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "", puzzle.Publisher) // No publisher in .puz files
 			},
 		},
 		{
 			name:  "published date",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, time.Time{}, puzzle.PublishedDate) // No publish date in .puz files
 			},
 		},
 		{
 			name:  "author",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "Raymond Hamel", puzzle.Author)
 			},
 		},
 		{
 			name:  "cells",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]string{
 					{"L", "A", "M", "B", "", "S", "P", "A", "T", "", "C", "A", "R", "V", "E"},
@@ -78,7 +78,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "blocks",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, true, false, false, false, false, true, false, false, false, false, false},
@@ -102,7 +102,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "cell clue numbers",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]int{
 					{1, 2, 3, 4, 0, 5, 6, 7, 8, 0, 9, 10, 11, 12, 13},
@@ -126,7 +126,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "cell circles (none)",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
@@ -150,7 +150,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "cell circles",
-			input: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
+			input: load(t, "puzzle-nyt-20081006-nonsquare-with-circles.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{true, true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true, true, true},
@@ -168,7 +168,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "across clues",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := map[int]string{
 					1:  `Mary's pet`,
@@ -214,7 +214,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "down clues",
-			input: load(t, "converter-wp-20051206.json"),
+			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := map[int]string{
 					1:  `Hit high in the air`,
@@ -264,14 +264,14 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "notes",
-			input: load(t, "converter-nyt-20080912-notes.json"),
+			input: load(t, "puzzle-nyt-20080912-notes.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, "TEEN PUZZLEMAKER WEEK", puzzle.Notes[:21])
 			},
 		},
 		{
 			name:  "rebus",
-			input: load(t, "converter-nyt-20080914-rebus.json"),
+			input: load(t, "puzzle-nyt-20080914-rebus.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]string{
 					{"", "S", "T", "U", "A", "R", "T", "", "R", "O", "S", "I", "E", "", "", "", "O", "M", "E", "G", "A"},
@@ -301,7 +301,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "non-square dimensions",
-			input: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
+			input: load(t, "puzzle-nyt-20081006-nonsquare-with-circles.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				assert.Equal(t, 9, puzzle.Rows)
 				assert.Equal(t, 24, puzzle.Cols)
@@ -309,7 +309,7 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		},
 		{
 			name:  "non-square cells",
-			input: load(t, "converter-nyt-20081006-nonsquare-with-circles.json"),
+			input: load(t, "puzzle-nyt-20081006-nonsquare-with-circles.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]string{
 					{"O", "N", "E", "G", "", "L", "E", "S", "", "D", "O", "L", "L", "A", "R", "", "H", "B", "O", "", "Z", "O", "N", "E"},

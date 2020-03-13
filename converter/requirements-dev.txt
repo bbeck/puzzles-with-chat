@@ -1,4 +1,0 @@
--r requirements.txt
-
-# Watching files and reloading the server when they change.
-watchdog

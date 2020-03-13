@@ -3,7 +3,6 @@ package crossword
 import (
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/web"
-	"io/ioutil"
 	"time"
 )
 
@@ -41,13 +40,8 @@ func LoadFromWallStreetJournal(date string) (*Puzzle, error) {
 		return nil, err
 	}
 
-	bs, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	// Next, convert the .puz file to a puzzle using the .puz converter.
-	puzzle, err := ConvertPuzBytes(bs)
+	puzzle, err := LoadPuzFile(response.Body)
 	if err == nil {
 		// Normally .puz files don't have puzzle dates recorded in them, but we
 		// happen to know the date for this puzzle, so fill it in.

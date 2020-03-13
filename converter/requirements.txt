@@ -1,4 +1,0 @@
-attrs
-eventlet
-flask
-puzpy
