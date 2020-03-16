@@ -259,30 +259,28 @@ func seekToHeader(in io.Reader) (io.Reader, error) {
 }
 
 func (f *PuzFile) HeaderChecksum() uint16 {
-	crc := NewCRC16(0)
-	crc.Write8(f.Header.Width)
-	crc.Write8(f.Header.Height)
-	crc.Write16(f.Header.NumClues)
-	crc.Write16(f.Header.UnknownBitmask)
-	crc.Write16(f.Header.ScrambledTag)
-	return crc.Sum16()
+	var crc CRC
+	crc = crc.Write8(f.Header.Width)
+	crc = crc.Write8(f.Header.Height)
+	crc = crc.Write16(f.Header.NumClues)
+	crc = crc.Write16(f.Header.UnknownBitmask)
+	crc = crc.Write16(f.Header.ScrambledTag)
+	return uint16(crc)
 }
 
 func (f *PuzFile) GlobalChecksum() uint16 {
-	crc := NewCRC16(f.Header.HeaderChecksum)
-	crc.Write(f.Solution)
-	crc.Write(f.Cells)
-
-	f.StringsChecksum(crc)
-
-	return crc.Sum16()
+	var crc = CRC(f.Header.HeaderChecksum)
+	crc = crc.Write(f.Solution)
+	crc = crc.Write(f.Cells)
+	crc = f.StringsChecksum(crc)
+	return uint16(crc)
 }
 
 func (f *PuzFile) MaskedChecksum() [8]byte {
 	header := f.Header.HeaderChecksum
-	solution := NewCRC16(0).Write(f.Solution).Sum16()
-	grid := NewCRC16(0).Write(f.Cells).Sum16()
-	part := f.StringsChecksum(nil).Sum16()
+	solution := CRC(0).Write(f.Solution)
+	grid := CRC(0).Write(f.Cells)
+	part := f.StringsChecksum(0)
 
 	return [8]byte{
 		'I' ^ byte(header&0x00FF),
@@ -296,35 +294,31 @@ func (f *PuzFile) MaskedChecksum() [8]byte {
 	}
 }
 
-func (f *PuzFile) StringsChecksum(crc *CRC16) *CRC16 {
-	if crc == nil {
-		crc = NewCRC16(0)
-	}
-
+func (f *PuzFile) StringsChecksum(crc CRC) CRC {
 	if len(f.Title) > 0 {
-		crc.Write(f.Title)
-		crc.Write8(0)
+		crc = crc.Write(f.Title)
+		crc = crc.Write8(0)
 	}
 
 	if len(f.Author) > 0 {
-		crc.Write(f.Author)
-		crc.Write8(0)
+		crc = crc.Write(f.Author)
+		crc = crc.Write8(0)
 	}
 
 	if len(f.Copyright) > 0 {
-		crc.Write(f.Copyright)
-		crc.Write8(0)
+		crc = crc.Write(f.Copyright)
+		crc = crc.Write8(0)
 	}
 
 	for _, clue := range f.Clues {
 		if len(clue) > 0 {
-			crc.Write(clue)
+			crc = crc.Write(clue)
 		}
 	}
 
 	if len(f.Notes) > 0 {
-		crc.Write(f.Notes)
-		crc.Write8(0)
+		crc = crc.Write(f.Notes)
+		crc = crc.Write8(0)
 	}
 
 	return crc
@@ -425,13 +419,13 @@ func (f *PuzFile) Unscramble(key int) bool {
 
 	// Compute a CRC of the inputted board representation.
 	checksum := func(in []byte, width, height int) uint16 {
-		crc := NewCRC16(0)
+		var crc CRC
 		for _, b := range transpose(in, width, height) {
 			if b != '.' {
-				crc.Write8(b)
+				crc = crc.Write8(b)
 			}
 		}
-		return crc.Sum16()
+		return uint16(crc)
 	}
 
 	// Determine the 4 digits of the key.
@@ -699,7 +693,7 @@ type PuzFileExtension struct {
 }
 
 func (e *PuzFileExtension) Checksum() uint16 {
-	return NewCRC16(0).Write(e.Data).Sum16()
+	return uint16(CRC(0).Write(e.Data))
 }
 
 func ReadUntil(in io.Reader, delimiter byte) ([]byte, error) {
@@ -736,37 +730,26 @@ func ReadLength(in io.Reader, length uint16) ([]byte, error) {
 	return bs, nil
 }
 
-// TODO: Refactor this CRC code into something cleaner.
-type CRC16 uint16
+type CRC uint16
 
-func NewCRC16(initial uint16) *CRC16 {
-	crc := new(CRC16)
-	*crc = CRC16(initial)
-	return crc
+func (crc CRC) Write8(value uint8) CRC {
+	return crc.Write([]byte{value})
 }
 
-func (d *CRC16) Write(bs []byte) *CRC16 {
-	var crc = uint16(*d)
-	for _, b := range bs {
+func (crc CRC) Write16(value uint16) CRC {
+	return crc.Write([]byte{byte(value & 0x00FF), byte(value >> 8)})
+}
+
+func (crc CRC) Write(value []byte) CRC {
+	for _, b := range value {
 		if crc&0x0001 == 0x0001 {
 			crc = (crc >> 1) | 0x8000
 		} else {
 			crc = crc >> 1
 		}
 
-		crc += uint16(b)
+		crc += CRC(b)
 	}
 
-	*d = CRC16(crc)
-	return d
+	return crc
 }
-
-func (d *CRC16) Write8(data uint8) *CRC16 {
-	return d.Write([]byte{data})
-}
-
-func (d *CRC16) Write16(data uint16) *CRC16 {
-	return d.Write([]byte{byte(data & 0x00FF), byte(data >> 8)})
-}
-
-func (d *CRC16) Sum16() uint16 { return uint16(*d) }
