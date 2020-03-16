@@ -63,8 +63,8 @@ function Header(props) {
 
   return (
     <div className="header">
-      <div className="title" dangerouslySetInnerHTML={{__html: props.title}}/>
-      <div className="author">by {props.author}</div>
+      <div className="title" title={props.title} dangerouslySetInnerHTML={{__html: props.title}}/>
+      <div className="author" title={props.author}>by {props.author}</div>
       {date}
       <Timer last_start_time={props.last_start_time} total_solve_duration={props.total_solve_duration}/>
     </div>
