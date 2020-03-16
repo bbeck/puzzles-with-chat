@@ -256,6 +256,13 @@ function PuzzleDropdown(props) {
 
         props.setErrorMessage(null);
       })
+      .then(() => {
+        // Hide the dropdown menu after a selection is successfully made.
+        const menu = document.getElementById("puzzle-dropdown-menu");
+        if (menu) {
+          menu.classList.remove("show");
+        }
+      })
       .catch(error => props.setErrorMessage(error.message));
   };
 
