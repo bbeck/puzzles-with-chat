@@ -537,11 +537,13 @@ var UnshiftTables = [10]map[byte]byte{
 func (f *PuzFile) Convert() (*Puzzle, error) {
 	var errs []error
 
-	// All strings are ISO-8859-1, create a decoder function to convert to UTF-8.
-	// If an error in decoding happens then the error will be added to the errs
-	// slice.
+	// The spec claims that all strings are ISO-8859-1, but this seems to not be
+	// entirely true.  Some .puz files in the wild
+	// (puzpy-nyt-20080224-diagramless.puz) include characters like a right quote
+	// which is defined in Windows-1252 which is a superset of ISO-8859-1.  If an
+	// error in decoding happens then the error will be added to the errs slice.
 	decode := func(bs []byte) string {
-		decoded, err := charmap.ISO8859_1.NewDecoder().Bytes(bs)
+		decoded, err := charmap.Windows1252.NewDecoder().Bytes(bs)
 		if err != nil {
 			errs = append(errs, err)
 		}
