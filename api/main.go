@@ -1,28 +1,32 @@
 package main
 
 import (
+	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+	"github.com/gomodule/redigo/redis"
 	"log"
+	"net/http"
 	"os"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/gomodule/redigo/redis"
-
-	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
 )
 
 func main() {
 	pool := NewRedisPool()
 	defer func() { _ = pool.Close() }()
 
-	router := gin.Default()
+	r := chi.NewRouter()
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
 
 	// Register handlers for our paths.
-	api := router.Group("/api")
-	crossword.RegisterRoutes(api, pool)
+	r.Route("/api", func(r chi.Router) {
+		crossword.RegisterRoutes(r, pool)
+	})
 
 	// Start the server.
-	err := router.Run(":5000")
+	err := http.ListenAndServe(":5000", r)
 	if err != nil {
 		log.Fatalf("error from main: %+v", err)
 	}

@@ -1,61 +1,67 @@
 package crossword
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
-	"io"
+	"log"
 	"net/http"
 	"time"
 )
 
-func RegisterRoutes(router gin.IRouter, pool *redis.Pool) {
+func RegisterRoutes(router chi.Router, pool *redis.Pool) {
 	RegisterRoutesWithRegistry(router, pool, new(pubsub.Registry))
 }
 
-func RegisterRoutesWithRegistry(router gin.IRouter, pool *redis.Pool, registry *pubsub.Registry) {
-	router.GET("/crossword", GetActiveCrosswords(pool))
+func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
+	r.Get("/crossword", GetActiveCrosswords(pool))
 
-	channel := router.Group("/crossword/:channel")
-	{
-		channel.PUT("", UpdateCrossword(pool, registry))
-		channel.PUT("/setting/:setting", UpdateCrosswordSetting(pool, registry))
-		channel.PUT("/status", ToggleCrosswordStatus(pool, registry))
-		channel.PUT("/answer/:clue", UpdateCrosswordAnswer(pool, registry))
-		channel.GET("/show/:clue", ShowCrosswordClue(registry))
-		channel.GET("/events", GetCrosswordEvents(pool, registry))
-	}
+	r.Route("/crossword/{channel}", func(r chi.Router) {
+		r.Put("/", UpdateCrossword(pool, registry))
+		r.Put("/setting/{setting}", UpdateCrosswordSetting(pool, registry))
+		r.Put("/status", ToggleCrosswordStatus(pool, registry))
+		r.Put("/answer/{clue}", UpdateCrosswordAnswer(pool, registry))
+		r.Get("/show/{clue}", ShowCrosswordClue(registry))
+		r.Get("/events", GetCrosswordEvents(pool, registry))
+	})
 }
 
-func GetActiveCrosswords(pool *redis.Pool) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func GetActiveCrosswords(pool *redis.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		conn := pool.Get()
 		defer func() { _ = conn.Close() }()
 
 		names, err := GetChannelNamesWithState(conn)
 		if err != nil {
-			err = fmt.Errorf("unable to load channels with active crossword solves: %+v", err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to load channels with active crossword solves: %+v", err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		c.JSON(http.StatusOK, names)
+		// Ensure we always return a JSON list.
+		if names == nil {
+			names = []string{}
+		}
+
+		render.JSON(w, r, names)
 	}
 }
 
 // UpdateCrossword changes the crossword that's currently being solved for a
 // channel.
-func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		channel := c.Param("channel")
+func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
 
 		// Since there are multiple ways to specify which crossword to solve we'll
 		// parse the payload into a generic map instead of a specific object.
 		var payload map[string]string
-		if err := c.BindJSON(&payload); err != nil {
-			err = fmt.Errorf("unable to read request body: %+v", err)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
+		if err := render.DecodeJSON(r.Body, &payload); err != nil {
+			log.Printf("unable to read request body: %+v", err)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -65,8 +71,8 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFun
 		if date := payload["new_york_times_date"]; date != "" {
 			p, err := LoadFromNewYorkTimes(date)
 			if err != nil {
-				err = fmt.Errorf("unable to load NYT puzzle for date %s: %+v", date, err)
-				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				log.Printf("unable to load NYT puzzle for date %s: %+v", date, err)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
@@ -77,8 +83,8 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFun
 		if date := payload["wall_street_journal_date"]; date != "" {
 			p, err := LoadFromWallStreetJournal(date)
 			if err != nil {
-				err = fmt.Errorf("unable to load WSJ puzzle for date %s: %+v", date, err)
-				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				log.Printf("unable to load WSJ puzzle for date %s: %+v", date, err)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
@@ -89,8 +95,8 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFun
 		if encoded := payload["puz_file_bytes"]; encoded != "" {
 			p, err := LoadFromEncodedPuzFile(encoded)
 			if err != nil {
-				err = fmt.Errorf("unable to load puzzle from bytes: %+v", err)
-				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				log.Printf("unable to load puzzle from bytes: %+v", err)
+				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 
@@ -98,8 +104,8 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFun
 		}
 
 		if puzzle == nil {
-			err := fmt.Errorf("unable to determine puzzle from payload: %+v", payload)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
+			log.Printf("unable to determine puzzle from payload: %+v", payload)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -120,8 +126,8 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFun
 			DownCluesFilled:   make(map[int]bool),
 		}
 		if err := SetState(conn, channel, state); err != nil {
-			err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to save state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -138,10 +144,10 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFun
 	}
 }
 
-func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		channel := c.Param("channel")
-		setting := c.Param("setting")
+func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+		setting := chi.URLParam(r, "setting")
 
 		conn := pool.Get()
 		defer func() { _ = conn.Close() }()
@@ -150,8 +156,8 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 		// updates to them.
 		settings, err := GetSettings(conn, channel)
 		if err != nil {
-			err = fmt.Errorf("unable to read crossword settings for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to read crossword settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -160,9 +166,9 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 		switch setting {
 		case "only_allow_correct_answers":
 			var value bool
-			if err := c.BindJSON(&value); err != nil {
-				err = fmt.Errorf("unable to parse crossword only correct answers setting json %v: %+v", value, err)
-				_ = c.AbortWithError(http.StatusBadRequest, err)
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse crossword only correct answers setting json %v: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			settings.OnlyAllowCorrectAnswers = value
@@ -170,41 +176,41 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 
 		case "clues_to_show":
 			var value ClueVisibility
-			if err := c.BindJSON(&value); err != nil {
-				err = fmt.Errorf("unable to parse crossword clue visibility setting json %s: %+v", value, err)
-				_ = c.AbortWithError(http.StatusBadRequest, err)
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse crossword clue visibility setting json %s: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			settings.CluesToShow = value
 
 		case "clue_font_size":
 			var value FontSize
-			if err := c.BindJSON(&value); err != nil {
-				err = fmt.Errorf("unable to parse crossword clue font size setting json %s: %+v", value, err)
-				_ = c.AbortWithError(http.StatusBadRequest, err)
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse crossword clue font size setting json %s: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			settings.ClueFontSize = value
 
 		case "show_notes":
 			var value bool
-			if err := c.BindJSON(&value); err != nil {
-				err = fmt.Errorf("unable to parse crossword show notes setting json %v: %+v", value, err)
-				_ = c.AbortWithError(http.StatusBadRequest, err)
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse crossword show notes setting json %v: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
 			settings.ShowNotes = value
 
 		default:
-			err = fmt.Errorf("unrecognized crossword setting name %s", setting)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
+			log.Printf("unrecognized crossword setting name %s", setting)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		// Save the settings back to the database.
 		if err = SetSettings(conn, channel, settings); err != nil {
-			err = fmt.Errorf("unable to save crossword settings for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to save crossword settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -215,8 +221,8 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 		if shouldClearIncorrectCells {
 			state, err := GetState(conn, channel)
 			if err != nil {
-				err = fmt.Errorf("unable to load state for channel %s: %+v", channel, err)
-				_ = c.AbortWithError(http.StatusNotFound, err)
+				log.Printf("unable to load state for channel %s: %+v", channel, err)
+				w.WriteHeader(http.StatusNotFound)
 				return
 			}
 
@@ -224,14 +230,14 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 			// or is already complete.
 			if state.Status != StatusCreated && state.Status != StatusComplete {
 				if err := state.ClearIncorrectCells(); err != nil {
-					err = fmt.Errorf("unable to clear incorrect cells for channel: %s: %+v", channel, err)
-					_ = c.AbortWithError(http.StatusInternalServerError, err)
+					log.Printf("unable to clear incorrect cells for channel: %s: %+v", channel, err)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 
 				if err := SetState(conn, channel, state); err != nil {
-					err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)
-					_ = c.AbortWithError(http.StatusInternalServerError, err)
+					log.Printf("unable to save state for channel %s: %+v", channel, err)
+					w.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 
@@ -258,17 +264,17 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) gin.Han
 	}
 }
 
-func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		channel := c.Param("channel")
+func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
 
 		conn := pool.Get()
 		defer func() { _ = conn.Close() }()
 
 		state, err := GetState(conn, channel)
 		if err != nil {
-			err = fmt.Errorf("unable to load state for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusNotFound, err)
+			log.Printf("unable to load state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
@@ -291,14 +297,14 @@ func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 
 		case StatusComplete:
 			// The puzzle is already solved, we can't toggle its state anymore
-			err = fmt.Errorf("unable to toggle status for channel %s, puzzle is already solved", channel)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
+			log.Printf("unable to toggle status for channel %s, puzzle is already solved", channel)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		if err := SetState(conn, channel, state); err != nil {
-			err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to save state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -315,25 +321,25 @@ func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 	}
 }
 
-func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		channel := c.Param("channel")
-		clue := c.Param("clue")
+func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+		clue := chi.URLParam(r, "clue")
 
-		if c.Request.ContentLength > 1024 {
-			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
+		if r.ContentLength > 1024 {
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
 			return
 		}
 
 		var answer string
-		if err := c.BindJSON(&answer); err != nil {
-			err = fmt.Errorf("unable to read request body: %+v", err)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
+		if err := render.DecodeJSON(r.Body, &answer); err != nil {
+			log.Printf("unable to read request body: %+v", err)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		if len(answer) == 0 {
-			c.AbortWithStatus(http.StatusBadRequest)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -342,26 +348,26 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 
 		state, err := GetState(conn, channel)
 		if err != nil {
-			err = fmt.Errorf("unable to load state for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusNotFound, err)
+			log.Printf("unable to load state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		if state.Status != StatusSolving {
-			c.AbortWithStatus(http.StatusConflict)
+			w.WriteHeader(http.StatusConflict)
 			return
 		}
 
 		settings, err := GetSettings(conn, channel)
 		if err != nil {
-			err = fmt.Errorf("unable to load settings for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to load settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		if err := state.ApplyAnswer(clue, answer, settings.OnlyAllowCorrectAnswers); err != nil {
-			err = fmt.Errorf("unable to apply answer %s for clue %s for channel %s: %+v", answer, clue, channel, err)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
+			log.Printf("unable to apply answer %s for clue %s for channel %s: %+v", answer, clue, channel, err)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -375,8 +381,8 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 
 		// Save the updated state.
 		if err := SetState(conn, channel, state); err != nil {
-			err = fmt.Errorf("unable to save state for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to save state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -405,15 +411,15 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) gin.Hand
 // they update their view to make the specified clue visible.  If the specified
 // clue isn't structured as a proper clue number and direction than an error
 // will be returned.
-func ShowCrosswordClue(registry *pubsub.Registry) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		channel := c.Param("channel")
-		clue := c.Param("clue")
+func ShowCrosswordClue(registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+		clue := chi.URLParam(r, "clue")
 
 		_, _, err := ParseClue(clue)
 		if err != nil {
-			err = fmt.Errorf("malformed clue (%s): %+v", clue, err)
-			_ = c.AbortWithError(http.StatusBadRequest, err)
+			log.Printf("malformed clue (%s): %+v", clue, err)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
@@ -430,9 +436,9 @@ func ShowCrosswordClue(registry *pubsub.Registry) gin.HandlerFunc {
 // this handler will keep an open connection open to the server waiting to
 // receive events as JSON objects.  The server can send events to all clients
 // of a channel using the pubsub.Registry's Publish method.
-func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		channel := c.Param("channel")
+func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
 
 		// Construct the stream that all events for this particular client will be
 		// placed into.
@@ -447,8 +453,8 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) gin.Handler
 		// Always send the crossword settings if there are any.
 		settings, err := GetSettings(conn, channel)
 		if err != nil {
-			err = fmt.Errorf("unable to read settings for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to read settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		stream <- pubsub.Event{
@@ -460,8 +466,8 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) gin.Handler
 		// mask the solution to the puzzle.
 		state, err := GetState(conn, channel)
 		if err != nil {
-			err = fmt.Errorf("unable to read state for channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to read state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if state.Puzzle != nil {
@@ -480,24 +486,44 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) gin.Handler
 		id, err := registry.Subscribe(pubsub.Channel(channel), stream)
 		defer registry.Unsubscribe(pubsub.Channel(channel), id)
 		if err != nil {
-			err = fmt.Errorf("unable to subscribe client to channel %s: %+v", channel, err)
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			log.Printf("unable to subscribe client to channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		c.Header("Cache-Control", "no-transform")
-		c.Header("Connection", "keep-alive")
-		c.Header("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-transform")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
 
 		// Loop until the client disconnects sending them any events that are
 		// queued for them.
-		c.Stream(func(w io.Writer) bool {
-			if msg, ok := <-stream; ok {
-				c.SSEvent("message", msg)
-				return true
-			}
+		for {
+			select {
+			case <-r.Context().Done():
+				// The client disconnected.
+				return
 
-			return false
-		})
+			case msg, ok := <-stream:
+				if !ok {
+					return
+				}
+
+				bs, err := json.Marshal(msg)
+				if err != nil {
+					log.Printf("unable to marshal message '%+v' to json: %+v\n", msg, err)
+					return
+				}
+
+				if _, err := fmt.Fprintf(w, "event:message\ndata:%s\n\n", bs); err != nil {
+					log.Printf("error while writing message to http.ResponseWriter: %+v", err)
+					return
+				}
+
+				if f, ok := w.(http.Flusher); ok {
+					f.Flush()
+				}
+			}
+		}
 	}
 }

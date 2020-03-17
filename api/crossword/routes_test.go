@@ -1,13 +1,13 @@
 package crossword
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/alicebob/miniredis"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
-	"github.com/gin-contrib/sse"
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,7 +36,7 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 	defer cleanup()
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	var names []string // The channel names of the active crossword solves
@@ -45,7 +45,7 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	response := Global.GET("/", router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.NoError(t, response.JSON(&names))
-	assert.Nil(t, names)
+	assert.Equal(t, []string{}, names)
 
 	// Start a crossword
 	response = Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -99,7 +99,7 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 		fn(settings)
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	// Update each setting, one at a time.
@@ -173,7 +173,7 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 		}
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -241,7 +241,7 @@ func TestRoute_UpdateCrosswordSetting_Error(t *testing.T) {
 			pool, _, cleanup := NewRedisPool(t)
 			defer cleanup()
 
-			router := gin.Default()
+			router := chi.NewRouter()
 			RegisterRoutes(router, pool)
 
 			response := Channel.PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
@@ -289,7 +289,7 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 		fn(state)
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -343,7 +343,7 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 		fn(state)
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"wall_street_journal_date": "2019-01-02"}`, router)
@@ -397,7 +397,7 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 		fn(state)
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"puz_file_bytes": "unused"}`, router)
@@ -457,7 +457,7 @@ func TestRoute_UpdateCrossword_Error(t *testing.T) {
 			cleanup = ForceErrorDuringLoad(test.forcedError)
 			defer cleanup()
 
-			router := gin.Default()
+			router := chi.NewRouter()
 			RegisterRoutes(router, pool)
 
 			response := Channel.PUT("/", test.payload, router)
@@ -514,7 +514,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 		}
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -613,7 +613,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 		}
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -729,7 +729,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 		}
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	// Change the settings to require correct answers
@@ -836,7 +836,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 		}
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -932,7 +932,7 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 			cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 			defer cleanup()
 
-			router := gin.Default()
+			router := chi.NewRouter()
 			RegisterRoutes(router, pool)
 
 			response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -986,7 +986,7 @@ func TestRoute_ShowCrosswordClue(t *testing.T) {
 		}
 	}
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
@@ -1033,7 +1033,7 @@ func TestRoute_GetCrosswordEvents(t *testing.T) {
 	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 	defer cleanup()
 
-	router := gin.Default()
+	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	// Connect to the stream when there's no puzzle selected, we should receive
@@ -1111,7 +1111,7 @@ func NewRegistry(t *testing.T) (*pubsub.Registry, <-chan pubsub.Event, func()) {
 // crossword route, not associated with any particular channel.
 type CrosswordRoute struct{}
 
-func (r CrosswordRoute) GET(url string, router *gin.Engine) *TestResponseRecorder {
+func (r CrosswordRoute) GET(url string, router chi.Router) *TestResponseRecorder {
 	url = path.Join("/crossword", url)
 	request := httptest.NewRequest(http.MethodGet, url, nil)
 
@@ -1119,7 +1119,7 @@ func (r CrosswordRoute) GET(url string, router *gin.Engine) *TestResponseRecorde
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
-func (r CrosswordRoute) PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
+func (r CrosswordRoute) PUT(url, body string, router chi.Router) *TestResponseRecorder {
 	url = path.Join("/crossword", url)
 	request := httptest.NewRequest(http.MethodPut, url, strings.NewReader(body))
 
@@ -1134,7 +1134,7 @@ func (r CrosswordRoute) PUT(url, body string, router *gin.Engine) *TestResponseR
 // the flush method can be called and it will return any queued up events.  When
 // the main thread wishes to close the connection to the router the stop method
 // can be called and it will return any unread events.
-func (r CrosswordRoute) SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+func (r CrosswordRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
 	url = path.Join("/crossword", url)
 	recorder := CreateTestResponseRecorder()
 
@@ -1142,14 +1142,19 @@ func (r CrosswordRoute) SSE(url string, router *gin.Engine) (flush func() []pubs
 		// Give the router a chance to write everything it needs to.
 		time.Sleep(10 * time.Millisecond)
 
-		messages, _ := sse.Decode(recorder.Body)
-
 		var events []pubsub.Event
-		for _, message := range messages {
-			payload := message.Data.(string)
+		for {
+			bs, err := recorder.Body.ReadBytes('\n')
+			if err != nil {
+				break
+			}
+
+			if !bytes.HasPrefix(bs, []byte("data:")) {
+				continue
+			}
 
 			var event pubsub.Event
-			json.Unmarshal([]byte(payload), &event)
+			json.Unmarshal(bs[5:], &event)
 			events = append(events, event)
 		}
 
@@ -1176,17 +1181,17 @@ type ChannelRoute struct {
 	channel string
 }
 
-func (r ChannelRoute) GET(url string, router *gin.Engine) *TestResponseRecorder {
+func (r ChannelRoute) GET(url string, router chi.Router) *TestResponseRecorder {
 	url = path.Join(r.channel, url)
 	return Global.GET(url, router)
 }
 
-func (r ChannelRoute) PUT(url, body string, router *gin.Engine) *TestResponseRecorder {
+func (r ChannelRoute) PUT(url, body string, router chi.Router) *TestResponseRecorder {
 	url = path.Join(r.channel, url)
 	return Global.PUT(url, body, router)
 }
 
-func (r ChannelRoute) SSE(url string, router *gin.Engine) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+func (r ChannelRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
 	url = path.Join(r.channel, url)
 	return Global.SSE(url, router)
 }

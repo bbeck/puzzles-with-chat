@@ -5,8 +5,8 @@ go 1.13
 require (
 	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
 	github.com/alicebob/miniredis v2.5.0+incompatible
-	github.com/gin-contrib/sse v0.0.0-20190301062529-5545eab6dad3
-	github.com/gin-gonic/gin v1.4.0
+	github.com/go-chi/chi v4.0.3+incompatible
+	github.com/go-chi/render v1.0.1
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/rs/xid v1.2.1
 	github.com/stretchr/testify v1.4.0
