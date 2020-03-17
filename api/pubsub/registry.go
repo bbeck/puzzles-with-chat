@@ -10,7 +10,7 @@ import (
 // registry.
 type Event struct {
 	Kind    string      `json:"kind"`
-	Payload interface{} `json:"payload"`
+	Payload interface{} `json:"payload,omitempty"`
 }
 
 // Channel represents the segment of clients that a subscription is for or that
