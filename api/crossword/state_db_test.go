@@ -309,8 +309,6 @@ func TestSetState(t *testing.T) {
 			assert.Equal(t, StateTTL, s.TTL(StateKey(test.channel)))
 		})
 	}
-
-	fmt.Println(s.Dump())
 }
 
 func TestSetState_Error(t *testing.T) {
