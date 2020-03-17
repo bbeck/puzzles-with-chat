@@ -241,7 +241,7 @@ function Clues(props) {
         <div id="clue-notes" className="notes">
           <p>
             This puzzle contains notes, please consider enabling the 'Show
-            notes' setting.  <em>WARNING: Notes may container spoilers.</em>
+            notes' setting.  <em>WARNING: Notes may contain spoilers.</em>
           </p>
         </div>
       );
