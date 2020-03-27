@@ -189,11 +189,11 @@ func TestLocalClient_REPL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			integration := NewTestIntegration(test.expectedNumMessages)
+			handler := NewTestMessageHandler(test.expectedNumMessages)
 
 			client := &LocalClient{
-				port:         GetFreePort(t),
-				integrations: []Integration{integration},
+				port:     GetFreePort(t),
+				handlers: []MessageHandler{handler},
 			}
 
 			listening := NewCountDownLatch(1)
@@ -223,7 +223,7 @@ func TestLocalClient_REPL(t *testing.T) {
 
 			// Wait for the integration to receive the proper number of messages
 			// before disconnecting.
-			assert.True(t, integration.latch.Wait(100*time.Millisecond))
+			assert.True(t, handler.latch.Wait(100*time.Millisecond))
 
 			// Now that we're done, disconnect.
 			conn.Close()
@@ -233,11 +233,11 @@ func TestLocalClient_REPL(t *testing.T) {
 
 			// Ensure that we received the correct number of messages (we may have
 			// received more).
-			assert.Equal(t, test.expectedNumMessages, len(integration.seen))
+			assert.Equal(t, test.expectedNumMessages, len(handler.seen))
 
 			// Now verify that the integration was called with the correct messages.
 			if test.verify != nil {
-				test.verify(t, integration.seen)
+				test.verify(t, handler.seen)
 			}
 		})
 	}
@@ -261,21 +261,21 @@ type SeenMessage struct {
 	message  string
 }
 
-type TestIntegration struct {
+type TestMessageHandler struct {
 	latch *CountDownLatch
 	seen  []SeenMessage
 }
 
-func NewTestIntegration(expected int) *TestIntegration {
+func NewTestMessageHandler(expected int) *TestMessageHandler {
 	latch := NewCountDownLatch(expected)
-	return &TestIntegration{latch: latch}
+	return &TestMessageHandler{latch: latch}
 }
 
-func (i *TestIntegration) GetActiveChannelNames() ([]string, error) {
+func (i *TestMessageHandler) GetActiveChannelNames() ([]string, error) {
 	return nil, nil
 }
 
-func (i *TestIntegration) HandleChannelMessage(channel, userid, username, message string) {
+func (i *TestMessageHandler) HandleChannelMessage(channel, userid, username, message string) {
 	i.seen = append(i.seen, SeenMessage{
 		channel:  channel,
 		userid:   userid,

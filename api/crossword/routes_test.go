@@ -23,13 +23,10 @@ import (
 var Global = CrosswordRoute{}
 var Channel = ChannelRoute{"channel"}
 
-func TestRoute_GetActiveCrosswords(t *testing.T) {
-	// This acts as a small integration test creating crossword solves and making
-	// sure they're returned by the /crossword handler.
-	pool, _, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, _, cleanup := NewRegistry(t)
+func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
+	// This acts as a small integration test ensuring that the active channels
+	// event stream receives the events as new channels start and finish solves.
+	pool, conn, cleanup := NewRedisPool(t)
 	defer cleanup()
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
@@ -37,36 +34,49 @@ func TestRoute_GetActiveCrosswords(t *testing.T) {
 	defer cleanup()
 
 	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
+	RegisterRoutes(router, pool)
 
-	var names []string // The channel names of the active crossword solves
+	// Connect to the stream when there's no active solves happening, we should
+	// receive an event that contains an empty list of channels.
+	_, stop := Global.SSE("/events", router)
+	events := stop()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "channels", events[0].Kind)
+	assert.Empty(t, events[0].Payload)
 
-	// Make sure we have no active solves.
-	response := Global.GET("/", router)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.NoError(t, response.JSON(&names))
-	assert.Equal(t, []string{}, names)
-
-	// Start a crossword
-	response = Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
+	// Start a crossword.
+	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
-	// Make sure we have an active solve in our channel.
-	response = Global.GET("/", router)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.NoError(t, response.JSON(&names))
-	assert.Equal(t, []string{Channel.channel}, names)
+	// Now reconnect to the stream and we should receive one active channel.
+	_, stop = Global.SSE("/events", router)
+	events = stop()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "channels", events[0].Kind)
+	assert.ElementsMatch(t, []string{Channel.channel}, events[0].Payload)
 
-	// Start a crossword in another channel.
+	// Start a crossword on another channel.
 	channel2 := ChannelRoute{"channel2"}
 	response = channel2.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
-	// We should now have 2 solves.
-	response = Global.GET("/", router)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.NoError(t, response.JSON(&names))
-	assert.Equal(t, []string{Channel.channel, channel2.channel}, names)
+	// Now we expect there to be 2 channels in the stream.
+	_, stop = Global.SSE("/events", router)
+	events = stop()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "channels", events[0].Kind)
+	assert.ElementsMatch(t, []string{Channel.channel, channel2.channel}, events[0].Payload)
+
+	// Lastly remove the second channel from the database.
+	_, err := conn.Do("DEL", fmt.Sprintf("%s:crossword:state", channel2.channel))
+	require.NoError(t, err)
+
+	// Now we expect there to be one channels in the stream.
+	_, stop = Global.SSE("/events", router)
+	events = stop()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "channels", events[0].Kind)
+	assert.ElementsMatch(t, []string{Channel.channel}, events[0].Payload)
 }
 
 func TestRoute_UpdateCrosswordSetting(t *testing.T) {

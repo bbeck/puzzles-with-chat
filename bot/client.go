@@ -27,16 +27,9 @@ type Client interface {
 	Depart(channel string)
 }
 
-// An Integration represents an implementation of a bot to play a game in a
-// client channel.
-type Integration interface {
-	GetActiveChannelNames() ([]string, error)
-	HandleChannelMessage(channel, userid, username, message string)
-}
-
 // NewClient constructs a new client instance that's wired to the provided
-// integrations and will send all channel messages to each integration.
-func NewClient(integrations []Integration) (Client, error) {
+// message handlers and will send all channel messages to each handler.
+func NewClient(handlers []MessageHandler) (Client, error) {
 	env, ok := os.LookupEnv("ENV")
 	if !ok {
 		env = "local"
@@ -45,7 +38,7 @@ func NewClient(integrations []Integration) (Client, error) {
 	if env == "local" {
 		// When running locally, spawn a client that reads chat messages from a
 		// local network socket and doesn't actually connect to Twitch.
-		return &LocalClient{integrations: integrations}, nil
+		return &LocalClient{handlers: handlers}, nil
 	}
 
 	// In a non-local environment we return an actual client that's hooked up to
@@ -70,8 +63,8 @@ func NewClient(integrations []Integration) (Client, error) {
 		uid := message.User.ID
 		user := message.User.DisplayName
 
-		for _, integration := range integrations {
-			integration.HandleChannelMessage(channel, uid, user, message.Message)
+		for _, handler := range handlers {
+			handler.HandleChannelMessage(channel, uid, user, message.Message)
 		}
 	})
 
@@ -81,8 +74,8 @@ func NewClient(integrations []Integration) (Client, error) {
 // LocalClient listens on a local network socket and returns messages based on
 // the commands it receives.
 type LocalClient struct {
-	port         int
-	integrations []Integration
+	port     int
+	handlers []MessageHandler
 }
 
 func (c *LocalClient) Join(...string) {}
@@ -189,8 +182,8 @@ func (c *LocalClient) REPL(conn net.Conn) error {
 			continue
 		}
 
-		for _, integration := range c.integrations {
-			integration.HandleChannelMessage(channel, id(user), user, input)
+		for _, handler := range c.handlers {
+			handler.HandleChannelMessage(channel, id(user), user, input)
 		}
 	}
 }

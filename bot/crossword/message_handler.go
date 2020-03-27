@@ -3,19 +3,17 @@ package crossword
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
-	"os"
-	"path"
 	"regexp"
 	"time"
 )
 
-// The HTTP client to use when communicating with api service from the crossword
-// integration.
+// The HTTP client to use when communicating with the api service from the
+// crossword integration.
 var DefaultCrosswordHTTPClient = &http.Client{
 	Timeout: 1 * time.Second,
 }
@@ -32,85 +30,52 @@ var ShowClueRegexp = regexp.MustCompile(
 	`^!show\s+(?P<clue>[0-9]+[aAdD])\s*$`,
 )
 
-type Integration struct {
+type MessageHandler struct {
 	baseURL string
 }
 
-func NewIntegration() (*Integration, error) {
-	host, ok := os.LookupEnv("API_HOST")
-	if !ok {
-		return nil, errors.New("missing API_HOST environment variable")
-	}
-
-	return &Integration{
-		baseURL: fmt.Sprintf("http://%s/api/crossword", host),
-	}, nil
-}
-
-// GetActiveChannelNames calls the API service to see which channels are
-// currently solving a crossword.
-func (c *Integration) GetActiveChannelNames() ([]string, error) {
-	request, err := http.NewRequest(http.MethodGet, c.baseURL, nil)
-	if err != nil {
-		err := fmt.Errorf("unable to create http request: %v", err)
-		return nil, err
-	}
-
-	response, err := DefaultCrosswordHTTPClient.Do(request)
-	if response != nil {
-		defer func() { _ = response.Body.Close() }()
-	}
-	if err != nil {
-		err := fmt.Errorf("unable to get active crosswords from api: %v", err)
-		return nil, err
-	}
-
-	if response.StatusCode != 200 {
-		err := fmt.Errorf("received non-200 response when getting active crosswords: %v", err)
-		return nil, err
-	}
-
-	var names []string
-	err = json.NewDecoder(response.Body).Decode(&names)
-	if err != nil {
-		err := fmt.Errorf("unable to parse active crossword JSON response: %v", err)
-		return nil, err
-	}
-
-	return names, nil
+func NewMessageHandler(host string) *MessageHandler {
+	url := fmt.Sprintf("http://%s/api/crossword", host)
+	return &MessageHandler{baseURL: url}
 }
 
 // HandleChannelMessage parses a message and if it matches a crossword command
 // sends it to the appropriate API endpoint.
-func (c *Integration) HandleChannelMessage(channel string, uid string, user string, message string) {
+func (h *MessageHandler) HandleChannelMessage(channel string, _ string, _ string, message string) {
 	if match := AnswerRegexp.FindStringSubmatch(message); len(match) != 0 {
 		clue := match[1]
 		answer := match[2]
 
-		body, _ := c.PUT(path.Join(channel, "/answer", clue), answer)
+		url := fmt.Sprintf("%s/%s/answer/%s", h.baseURL, channel, clue)
+		body, err := PUT(DefaultCrosswordHTTPClient, url, answer)
 		defer func() { _ = body.Close() }()
+		if err != nil {
+			log.Printf("error applying answer, url: %s, answer: %s\n", url, answer)
+		}
 		return
 	}
 
 	if match := ShowClueRegexp.FindStringSubmatch(message); len(match) != 0 {
 		clue := match[1]
 
-		body, _ := c.GET(path.Join(channel, "/show", clue))
+		url := fmt.Sprintf("%s/%s/show/%s", h.baseURL, channel, clue)
+		body, err := GET(DefaultCrosswordHTTPClient, url)
 		defer func() { _ = body.Close() }()
+		if err != nil {
+			log.Printf("error showing clue, url: %s", url)
+		}
 		return
 	}
 }
 
-func (c *Integration) GET(path string) (io.ReadCloser, error) {
-	url := fmt.Sprintf("%s/%s", c.baseURL, path)
-
+func GET(client *http.Client, url string) (io.ReadCloser, error) {
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		err := fmt.Errorf("unable to create HTTP request for url %s: %v", url, err)
 		return ioutil.NopCloser(nil), err
 	}
 
-	response, err := DefaultCrosswordHTTPClient.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		err := fmt.Errorf("unable to perform HTTP GET to url %s: %v", url, err)
 		return ioutil.NopCloser(nil), err
@@ -124,9 +89,7 @@ func (c *Integration) GET(path string) (io.ReadCloser, error) {
 	return response.Body, nil
 }
 
-func (c *Integration) PUT(path string, body interface{}) (io.ReadCloser, error) {
-	url := fmt.Sprintf("%s/%s", c.baseURL, path)
-
+func PUT(client *http.Client, url string, body interface{}) (io.ReadCloser, error) {
 	bs, err := json.Marshal(body)
 	if err != nil {
 		err := fmt.Errorf("unable to marshal body to json: %v", err)
@@ -139,7 +102,7 @@ func (c *Integration) PUT(path string, body interface{}) (io.ReadCloser, error) 
 		return ioutil.NopCloser(nil), err
 	}
 
-	response, err := DefaultCrosswordHTTPClient.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		err := fmt.Errorf("unable to perform HTTP PUT to url %s: %v", url, err)
 		return ioutil.NopCloser(nil), err

@@ -17,7 +17,7 @@ func RegisterRoutes(router chi.Router, pool *redis.Pool) {
 }
 
 func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
-	r.Get("/crossword", GetActiveCrosswords(pool))
+	r.Get("/crossword/events", GetActiveCrosswordsEvents(pool))
 
 	r.Route("/crossword/{channel}", func(r chi.Router) {
 		r.Put("/", UpdateCrossword(pool, registry))
@@ -29,24 +29,68 @@ func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub
 	})
 }
 
-func GetActiveCrosswords(pool *redis.Pool) http.HandlerFunc {
+func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Construct the stream that all events for this particular client will be
+		// placed into.
+		stream := make(chan pubsub.Event, 10)
+		defer close(stream)
+
+		// Setup a connection to redis so that we can read the current solves.
 		conn := pool.Get()
 		defer func() { _ = conn.Close() }()
 
-		names, err := GetChannelNamesWithState(conn)
+		// Get our initial set of channels so that we can send a response to the
+		// client immediately.
+		channels, err := GetChannelNamesWithState(conn)
 		if err != nil {
 			log.Printf("unable to load channels with active crossword solves: %+v", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// Ensure we always return a JSON list.
-		if names == nil {
-			names = []string{}
+		if channels == nil {
+			channels = []string{}
 		}
 
-		render.JSON(w, r, names)
+		// Send the initial set of channels.
+		stream <- pubsub.Event{
+			Kind:    "channels",
+			Payload: channels,
+		}
+
+		// Start a background goroutine for this client that sends updates to the
+		// list of channels periodically.
+		go func() {
+			for {
+				select {
+				case <-r.Context().Done():
+					// The client disconnected, the goroutine should exit.
+					return
+
+				case <-time.After(10 * time.Second):
+					channels, err := GetChannelNamesWithState(conn)
+					if err != nil {
+						log.Printf("unable to load channels with active crossword solves: %+v", err)
+
+						// Don't exit the goroutine here since the client is still connected.
+						// We'll just try again in the future.
+						continue
+					}
+
+					if channels == nil {
+						channels = []string{}
+					}
+
+					stream <- pubsub.Event{
+						Kind:    "channels",
+						Payload: channels,
+					}
+				}
+			}
+		}()
+
+		EmitEvents(w, r, stream)
 	}
 }
 
@@ -479,8 +523,6 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) http.Handle
 			}
 		}
 
-		// TODO: Consider sending a periodic ping to keep the connection open?
-
 		// Now that we've seeded the stream with the initialization events,
 		// subscribe it to receive all future events for the channel.
 		id, err := registry.Subscribe(pubsub.Channel(channel), stream)
@@ -491,39 +533,45 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) http.Handle
 			return
 		}
 
-		w.Header().Set("Cache-Control", "no-transform")
-		w.Header().Set("Connection", "keep-alive")
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.WriteHeader(http.StatusOK)
+		EmitEvents(w, r, stream)
+	}
+}
 
-		// Loop until the client disconnects sending them any events that are
-		// queued for them.
-		for {
-			select {
-			case <-r.Context().Done():
-				// The client disconnected.
+func EmitEvents(w http.ResponseWriter, r *http.Request, events chan pubsub.Event) {
+	w.Header().Set("Cache-Control", "no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	// Loop until the client disconnects sending them any events that are
+	// queued for them.
+	for {
+		select {
+		case <-r.Context().Done():
+			// The client disconnected.
+			return
+
+		case msg, ok := <-events:
+			if !ok {
 				return
+			}
 
-			case msg, ok := <-stream:
-				if !ok {
-					return
-				}
+			bs, err := json.Marshal(msg)
+			if err != nil {
+				log.Printf("unable to marshal event '%+v' to json: %+v\n", msg, err)
+				return
+			}
 
-				bs, err := json.Marshal(msg)
-				if err != nil {
-					log.Printf("unable to marshal message '%+v' to json: %+v\n", msg, err)
-					return
-				}
+			if _, err := fmt.Fprintf(w, "event:message\ndata:%s\n\n", bs); err != nil {
+				log.Printf("error while writing message to http.ResponseWriter: %+v", err)
+				return
+			}
 
-				if _, err := fmt.Fprintf(w, "event:message\ndata:%s\n\n", bs); err != nil {
-					log.Printf("error while writing message to http.ResponseWriter: %+v", err)
-					return
-				}
-
-				if f, ok := w.(http.Flusher); ok {
-					f.Flush()
-				}
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
 			}
 		}
+
+		// TODO: Consider sending a periodic ping to keep the connection open?
 	}
 }
