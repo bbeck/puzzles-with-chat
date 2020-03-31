@@ -1,6 +1,7 @@
 package crossword
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -11,17 +12,19 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"path"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
-var Global = CrosswordRoute{}
-var Channel = ChannelRoute{"channel"}
+var Global = GlobalRoute{}
+var Channel = ChannelRoute{channel: "channel"}
 
 func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 	// This acts as a small integration test ensuring that the active channels
@@ -56,7 +59,7 @@ func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 	assert.ElementsMatch(t, []string{Channel.channel}, events[0].Payload)
 
 	// Start a crossword on another channel.
-	channel2 := ChannelRoute{"channel2"}
+	channel2 := ChannelRoute{channel: "channel2"}
 	response = channel2.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
@@ -1117,34 +1120,34 @@ func NewRegistry(t *testing.T) (*pubsub.Registry, <-chan pubsub.Event, func()) {
 	}
 }
 
-// CrosswordRoute is a client that makes requests against the URL of the global
+// GlobalRoute is a client that makes requests against the URL of the global
 // crossword route, not associated with any particular channel.
-type CrosswordRoute struct{}
+type GlobalRoute struct{}
 
-func (r CrosswordRoute) GET(url string, router chi.Router) *TestResponseRecorder {
+func (r GlobalRoute) GET(url string, router chi.Router) *httptest.ResponseRecorder {
 	url = path.Join("/crossword", url)
 	request := httptest.NewRequest(http.MethodGet, url, nil)
 
-	recorder := CreateTestResponseRecorder()
+	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
-func (r CrosswordRoute) PUT(url, body string, router chi.Router) *TestResponseRecorder {
+func (r GlobalRoute) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {
 	url = path.Join("/crossword", url)
 	request := httptest.NewRequest(http.MethodPut, url, strings.NewReader(body))
 
-	recorder := CreateTestResponseRecorder()
+	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
 
 // SSE performs a streaming request to the provided router.  Because the router
-// won't immediately return this request is done in a background goroutine.
+// won't immediately return, this request is done in a background goroutine.
 // When the main thread wishes to read events that have been received thus far
 // the flush method can be called and it will return any queued up events.  When
 // the main thread wishes to close the connection to the router the stop method
 // can be called and it will return any unread events.
-func (r CrosswordRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+func (r GlobalRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
 	url = path.Join("/crossword", url)
 	recorder := CreateTestResponseRecorder()
 
@@ -1152,9 +1155,14 @@ func (r CrosswordRoute) SSE(url string, router chi.Router) (flush func() []pubsu
 		// Give the router a chance to write everything it needs to.
 		time.Sleep(10 * time.Millisecond)
 
+		reader, err := recorder.Body()
+		if err != nil {
+			return nil
+		}
+
 		var events []pubsub.Event
 		for {
-			bs, err := recorder.Body.ReadBytes('\n')
+			bs, err := reader.ReadBytes('\n')
 			if err != nil {
 				break
 			}
@@ -1175,7 +1183,7 @@ func (r CrosswordRoute) SSE(url string, router chi.Router) (flush func() []pubsu
 		// Give the router a chance to write everything it needs to.
 		time.Sleep(10 * time.Millisecond)
 
-		recorder.closeClient()
+		recorder.Close()
 		return flush()
 	}
 
@@ -1191,12 +1199,12 @@ type ChannelRoute struct {
 	channel string
 }
 
-func (r ChannelRoute) GET(url string, router chi.Router) *TestResponseRecorder {
+func (r ChannelRoute) GET(url string, router chi.Router) *httptest.ResponseRecorder {
 	url = path.Join(r.channel, url)
 	return Global.GET(url, router)
 }
 
-func (r ChannelRoute) PUT(url, body string, router chi.Router) *TestResponseRecorder {
+func (r ChannelRoute) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {
 	url = path.Join(r.channel, url)
 	return Global.PUT(url, body, router)
 }
@@ -1217,28 +1225,65 @@ func RandomString(n int) string {
 	return string(bs)
 }
 
-// We wrap httptest.ResponseRecorder so that our version implements the
-// http.CloseNotifier interface required by Gin.
+// Create a http.ResponseWriter that synchronizes whenever reads or writes
+// happen so that there are no races in a multiple goroutine environment.
+// Additionally implement the http.CloseNotifier interface so that requests can
+// be stopped by tests.
 type TestResponseRecorder struct {
-	*httptest.ResponseRecorder
-	closeChannel chan bool
-}
-
-func (r *TestResponseRecorder) CloseNotify() <-chan bool {
-	return r.closeChannel
-}
-
-func (r *TestResponseRecorder) closeClient() {
-	r.closeChannel <- true
-}
-
-func (r *TestResponseRecorder) JSON(target interface{}) error {
-	return json.NewDecoder(r.Body).Decode(target)
+	sync.Mutex
+	headers http.Header
+	body    *bytes.Buffer
+	close   chan bool
 }
 
 func CreateTestResponseRecorder() *TestResponseRecorder {
 	return &TestResponseRecorder{
-		httptest.NewRecorder(),
-		make(chan bool, 1),
+		headers: make(http.Header),
+		body:    new(bytes.Buffer),
+		close:   make(chan bool, 1),
 	}
+}
+
+func (r *TestResponseRecorder) Header() http.Header {
+	r.Lock()
+	defer r.Unlock()
+
+	return r.headers
+}
+
+func (r *TestResponseRecorder) Write(bs []byte) (int, error) {
+	r.Lock()
+	defer r.Unlock()
+
+	return r.body.Write(bs)
+}
+
+func (r *TestResponseRecorder) Body() (*bufio.Reader, error) {
+	r.Lock()
+	defer r.Unlock()
+
+	bs, err := ioutil.ReadAll(r.body)
+	if err != nil {
+		return nil, err
+	}
+	r.body.Reset()
+	return bufio.NewReader(bytes.NewReader(bs)), nil
+}
+
+func (r *TestResponseRecorder) CloseNotify() <-chan bool {
+	r.Lock()
+	defer r.Unlock()
+
+	return r.close
+}
+
+func (r *TestResponseRecorder) Close() {
+	r.Lock()
+	defer r.Unlock()
+
+	r.close <- true
+}
+
+func (r *TestResponseRecorder) WriteHeader(int) {
+	// Not used
 }

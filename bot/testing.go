@@ -57,9 +57,14 @@ func (l *CountDownLatch) CountDown() {
 }
 
 func (l *CountDownLatch) Wait(duration time.Duration) bool {
+	l.Lock()
+
 	if l.done {
+		l.Unlock()
 		return true
 	}
+
+	l.Unlock()
 
 	select {
 	case <-l.zero:
