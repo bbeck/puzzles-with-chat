@@ -300,11 +300,7 @@ function PuzzleDropdown(props) {
       return;
     }
 
-    return fetch(url)
-      .then(response => response.blob())
-      .then(read)
-      .then(btoa)
-      .then(bs => setPuzzle({"puz_file_bytes": bs}));
+    return setPuzzle({"puz_file_url": url});
   };
 
   // Select a .puz puzzle based on the uploaded .puz file.

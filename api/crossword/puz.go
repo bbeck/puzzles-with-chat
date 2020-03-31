@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/bbeck/twitch-plays-crosswords/api/web"
 	"golang.org/x/text/encoding/charmap"
 	"io"
 	"strings"
@@ -80,6 +81,33 @@ func LoadFromEncodedPuzFile(encoded string) (*Puzzle, error) {
 	}
 
 	return LoadPuzFile(bytes.NewReader(bs))
+}
+
+// LoadFromPuzFileURL will take a URL and retrieve it and load it into a Puzzle
+// object.
+//
+// If the URL cannot be retrieved or the puzzle parsed then an error is
+// returned.
+func LoadFromPuzFileURL(url string) (*Puzzle, error) {
+	if testCachedPuzzle != nil {
+		return testCachedPuzzle, nil
+	}
+
+	if testCachedError != nil {
+		return nil, testCachedError
+	}
+
+	// First, download the .puz file from the URL.
+	response, err := web.Get(url)
+	if response != nil {
+		defer func() { _ = response.Body.Close() }()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Next, convert the .puz file to a puzzle using the .puz converter.
+	return LoadPuzFile(response.Body)
 }
 
 // LoadPuzFile parses a binary .puz file into a Puzzle object.

@@ -135,6 +135,17 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFu
 			puzzle = p
 		}
 
+		if url := payload["puz_file_url"]; url != "" {
+			p, err := LoadFromPuzFileURL(url)
+			if err != nil {
+				log.Printf("unable to laod puzzle from url %s: %+v", url, err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			puzzle = p
+		}
+
 		// .puz file upload
 		if encoded := payload["puz_file_bytes"]; encoded != "" {
 			p, err := LoadFromEncodedPuzFile(encoded)

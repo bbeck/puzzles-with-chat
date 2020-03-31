@@ -372,9 +372,9 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 }
 
 func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
-	// This acts as a small integration test uploading a .puz fle of the crossword
-	// we're working on and ensuring the proper values are written to the
-	// database.
+	// This acts as a small integration test uploading a .puz file of the
+	// crossword we're working on and ensuring the proper values are written to
+	// the database.
 	pool, conn, cleanup := NewRedisPool(t)
 	defer cleanup()
 
@@ -425,6 +425,60 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 	})
 }
 
+func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
+	// This acts as a small integration test retrieving a .puz file from a URL of
+	// the crossword we're working on and ensuring the proper values are written
+	// to the database.
+	pool, conn, cleanup := NewRedisPool(t)
+	defer cleanup()
+
+	registry, events, cleanup := NewRegistry(t)
+	defer cleanup()
+
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	cleanup = ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
+	defer cleanup()
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(fn func(s *State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(*State)
+			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, "channel")
+		require.NoError(t, err)
+		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
+		fn(state)
+	}
+
+	router := chi.NewRouter()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	response := Channel.PUT("/", `{"puz_file_url": "unused"}`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(func(state *State) {
+		assert.Equal(t, StatusCreated, state.Status)
+		assert.NotNil(t, state.Puzzle)
+		assert.Equal(t, 0, len(state.AcrossCluesFilled))
+		assert.Equal(t, 0, len(state.DownCluesFilled))
+		assert.Nil(t, state.LastStartTime)
+		assert.Equal(t, 0., state.TotalSolveDuration.Seconds())
+	})
+}
+
 func TestRoute_UpdateCrossword_Error(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -455,8 +509,14 @@ func TestRoute_UpdateCrossword_Error(t *testing.T) {
 			expected:    http.StatusInternalServerError,
 		},
 		{
-			name:        "puz error",
+			name:        "puz bytes error",
 			payload:     `{"puz_file_bytes": "bad"}`,
+			forcedError: errors.New("forced error"),
+			expected:    http.StatusInternalServerError,
+		},
+		{
+			name:        "puz url error",
+			payload:     `{"puz_file_url": "bad"}`,
 			forcedError: errors.New("forced error"),
 			expected:    http.StatusInternalServerError,
 		},
