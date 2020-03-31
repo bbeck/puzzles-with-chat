@@ -17,7 +17,6 @@ func RegisterRoutes(router chi.Router, pool *redis.Pool) {
 }
 
 func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
-	r.Get("/crossword", GetActiveCrosswords(pool))
 	r.Get("/crossword/events", GetActiveCrosswordsEvents(pool))
 
 	r.Route("/crossword/{channel}", func(r chi.Router) {
@@ -28,27 +27,6 @@ func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub
 		r.Get("/show/{clue}", ShowCrosswordClue(registry))
 		r.Get("/events", GetCrosswordEvents(pool, registry))
 	})
-}
-
-func GetActiveCrosswords(pool *redis.Pool) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		conn := pool.Get()
-		defer func() { _ = conn.Close() }()
-
-		names, err := GetChannelNamesWithState(conn)
-		if err != nil {
-			log.Printf("unable to load channels with active crossword solves: %+v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		// Ensure we always return a JSON list.
-		if names == nil {
-			names = []string{}
-		}
-
-		render.JSON(w, r, names)
-	}
 }
 
 func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {

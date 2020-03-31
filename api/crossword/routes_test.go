@@ -26,52 +26,6 @@ import (
 var Global = GlobalRoute{}
 var Channel = ChannelRoute{channel: "channel"}
 
-func TestRoute_GetActiveCrosswords(t *testing.T) {
-	// This acts as a small integration test creating crossword solves and making
-	// sure they're returned by the /crossword handler.
-	pool, _, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, _, cleanup := NewRegistry(t)
-	defer cleanup()
-
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
-	var names []string // The channel names of the active crossword solves
-
-	// Make sure we have no active solves.
-	response := Global.GET("/", router)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.NoError(t, JSON(response, &names))
-	assert.Equal(t, []string{}, names)
-
-	// Start a crossword
-	response = Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-
-	// Make sure we have an active solve in our channel.
-	response = Global.GET("/", router)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.NoError(t, JSON(response, &names))
-	assert.Equal(t, []string{Channel.channel}, names)
-
-	// Start a crossword in another channel.
-	channel2 := ChannelRoute{"channel2"}
-	response = channel2.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-
-	// We should now have 2 solves.
-	response = Global.GET("/", router)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.NoError(t, JSON(response, &names))
-	assert.Equal(t, []string{Channel.channel, channel2.channel}, names)
-}
-
 func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 	// This acts as a small integration test ensuring that the active channels
 	// event stream receives the events as new channels start and finish solves.
@@ -1269,10 +1223,6 @@ func RandomString(n int) string {
 	}
 
 	return string(bs)
-}
-
-func JSON(response *httptest.ResponseRecorder, target interface{}) error {
-	return json.NewDecoder(response.Body).Decode(&target)
 }
 
 // Create a http.ResponseWriter that synchronizes whenever reads or writes

@@ -15,14 +15,24 @@ function App() {
   );
 }
 
-function Home() {
+function Home(props) {
+  const [stream] = React.useState(
+    new EventStream(`/api/crossword/events`)
+  );
+
   const [channels, setChannels] = React.useState(null);
 
   React.useEffect(() => {
-    fetch(`/api/crossword`)
-      .then(response => response.json())
-      .then(channels => setChannels(channels));
-  }, [setChannels]);
+    stream.setHandler(message => {
+      const event = JSON.parse(message.data);
+      if (event.kind === "channels") {
+        setChannels(event.payload);
+        return
+      }
+
+      console.log("unhandled event:", event);
+    });
+  }, [stream, setChannels]);
 
   return (
     <div>
