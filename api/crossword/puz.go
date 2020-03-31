@@ -316,12 +316,26 @@ func (f *PuzFile) StringsChecksum(crc CRC) CRC {
 		}
 	}
 
-	if len(f.Notes) > 0 {
+	// Notes are only in the strings checksum starting in version 1.3 of the
+	// file format.  We'll only include it if we know for sure that the version
+	// is 1.3 or later.
+	major, minor := f.Version()
+	if len(f.Notes) > 0 && (major > 1 || (major == 1 && minor >= 3)) {
 		crc = crc.Write(f.Notes)
 		crc = crc.Write8(0)
 	}
 
 	return crc
+}
+
+// Version returns the version number of the puzzle file.
+func (f *PuzFile) Version() (int, int) {
+	var major, minor int
+	if _, err := fmt.Sscanf(string(f.Header.Version[:]), "%d.%d", &major, &minor); err != nil {
+		return 0, 0
+	}
+
+	return major, minor
 }
 
 // Unscramble attempts to undo a scramble operation with the provided key.  If
@@ -631,7 +645,7 @@ func (f *PuzFile) Convert() (*Puzzle, error) {
 
 			// We need an across number if left of us is a block and right isn't
 			isLeftABlock := x == 0 || puzzle.CellBlocks[y][x-1]
-			isRightABlock := x < puzzle.Cols-1 && puzzle.CellBlocks[y][x+1]
+			isRightABlock := x >= puzzle.Cols-1 || puzzle.CellBlocks[y][x+1]
 			if isLeftABlock && !isRightABlock {
 				if puzzle.CellClueNumbers[y][x] == 0 {
 					puzzle.CellClueNumbers[y][x] = nextClueNumber
@@ -644,7 +658,7 @@ func (f *PuzFile) Convert() (*Puzzle, error) {
 
 			// We need a down number if above us is a block and below us isn't.
 			isUpABlock := y == 0 || puzzle.CellBlocks[y-1][x]
-			isDownABlock := y < puzzle.Rows-1 && puzzle.CellBlocks[y+1][x]
+			isDownABlock := y >= puzzle.Rows-1 || puzzle.CellBlocks[y+1][x]
 			if isUpABlock && !isDownABlock {
 				if puzzle.CellClueNumbers[y][x] == 0 {
 					puzzle.CellClueNumbers[y][x] = nextClueNumber

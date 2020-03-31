@@ -67,6 +67,10 @@ func TestLoadPuzFile_EquivalenceWithKnownGood(t *testing.T) {
 			puzFilename:  "puzpy-wsj-20110624.puz",
 			jsonFilename: "puzpy-wsj-20110624.json",
 		},
+		{
+			puzFilename:  "cru-cryptic-20010201.puz",
+			jsonFilename: "cru-cryptic-20010201.json",
+		},
 	}
 
 	for _, test := range tests {
