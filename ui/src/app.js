@@ -15,7 +15,7 @@ function App() {
   );
 }
 
-function Home(props) {
+function Home() {
   const [stream] = React.useState(
     new EventStream(`/api/crossword/events`)
   );
@@ -25,12 +25,17 @@ function Home(props) {
   React.useEffect(() => {
     stream.setHandler(message => {
       const event = JSON.parse(message.data);
-      if (event.kind === "channels") {
-        setChannels(event.payload);
-        return
-      }
+      switch (event.kind) {
+        case "channels":
+          setChannels(event.payload);
+          break;
 
-      console.log("unhandled event:", event);
+        case "ping":
+          break;
+
+        default:
+          console.log("unhandled event:", event);
+      }
     });
   }, [stream, setChannels]);
 
@@ -139,6 +144,9 @@ function Channel(props) {
         case "complete":
           setShowFireworks(true);
           setTimeout(() => setShowFireworks(false), 20000);
+          break;
+
+        case "ping":
           break;
 
         default:

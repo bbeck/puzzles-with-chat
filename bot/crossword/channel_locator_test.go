@@ -13,13 +13,18 @@ import (
 )
 
 func TestChannelLocator_Run(t *testing.T) {
+	ping, err := json.Marshal(ChannelsMessage{
+		Kind: "ping",
+	})
+	require.NoError(t, err)
+
 	data, err := json.Marshal(ChannelsMessage{
 		Kind:     "channels",
 		Channels: []string{"channel1", "channel2"},
 	})
 	require.NoError(t, err)
 
-	response := fmt.Sprintf("event:message\ndata:%s\n\n", data)
+	response := fmt.Sprintf("event:message\ndata:%s\n\nevent:message\ndata:%s\n\n", ping, data)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 

@@ -33,13 +33,17 @@ func (l *ChannelLocator) Run(ctx context.Context, update func([]string), fail fu
 				continue
 			}
 
-			if message.Kind != "channels" {
-				err := fmt.Errorf("received non-channels message: %+v\n", message)
-				fail(err)
-				continue
-			}
+			switch message.Kind {
+			case "channels":
+				update(message.Channels)
 
-			update(message.Channels)
+			case "ping":
+				break
+
+			default:
+				err := fmt.Errorf("received unrecognized message: %+v\n", message)
+				fail(err)
+			}
 
 		case <-ctx.Done():
 			return

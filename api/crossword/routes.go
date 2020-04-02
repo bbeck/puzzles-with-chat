@@ -548,6 +548,8 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) http.Handle
 	}
 }
 
+var PingEvent = pubsub.Event{Kind: "ping"}
+
 func EmitEvents(w http.ResponseWriter, r *http.Request, events chan pubsub.Event) {
 	w.Header().Set("Cache-Control", "no-transform")
 	w.Header().Set("Connection", "keep-alive")
@@ -567,22 +569,33 @@ func EmitEvents(w http.ResponseWriter, r *http.Request, events chan pubsub.Event
 				return
 			}
 
-			bs, err := json.Marshal(msg)
-			if err != nil {
-				log.Printf("unable to marshal event '%+v' to json: %+v\n", msg, err)
+			if err := EmitEvent(w, msg); err != nil {
 				return
 			}
 
-			if _, err := fmt.Fprintf(w, "event:message\ndata:%s\n\n", bs); err != nil {
-				log.Printf("error while writing message to http.ResponseWriter: %+v", err)
+		case <-time.After(30 * time.Second):
+			if err := EmitEvent(w, PingEvent); err != nil {
 				return
-			}
-
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
 			}
 		}
-
-		// TODO: Consider sending a periodic ping to keep the connection open?
 	}
+}
+
+func EmitEvent(w http.ResponseWriter, event pubsub.Event) error {
+	bs, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("unable to marshal event '%+v' to json: %+v\n", event, err)
+		return err
+	}
+
+	if _, err := fmt.Fprintf(w, "event:message\ndata:%s\n\n", bs); err != nil {
+		log.Printf("error while writing message to http.ResponseWriter: %+v", err)
+		return err
+	}
+
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	return nil
 }
