@@ -68,12 +68,14 @@
   because we are trying to make the content take up the exact size regardless
   of which puzzle we're displaying we will need to specify some hardcoded
   dimensions.
+
   Additionally we'll be dealing with puzzles of drastically different sizes
   so will need to condition a lot of these rules based on the size of the
   puzzle.  Currently we support puzzles that are 15x15, 21x21 or 23x23 since
   those are the sizes that the NYT currently uses in almost all of their
   puzzles (with the 23x23 size being the size of the pre-Shortz era Sunday
   puzzles).
+
   In order to condition the styling rules we'll use the data-size attribute
   on the #crossword element to represent the dimensionality of the puzzle.
   With that we can provide rules that apply to a puzzle of a given size.  We'll
@@ -90,9 +92,9 @@
   bigger.
 */
 #crossword {
-  height: 635px;
+  height: 650px;
   padding: 5px 0 0 5px;
-  width: 990px;
+  width: 1001px;
 }
 #crossword .puzzle .header,
 #crossword .puzzle .footer {
@@ -151,11 +153,11 @@
 */
 #crossword .puzzle .header,
 #crossword .puzzle .footer {
-  width: 576px;
+  width: 591px;
 }
 #crossword .puzzle .grid {
-  height: 576px;
-  width: 576px;
+  height: 591px;
+  width: 591px;
 }
 #crossword .puzzle .grid td {
   height: 25px;
@@ -186,15 +188,15 @@
 */
 #crossword[data-size="15"] .puzzle .header,
 #crossword[data-size="15"] .puzzle .footer {
-  width: 576px;
+  width: 588px;
 }
 #crossword[data-size="15"] .puzzle .grid {
-  height: 576px;
-  width: 576px;
+  height: 588px;
+  width: 588px;
 }
 #crossword[data-size="15"] .puzzle .grid td {
-  height: 38px;
-  width: 38px;
+  height: 39px;
+  width: 39px;
 }
 #crossword[data-size="15"] .puzzle .grid .number {
   font-size: 80%;
@@ -221,15 +223,16 @@
 #crossword[data-size="23"] .puzzle .header,
 #crossword[data-size="23"] .puzzle .footer {
   font-size: 70%;
-  width: 576px;
+  line-height: 1.4;
+  width: 601px;
 }
-#crossword[data-size="15"] .puzzle .grid {
-  height: 576px;
-  width: 576px;
+#crossword[data-size="23"] .puzzle .grid {
+  height: 601px;
+  width: 601px;
 }
 #crossword[data-size="23"] .puzzle .grid td {
-  height: 25px;
-  width: 25px;
+  height: 26px;
+  width: 26px;
 }
 #crossword[data-size="23"] .puzzle .grid .number {
   font-size: 50%;
