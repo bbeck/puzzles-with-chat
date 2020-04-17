@@ -3,6 +3,8 @@ package crossword
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/bbeck/twitch-plays-crosswords/api/db"
+	"github.com/gomodule/redigo/redis"
 	"strconv"
 	"strings"
 	"time"
@@ -364,4 +366,44 @@ func (d *Duration) UnmarshalJSON(bs []byte) error {
 
 	*d = Duration{td}
 	return nil
+}
+
+// StateKey returns the key that should be used in redis to store a particular
+// crossword solve's state.
+func StateKey(name string) string {
+	return fmt.Sprintf("%s:crossword:state", name)
+}
+
+// StateTTL determines how long a particular crossword's solve state should
+// remain in redis in the absence of any activity.
+var StateTTL = 4 * time.Hour
+
+// GetState loads the state for a crossword solve from redis.  If the state
+// can't be loaded then an error will be returned.  If there is no state, then
+// the zero value will be returned.  After a state is read, its expiration time
+// is automatically updated.
+func GetState(conn redis.Conn, channel string) (State, error) {
+	var state State
+	err := db.GetWithTTLRefresh(conn, StateKey(channel), &state, StateTTL)
+	return state, err
+}
+
+// SetState writes the state for a channel's crossword solve to redis.  If the
+// state can't be property written then an error will be returned.
+func SetState(conn redis.Conn, channel string, state State) error {
+	return db.SetWithTTL(conn, StateKey(channel), state, StateTTL)
+}
+
+// GetChannelNamesWithState loads the name of all channels that currently have
+// a state present in redis.  If there are no channels then an empty slice is
+// returned.  This method does not update the expiration times of any state.
+func GetChannelNamesWithState(conn redis.Conn) ([]string, error) {
+	keys, err := db.ScanKeys(conn, StateKey("*"))
+
+	channels := make([]string, 0)
+	for _, key := range keys {
+		channels = append(channels, strings.Replace(key, StateKey(""), "", 1))
+	}
+
+	return channels, err
 }

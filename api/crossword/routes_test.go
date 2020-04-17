@@ -94,14 +94,14 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *Settings)) {
+	verify := func(fn func(s Settings)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
 		select {
 		case event := <-events:
 			require.Equal(t, "settings", event.Kind)
-			fn(event.Payload.(*Settings))
+			fn(event.Payload.(Settings))
 		default:
 			assert.Fail(t, "no settings event available")
 		}
@@ -118,19 +118,19 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 	// Update each setting, one at a time.
 	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s *Settings) { assert.True(t, s.OnlyAllowCorrectAnswers) })
+	verify(func(s Settings) { assert.True(t, s.OnlyAllowCorrectAnswers) })
 
 	response = Channel.PUT("/setting/clues_to_show", `"none"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s *Settings) { assert.Equal(t, NoCluesVisible, s.CluesToShow) })
+	verify(func(s Settings) { assert.Equal(t, NoCluesVisible, s.CluesToShow) })
 
 	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s *Settings) { assert.Equal(t, SizeXLarge, s.ClueFontSize) })
+	verify(func(s Settings) { assert.Equal(t, SizeXLarge, s.ClueFontSize) })
 
 	response = Channel.PUT("/setting/show_notes", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s *Settings) { assert.True(t, s.ShowNotes) })
+	verify(func(s Settings) { assert.True(t, s.ShowNotes) })
 }
 
 func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
@@ -148,7 +148,7 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -161,7 +161,7 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -206,7 +206,7 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 	// Set the OnlyAllowCorrectAnswers setting to true
 	response = Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.False(t, state.AcrossCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "", state.Cells[0][1])
@@ -279,7 +279,7 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -287,7 +287,7 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -307,7 +307,7 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.Equal(t, StatusCreated, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -333,7 +333,7 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -341,7 +341,7 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -361,7 +361,7 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 
 	response := Channel.PUT("/", `{"wall_street_journal_date": "2019-01-02"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.Equal(t, StatusCreated, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -387,7 +387,7 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -395,7 +395,7 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -415,7 +415,7 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 
 	response := Channel.PUT("/", `{"puz_file_bytes": "unused"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.Equal(t, StatusCreated, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -441,7 +441,7 @@ func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -449,7 +449,7 @@ func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -469,7 +469,7 @@ func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
 
 	response := Channel.PUT("/", `{"puz_file_url": "unused"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.Equal(t, StatusCreated, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -554,7 +554,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -562,7 +562,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -597,7 +597,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	// Toggle the status, it should transition to solving.
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.Equal(t, StatusSolving, state.Status)
 		assert.NotNil(t, state.LastStartTime)
 	})
@@ -608,7 +608,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	time.Sleep(1 * time.Nanosecond)
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.Equal(t, StatusPaused, state.Status)
 		assert.Nil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
@@ -617,7 +617,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	// Toggle the status again, it should transition back to solving.
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.Equal(t, StatusSolving, state.Status)
 		assert.NotNil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
@@ -653,7 +653,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -661,7 +661,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -701,7 +701,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Apply a correct across answer.
 	response = Channel.PUT("/answer/1a", `"QANDA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.True(t, state.AcrossCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "A", state.Cells[0][1])
@@ -713,7 +713,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Apply a correct down answer.
 	response = Channel.PUT("/answer/1d", `"QTIP"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.True(t, state.DownCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "T", state.Cells[1][0])
@@ -724,7 +724,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Apply an incorrect across answer.
 	response = Channel.PUT("/answer/6a", `"FLOOR"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.True(t, state.AcrossCluesFilled[6])
 		assert.Equal(t, "F", state.Cells[0][6])
 		assert.Equal(t, "L", state.Cells[0][7])
@@ -736,7 +736,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Apply an incorrect down answer.
 	response = Channel.PUT("/answer/11d", `"HEYA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.True(t, state.DownCluesFilled[11])
 		assert.Equal(t, "H", state.Cells[0][12])
 		assert.Equal(t, "E", state.Cells[1][12])
@@ -769,7 +769,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -777,7 +777,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -806,13 +806,11 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	RegisterRoutesWithRegistry(router, pool, registry)
 
 	// Change the settings to require correct answers
-	settings, err := GetSettings(conn, "channel")
-	require.NoError(t, err)
-	settings.OnlyAllowCorrectAnswers = true
-	err = SetSettings(conn, "channel", settings)
-	require.NoError(t, err)
+	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
+	require.Equal(t, http.StatusOK, response.Code)
+	drainEvents()
 
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
+	response = Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	require.Equal(t, http.StatusOK, response.Code)
 	drainEvents()
 
@@ -824,7 +822,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	// Apply a correct across answer.
 	response = Channel.PUT("/answer/1a", `"QANDA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.True(t, state.AcrossCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "A", state.Cells[0][1])
@@ -836,7 +834,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	// Apply a correct down answer.
 	response = Channel.PUT("/answer/1d", `"QTIP"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		assert.True(t, state.DownCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "T", state.Cells[1][0])
@@ -876,7 +874,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(s *State)) {
+	verify := func(fn func(s State)) {
 		t.Helper()
 
 		// First check that we've received an event with the correct value
@@ -884,7 +882,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 		case event := <-events:
 			require.Equal(t, "state", event.Kind)
 
-			state := event.Payload.(*State)
+			state := event.Payload.(State)
 			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
 			fn(state)
 
@@ -966,7 +964,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 
 	response = Channel.PUT("/answer/65a", `"OZONE"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state *State) {
+	verify(func(state State) {
 		require.Equal(t, StatusComplete, state.Status)
 		assert.Nil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0)

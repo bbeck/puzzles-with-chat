@@ -49,10 +49,6 @@ func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
 			return
 		}
 
-		if channels == nil {
-			channels = []string{}
-		}
-
 		// Send the initial set of channels.
 		stream <- pubsub.Event{
 			Kind:    "channels",
@@ -76,10 +72,6 @@ func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
 						// Don't exit the goroutine here since the client is still connected.
 						// We'll just try again in the future.
 						continue
-					}
-
-					if channels == nil {
-						channels = []string{}
 					}
 
 					stream <- pubsub.Event{
@@ -173,7 +165,7 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFu
 			cells[row] = make([]string, puzzle.Cols)
 		}
 
-		state := &State{
+		state := State{
 			Status:            StatusCreated,
 			Puzzle:            puzzle,
 			Cells:             cells,
@@ -296,7 +288,7 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) http.Ha
 					return
 				}
 
-				updatedState = state
+				updatedState = &state
 			}
 		}
 
@@ -313,7 +305,7 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) http.Ha
 
 			registry.Publish(pubsub.Channel(channel), pubsub.Event{
 				Kind:    "state",
-				Payload: updatedState,
+				Payload: *updatedState,
 			})
 		}
 	}
