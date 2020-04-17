@@ -53,13 +53,13 @@ function StartPauseButton(props) {
   const status = props.status;
 
   let message;
-  if (status === "created") {
+  if (status === "selected") {
     message = "Start";
   } else if (status === "paused") {
     message = "Unpause";
   } else if (status === "solving") {
     message = "Pause";
-  } else if (status === undefined || status === "complete") {
+  } else if (status === undefined || status === "created" || status === "complete") {
     return null;
   }
 

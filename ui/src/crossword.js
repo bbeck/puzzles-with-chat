@@ -19,7 +19,7 @@ export function Crossword(props) {
   const view = props.view;
 
   return (
-    <div id="crossword" className={status === "created" || status === "paused" ? "blur" : ""} data-size={Math.max(puzzle.cols, puzzle.rows)}>
+    <div id="crossword" className={status === "selected" || status === "paused" ? "blur" : ""} data-size={Math.max(puzzle.cols, puzzle.rows)}>
       <div className="puzzle">
         <Header
           title={puzzle.title}

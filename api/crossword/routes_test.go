@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/alicebob/miniredis"
+	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
 	"github.com/go-chi/chi"
 	"github.com/gomodule/redigo/redis"
@@ -126,7 +127,7 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 
 	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s Settings) { assert.Equal(t, SizeXLarge, s.ClueFontSize) })
+	verify(func(s Settings) { assert.Equal(t, model.FontSizeXLarge, s.ClueFontSize) })
 
 	response = Channel.PUT("/setting/show_notes", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
@@ -308,7 +309,7 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		assert.Equal(t, StatusCreated, state.Status)
+		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
 		assert.Equal(t, 0, len(state.DownCluesFilled))
@@ -362,7 +363,7 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 	response := Channel.PUT("/", `{"wall_street_journal_date": "2019-01-02"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		assert.Equal(t, StatusCreated, state.Status)
+		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
 		assert.Equal(t, 0, len(state.DownCluesFilled))
@@ -416,7 +417,7 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 	response := Channel.PUT("/", `{"puz_file_bytes": "unused"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		assert.Equal(t, StatusCreated, state.Status)
+		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
 		assert.Equal(t, 0, len(state.DownCluesFilled))
@@ -470,7 +471,7 @@ func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
 	response := Channel.PUT("/", `{"puz_file_url": "unused"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		assert.Equal(t, StatusCreated, state.Status)
+		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
 		assert.Equal(t, 0, len(state.DownCluesFilled))
@@ -598,7 +599,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		assert.Equal(t, StatusSolving, state.Status)
+		assert.Equal(t, model.StatusSolving, state.Status)
 		assert.NotNil(t, state.LastStartTime)
 	})
 
@@ -609,7 +610,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		assert.Equal(t, StatusPaused, state.Status)
+		assert.Equal(t, model.StatusPaused, state.Status)
 		assert.Nil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
 	})
@@ -618,7 +619,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		assert.Equal(t, StatusSolving, state.Status)
+		assert.Equal(t, model.StatusSolving, state.Status)
 		assert.NotNil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
 	})
@@ -626,7 +627,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	// Force the puzzle to be complete.
 	state, err := GetState(conn, "channel")
 	require.NoError(t, err)
-	state.Status = StatusComplete
+	state.Status = model.StatusComplete
 	require.NoError(t, SetState(conn, "channel", state))
 
 	// Try to toggle the status one more time.  Now that the puzzle is complete
@@ -635,7 +636,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 	state, err = GetState(conn, "channel")
 	require.NoError(t, err)
-	assert.Equal(t, StatusComplete, state.Status)
+	assert.Equal(t, model.StatusComplete, state.Status)
 }
 
 func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
@@ -965,7 +966,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	response = Channel.PUT("/answer/65a", `"OZONE"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	verify(func(state State) {
-		require.Equal(t, StatusComplete, state.Status)
+		require.Equal(t, model.StatusComplete, state.Status)
 		assert.Nil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0)
 	})

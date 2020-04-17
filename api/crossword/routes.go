@@ -3,6 +3,7 @@ package crossword
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
@@ -166,7 +167,7 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFu
 		}
 
 		state := State{
-			Status:            StatusCreated,
+			Status:            model.StatusSelected,
 			Puzzle:            puzzle,
 			Cells:             cells,
 			AcrossCluesFilled: make(map[int]bool),
@@ -231,7 +232,7 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) http.Ha
 			settings.CluesToShow = value
 
 		case "clue_font_size":
-			var value FontSize
+			var value model.FontSize
 			if err := render.DecodeJSON(r.Body, &value); err != nil {
 				log.Printf("unable to parse crossword clue font size setting json %s: %+v", value, err)
 				w.WriteHeader(http.StatusBadRequest)
@@ -273,9 +274,10 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) http.Ha
 				return
 			}
 
-			// There's no need to update cells if the puzzle hasn't been started yet
-			// or is already complete.
-			if state.Status != StatusCreated && state.Status != StatusComplete {
+			// There's no need to update cells if the puzzle hasn't been selected or
+			// started or is already complete.
+			status := state.Status
+			if status != model.StatusCreated && status != model.StatusSelected && status != model.StatusComplete {
 				if err := state.ClearIncorrectCells(); err != nil {
 					log.Printf("unable to clear incorrect cells for channel: %s: %+v", channel, err)
 					w.WriteHeader(http.StatusInternalServerError)
@@ -328,21 +330,26 @@ func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) http.Han
 		now := time.Now()
 
 		switch state.Status {
-		case StatusCreated:
-			state.Status = StatusSolving
+		case model.StatusCreated:
+			log.Printf("unable to toggle status for channel %s, no puzzle selected", channel)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+
+		case model.StatusSelected:
+			state.Status = model.StatusSolving
 			state.LastStartTime = &now
 
-		case StatusPaused:
-			state.Status = StatusSolving
+		case model.StatusPaused:
+			state.Status = model.StatusSolving
 			state.LastStartTime = &now
 
-		case StatusSolving:
-			state.Status = StatusPaused
+		case model.StatusSolving:
+			state.Status = model.StatusPaused
 			total := state.TotalSolveDuration.Nanoseconds() + now.Sub(*state.LastStartTime).Nanoseconds()
 			state.LastStartTime = nil
-			state.TotalSolveDuration = Duration{time.Duration(total)}
+			state.TotalSolveDuration = model.Duration{Duration: time.Duration(total)}
 
-		case StatusComplete:
+		case model.StatusComplete:
 			// The puzzle is already solved, we can't toggle its state anymore
 			log.Printf("unable to toggle status for channel %s, puzzle is already solved", channel)
 			w.WriteHeader(http.StatusBadRequest)
@@ -400,7 +407,7 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) http.Han
 			return
 		}
 
-		if state.Status != StatusSolving {
+		if state.Status != model.StatusSolving {
 			w.WriteHeader(http.StatusConflict)
 			return
 		}
@@ -419,11 +426,11 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) http.Han
 		}
 
 		// If we just solved the puzzle then we should stop the timer.
-		if state.Status == StatusComplete {
+		if state.Status == model.StatusComplete {
 			now := time.Now()
 			total := state.TotalSolveDuration.Nanoseconds() + now.Sub(*state.LastStartTime).Nanoseconds()
 			state.LastStartTime = nil
-			state.TotalSolveDuration = Duration{time.Duration(total)}
+			state.TotalSolveDuration = model.Duration{Duration: time.Duration(total)}
 		}
 
 		// Save the updated state.
@@ -445,7 +452,7 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) http.Han
 		})
 
 		// If we've just finished the solve then send a complete event as well.
-		if state.Status == StatusComplete {
+		if state.Status == model.StatusComplete {
 			registry.Publish(pubsub.Channel(channel), pubsub.Event{
 				Kind:    "complete",
 				Payload: nil,

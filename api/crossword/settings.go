@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/db"
+	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/gomodule/redigo/redis"
 )
 
@@ -18,7 +19,7 @@ type Settings struct {
 	CluesToShow ClueVisibility `json:"clues_to_show"`
 
 	// What font size should the clues be rendered with.
-	ClueFontSize FontSize `json:"clue_font_size"`
+	ClueFontSize model.FontSize `json:"clue_font_size"`
 
 	// Whether or not notes field should shown.
 	ShowNotes bool `json:"show_notes"`
@@ -86,66 +87,6 @@ func (v *ClueVisibility) UnmarshalJSON(bs []byte) error {
 		*v = OnlyAcrossCluesVisible
 	default:
 		return fmt.Errorf("unable to unmarshal invalid clue visibility: %s", str)
-	}
-
-	return nil
-}
-
-// FontSize is an enumeration representing the supported sizes of the clue font.
-type FontSize int
-
-const (
-	SizeNormal FontSize = iota
-	SizeLarge
-	SizeXLarge
-)
-
-func (s FontSize) String() string {
-	switch s {
-	case SizeNormal:
-		return "normal"
-	case SizeLarge:
-		return "large"
-	case SizeXLarge:
-		return "xlarge"
-	default:
-		return "unknown"
-	}
-}
-
-func (s FontSize) MarshalJSON() ([]byte, error) {
-	var ok bool
-	switch s {
-	case SizeNormal:
-		ok = true
-	case SizeLarge:
-		ok = true
-	case SizeXLarge:
-		ok = true
-	}
-
-	if !ok {
-		return nil, fmt.Errorf("unable to marshal invalid clue size: %v", s)
-	}
-
-	return json.Marshal(s.String())
-}
-
-func (s *FontSize) UnmarshalJSON(bs []byte) error {
-	var str string
-	if err := json.Unmarshal(bs, &str); err != nil {
-		return err
-	}
-
-	switch str {
-	case "normal":
-		*s = SizeNormal
-	case "large":
-		*s = SizeLarge
-	case "xlarge":
-		*s = SizeXLarge
-	default:
-		return fmt.Errorf("unable to unmarshal invalid clue size: %s", str)
 	}
 
 	return nil
