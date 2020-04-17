@@ -1,10 +1,12 @@
 package spellingbee
 
 import (
+	"errors"
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/db"
 	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/gomodule/redigo/redis"
+	"sort"
 	"strings"
 	"time"
 )
@@ -29,6 +31,59 @@ type State struct {
 
 	// The total time spent on solving the puzzle up to the last start time.
 	TotalSolveDuration model.Duration `json:"total_solve_duration"`
+}
+
+// ApplyAnswer applies an answer to the state.  If the answer cannot be applied
+// or is incorrect then an error is returned.
+func (s *State) ApplyAnswer(answer string, allowUnofficial bool) error {
+	allowed := map[string]bool{
+		s.Puzzle.CenterLetter: true,
+	}
+	for _, letter := range s.Puzzle.Letters {
+		allowed[letter] = true
+	}
+
+	contains := func(words []string, word string) bool {
+		index := sort.SearchStrings(words, word)
+		return index < len(words) && words[index] == word
+	}
+
+	// First, ensure the answer uses the proper letters.
+	answer = strings.ToUpper(answer)
+	for _, letter := range answer {
+		if !allowed[string(letter)] {
+			return fmt.Errorf("answer contains letter not in puzzle: %c", letter)
+		}
+	}
+
+	// Next, make sure the answer wasn't previously given.
+	if contains(s.Words, answer) {
+		return errors.New("answer already given")
+	}
+
+	// Next, ensure the answer is in the list of allowed answers.
+	var allAnswers []string
+	allAnswers = append(allAnswers, s.Puzzle.OfficialAnswers...)
+	if allowUnofficial {
+		allAnswers = append(allAnswers, s.Puzzle.UnofficialAnswers...)
+	}
+	sort.Strings(allAnswers)
+
+	if !contains(allAnswers, answer) {
+		return errors.New("answer not in the list of allowed answers")
+	}
+
+	// Save the answer to the state and ensure they remain sorted.
+	s.Words = append(s.Words, answer)
+	sort.Strings(s.Words)
+
+	// Lastly determine if we've found all of the answers and the puzzle is now
+	// complete.
+	if len(s.Words) == len(allAnswers) {
+		s.Status = model.StatusComplete
+	}
+
+	return nil
 }
 
 // StateKey returns the key that should be used in redis to store a particular
