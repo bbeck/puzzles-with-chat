@@ -17,7 +17,7 @@ type ChannelsMessage struct {
 }
 
 func NewChannelLocator(host string) *ChannelLocator {
-	url := fmt.Sprintf("http://%s/api/crossword/events", host)
+	url := fmt.Sprintf("http://%s/api/crossword/channels", host)
 	return &ChannelLocator{url: url}
 }
 

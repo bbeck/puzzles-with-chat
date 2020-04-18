@@ -27,7 +27,7 @@ import (
 var Global = GlobalRoute{}
 var Channel = ChannelRoute{channel: "channel"}
 
-func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
+func TestRoute_GetChannels(t *testing.T) {
 	// This acts as a small integration test ensuring that the active channels
 	// event stream receives the events as new channels start and finish solves.
 	pool, conn := NewRedisPool(t)
@@ -40,7 +40,7 @@ func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 
 	// Connect to the stream when there's no active solves happening, we should
 	// receive an event that contains an empty list of channels.
-	_, stop := Global.SSE("/events", router)
+	_, stop := Global.SSE("/channels", router)
 	events := stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
@@ -51,7 +51,7 @@ func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// Now reconnect to the stream and we should receive one active channel.
-	_, stop = Global.SSE("/events", router)
+	_, stop = Global.SSE("/channels", router)
 	events = stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
@@ -63,7 +63,7 @@ func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 
 	// Now we expect there to be 2 channels in the stream.
-	_, stop = Global.SSE("/events", router)
+	_, stop = Global.SSE("/channels", router)
 	events = stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
@@ -74,14 +74,14 @@ func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now we expect there to be one channels in the stream.
-	_, stop = Global.SSE("/events", router)
+	_, stop = Global.SSE("/channels", router)
 	events = stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
 	assert.ElementsMatch(t, []string{Channel.channel}, events[0].Payload)
 }
 
-func TestRoute_UpdateCrosswordSetting(t *testing.T) {
+func TestRoute_UpdateSetting(t *testing.T) {
 	// This acts as a small integration test updating each setting in turn and
 	// making sure the proper value is written to the database and that clients
 	// receive events notifying them of the setting change.
@@ -129,7 +129,7 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 	verify(func(s Settings) { assert.True(t, s.ShowNotes) })
 }
 
-func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
+func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
 	// This acts as a small integration test toggling the OnlyAllowCorrectAnswers
 	// setting and ensuring that it clears any incorrect answer cells.
 	pool, conn := NewRedisPool(t)
@@ -208,7 +208,7 @@ func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateCrosswordSetting_Error(t *testing.T) {
+func TestRoute_UpdateSetting_Error(t *testing.T) {
 	tests := []struct {
 		name    string
 		setting string
@@ -254,7 +254,7 @@ func TestRoute_UpdateCrosswordSetting_Error(t *testing.T) {
 	}
 }
 
-func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
+func TestRoute_UpdatePuzzle_NewYorkTimes(t *testing.T) {
 	// This acts as a small integration test updating the date of the New York
 	// Times crossword we're working on and ensuring the proper values are written
 	// to the database.
@@ -304,7 +304,7 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
+func TestRoute_UpdatePuzzle_WallStreetJournal(t *testing.T) {
 	// This acts as a small integration test updating the date of the Wall Street
 	// Journal crossword we're working on and ensuring the proper values are
 	// written to the database.
@@ -354,7 +354,7 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
+func TestRoute_UpdatePuzzle_PuzFile(t *testing.T) {
 	// This acts as a small integration test uploading a .puz file of the
 	// crossword we're working on and ensuring the proper values are written to
 	// the database.
@@ -404,7 +404,7 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
+func TestRoute_UpdatePuzzle_PuzURL(t *testing.T) {
 	// This acts as a small integration test retrieving a .puz file from a URL of
 	// the crossword we're working on and ensuring the proper values are written
 	// to the database.
@@ -454,7 +454,7 @@ func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateCrossword_Error(t *testing.T) {
+func TestRoute_UpdatePuzzle_Error(t *testing.T) {
 	tests := []struct {
 		name        string
 		payload     string
@@ -512,7 +512,7 @@ func TestRoute_UpdateCrossword_Error(t *testing.T) {
 	}
 }
 
-func TestRoute_ToggleCrosswordStatus(t *testing.T) {
+func TestRoute_ToggleStatus(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
 	pool, conn := NewRedisPool(t)
@@ -607,7 +607,7 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	assert.Equal(t, model.StatusComplete, state.Status)
 }
 
-func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
+func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
 	pool, conn := NewRedisPool(t)
@@ -719,7 +719,7 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	assert.Equal(t, http.StatusConflict, response.Code)
 }
 
-func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
+func TestRoute_UpdateAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
 	pool, conn := NewRedisPool(t)
@@ -820,7 +820,7 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	assert.False(t, state.DownCluesFilled[11])
 }
 
-func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
+func TestRoute_UpdateAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	// This acts as a small integration test ensuring that the timer stops
 	// counting once the crossword has been solved.
 	pool, conn := NewRedisPool(t)
@@ -928,7 +928,7 @@ func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
+func TestRoute_UpdateAnswer_Error(t *testing.T) {
 	tests := []struct {
 		name     string
 		json     string
@@ -974,7 +974,7 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 	}
 }
 
-func TestRoute_ShowCrosswordClue(t *testing.T) {
+func TestRoute_ShowClue(t *testing.T) {
 	// This acts as a small integration test requesting clues to be shown and
 	// making sure events are properly emitted.
 	pool, _ := NewRedisPool(t)
@@ -1042,7 +1042,7 @@ func TestRoute_ShowCrosswordClue(t *testing.T) {
 	})
 }
 
-func TestRoute_GetCrosswordEvents(t *testing.T) {
+func TestRoute_GetEvents(t *testing.T) {
 	// This acts as a small integration test ensuring that the event stream
 	// receives the events put into a registry.
 	pool, _ := NewRedisPool(t)

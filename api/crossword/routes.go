@@ -16,19 +16,23 @@ func RegisterRoutes(router chi.Router, pool *redis.Pool) {
 }
 
 func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
-	r.Get("/crossword/events", GetActiveCrosswordsEvents(pool))
+	r.Get("/crossword/channels", GetChannels(pool))
 
 	r.Route("/crossword/{channel}", func(r chi.Router) {
-		r.Put("/", UpdateCrossword(pool, registry))
-		r.Put("/setting/{setting}", UpdateCrosswordSetting(pool, registry))
-		r.Put("/status", ToggleCrosswordStatus(pool, registry))
-		r.Put("/answer/{clue}", UpdateCrosswordAnswer(pool, registry))
-		r.Get("/show/{clue}", ShowCrosswordClue(registry))
-		r.Get("/events", GetCrosswordEvents(pool, registry))
+		r.Put("/", UpdatePuzzle(pool, registry))
+		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
+		r.Put("/status", ToggleStatus(pool, registry))
+		r.Put("/answer/{clue}", UpdateAnswer(pool, registry))
+		r.Get("/show/{clue}", ShowClue(registry))
+		r.Get("/events", GetEvents(pool, registry))
 	})
 }
 
-func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
+// GetChannels establishes a SSE based stream with a client that contains the
+// list of active crossword channels.  Events will be periodically sent to the
+// stream containing the list of active channels, even if the list doesn't
+// change.
+func GetChannels(pool *redis.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Construct the stream that all events for this particular client will be
 		// placed into.
@@ -43,7 +47,7 @@ func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
 		// client immediately.
 		channels, err := GetChannelNamesWithState(conn)
 		if err != nil {
-			log.Printf("unable to load channels with active crossword solves: %+v", err)
+			log.Printf("unable to load crossword channels: %+v", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -66,7 +70,7 @@ func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
 				case <-time.After(10 * time.Second):
 					channels, err := GetChannelNamesWithState(conn)
 					if err != nil {
-						log.Printf("unable to load channels with active crossword solves: %+v", err)
+						log.Printf("unable to load crossword channels: %+v", err)
 
 						// Don't exit the goroutine here since the client is still connected.
 						// We'll just try again in the future.
@@ -85,9 +89,9 @@ func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
 	}
 }
 
-// UpdateCrossword changes the crossword that's currently being solved for a
+// UpdatePuzzle changes the crossword puzzle that's currently being solved for a
 // channel.
-func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
 
@@ -129,7 +133,7 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFu
 		if url := payload["puz_file_url"]; url != "" {
 			p, err := LoadFromPuzFileURL(url)
 			if err != nil {
-				log.Printf("unable to laod puzzle from url %s: %+v", url, err)
+				log.Printf("unable to load puzzle from url %s: %+v", url, err)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -190,7 +194,8 @@ func UpdateCrossword(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFu
 	}
 }
 
-func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+// UpdateSetting changes a specified crossword setting to a new value.
+func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
 		setting := chi.URLParam(r, "setting")
@@ -311,7 +316,10 @@ func UpdateCrosswordSetting(pool *redis.Pool, registry *pubsub.Registry) http.Ha
 	}
 }
 
-func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+// ToggleStatus changes the status of the current crossword solve to a new
+// status.  This effectively toggles between the solving and paused statuses as
+// long as the solve is in a state that can be paused or resumed.
+func ToggleStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
 
@@ -348,7 +356,6 @@ func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) http.Han
 			state.TotalSolveDuration = model.Duration{Duration: time.Duration(total)}
 
 		case model.StatusComplete:
-			// The puzzle is already solved, we can't toggle its state anymore
 			log.Printf("unable to toggle status for channel %s, puzzle is already solved", channel)
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -373,7 +380,9 @@ func ToggleCrosswordStatus(pool *redis.Pool, registry *pubsub.Registry) http.Han
 	}
 }
 
-func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+// UpdateAnswer applies an answer to a given clue in the current crossword
+// solve.
+func UpdateAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
 		clue := chi.URLParam(r, "clue")
@@ -459,11 +468,11 @@ func UpdateCrosswordAnswer(pool *redis.Pool, registry *pubsub.Registry) http.Han
 	}
 }
 
-// ShowCrosswordClue sends an event to all clients of a channel requesting that
-// they update their view to make the specified clue visible.  If the specified
-// clue isn't structured as a proper clue number and direction than an error
-// will be returned.
-func ShowCrosswordClue(registry *pubsub.Registry) http.HandlerFunc {
+// ShowClue sends an event to all clients of a channel requesting that they
+// update their view to make the specified clue visible.  If the specified clue
+// isn't structured as a proper clue number and direction than an error will be
+// returned.
+func ShowClue(registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
 		clue := chi.URLParam(r, "clue")
@@ -482,13 +491,13 @@ func ShowCrosswordClue(registry *pubsub.Registry) http.HandlerFunc {
 	}
 }
 
-// GetCrosswordEvents establishes an event stream with a client.  An event
-// stream is server side event stream (SSE) with a client's browser that allows
-// one way communication from the server to the client.  Clients that call into
-// this handler will keep an open connection open to the server waiting to
-// receive events as JSON objects.  The server can send events to all clients
-// of a channel using the pubsub.Registry's Publish method.
-func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+// GetEvents establishes an event stream with a client.  An event stream is
+// server side event stream (SSE) with a client's browser that allows one way
+// communication from the server to the client.  Clients that call into this
+// handler will keep an open connection open to the server waiting to receive
+// events as JSON objects.  The server can send events to all clients of a
+// channel using the pubsub.Registry's Publish method.
+func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
 

@@ -17,7 +17,7 @@ function App() {
 
 function Home() {
   const [stream] = React.useState(
-    new EventStream(`/api/crossword/events`)
+    new EventStream(`/api/crossword/channels`)
   );
 
   const [channels, setChannels] = React.useState(null);
