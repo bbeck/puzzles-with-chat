@@ -1,8 +1,6 @@
 package crossword
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
 	"github.com/go-chi/chi"
@@ -83,7 +81,7 @@ func GetActiveCrosswordsEvents(pool *redis.Pool) http.HandlerFunc {
 			}
 		}()
 
-		EmitEvents(w, r, stream)
+		pubsub.EmitEvents(r.Context(), w, stream)
 	}
 }
 
@@ -543,58 +541,6 @@ func GetCrosswordEvents(pool *redis.Pool, registry *pubsub.Registry) http.Handle
 			return
 		}
 
-		EmitEvents(w, r, stream)
+		pubsub.EmitEvents(r.Context(), w, stream)
 	}
-}
-
-var PingEvent = pubsub.Event{Kind: "ping"}
-
-func EmitEvents(w http.ResponseWriter, r *http.Request, events chan pubsub.Event) {
-	w.Header().Set("Cache-Control", "no-transform")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-
-	// Loop until the client disconnects sending them any events that are
-	// queued for them.
-	for {
-		select {
-		case <-r.Context().Done():
-			// The client disconnected.
-			return
-
-		case msg, ok := <-events:
-			if !ok {
-				return
-			}
-
-			if err := EmitEvent(w, msg); err != nil {
-				return
-			}
-
-		case <-time.After(30 * time.Second):
-			if err := EmitEvent(w, PingEvent); err != nil {
-				return
-			}
-		}
-	}
-}
-
-func EmitEvent(w http.ResponseWriter, event pubsub.Event) error {
-	bs, err := json.Marshal(event)
-	if err != nil {
-		log.Printf("unable to marshal event '%+v' to json: %+v\n", event, err)
-		return err
-	}
-
-	if _, err := fmt.Fprintf(w, "event:message\ndata:%s\n\n", bs); err != nil {
-		log.Printf("error while writing message to http.ResponseWriter: %+v", err)
-		return err
-	}
-
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
-	}
-
-	return nil
 }

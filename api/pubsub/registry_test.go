@@ -157,7 +157,7 @@ func TestRegistry_Publish(t *testing.T) {
 				received := receiveAll(stream)
 				close(stream)
 
-				assert.True(t, containsAll(received, client.expected))
+				assert.ElementsMatch(t, client.expected, received)
 			}
 		})
 	}
@@ -194,19 +194,4 @@ func receiveAll(c chan Event) []string {
 			return kinds
 		}
 	}
-}
-
-func containsAll(haystack []string, needles []string) bool {
-	found := make(map[string]bool)
-	for _, hay := range haystack {
-		found[hay] = true
-	}
-
-	for _, needle := range needles {
-		if !found[needle] {
-			return false
-		}
-	}
-
-	return true
 }
