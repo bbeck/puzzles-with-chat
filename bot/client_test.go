@@ -79,8 +79,7 @@ func TestNewClient(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// These tests manipulate the environment, so we save a copy before each
 			// test to ensure that it doesn't get permanently changed by the test case.
-			saved := SaveEnvironmentVars()
-			defer RestoreEnvironmentVars(saved)
+			SaveEnvironmentVars(t)
 
 			if test.setup != nil {
 				test.setup()

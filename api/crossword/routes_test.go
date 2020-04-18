@@ -30,12 +30,10 @@ var Channel = ChannelRoute{channel: "channel"}
 func TestRoute_GetActiveCrosswordsEvents(t *testing.T) {
 	// This acts as a small integration test ensuring that the active channels
 	// event stream receives the events as new channels start and finish solves.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	router := chi.NewRouter()
 	RegisterRoutes(router, pool)
@@ -87,11 +85,8 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 	// This acts as a small integration test updating each setting in turn and
 	// making sure the proper value is written to the database and that clients
 	// receive events notifying them of the setting change.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -137,15 +132,11 @@ func TestRoute_UpdateCrosswordSetting(t *testing.T) {
 func TestRoute_UpdateCrosswordSetting_ClearsIncorrectCells(t *testing.T) {
 	// This acts as a small integration test toggling the OnlyAllowCorrectAnswers
 	// setting and ensuring that it clears any incorrect answer cells.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -252,8 +243,7 @@ func TestRoute_UpdateCrosswordSetting_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pool, _, cleanup := NewRedisPool(t)
-			defer cleanup()
+			pool, _ := NewRedisPool(t)
 
 			router := chi.NewRouter()
 			RegisterRoutes(router, pool)
@@ -268,15 +258,11 @@ func TestRoute_UpdateCrossword_NewYorkTimes(t *testing.T) {
 	// This acts as a small integration test updating the date of the New York
 	// Times crossword we're working on and ensuring the proper values are written
 	// to the database.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -322,15 +308,11 @@ func TestRoute_UpdateCrossword_WallStreetJournal(t *testing.T) {
 	// This acts as a small integration test updating the date of the Wall Street
 	// Journal crossword we're working on and ensuring the proper values are
 	// written to the database.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "puzzle-wsj-20190102.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "puzzle-wsj-20190102.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -376,15 +358,11 @@ func TestRoute_UpdateCrossword_PuzFile(t *testing.T) {
 	// This acts as a small integration test uploading a .puz file of the
 	// crossword we're working on and ensuring the proper values are written to
 	// the database.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -430,15 +408,11 @@ func TestRoute_UpdateCrossword_PuzURL(t *testing.T) {
 	// This acts as a small integration test retrieving a .puz file from a URL of
 	// the crossword we're working on and ensuring the proper values are written
 	// to the database.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -525,11 +499,9 @@ func TestRoute_UpdateCrossword_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pool, _, cleanup := NewRedisPool(t)
-			defer cleanup()
+			pool, _ := NewRedisPool(t)
 
-			cleanup = ForceErrorDuringLoad(test.forcedError)
-			defer cleanup()
+			ForceErrorDuringLoad(t, test.forcedError)
 
 			router := chi.NewRouter()
 			RegisterRoutes(router, pool)
@@ -543,15 +515,11 @@ func TestRoute_UpdateCrossword_Error(t *testing.T) {
 func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -642,15 +610,11 @@ func TestRoute_ToggleCrosswordStatus(t *testing.T) {
 func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -758,15 +722,11 @@ func TestRoute_UpdateCrosswordAnswer_AllowIncorrectAnswers(t *testing.T) {
 func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -863,15 +823,11 @@ func TestRoute_UpdateCrosswordAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 func TestRoute_UpdateCrosswordAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	// This acts as a small integration test ensuring that the timer stops
 	// counting once the crossword has been solved.
-	pool, conn, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
@@ -997,12 +953,10 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pool, _, cleanup := NewRedisPool(t)
-			defer cleanup()
+			pool, _ := NewRedisPool(t)
 
 			// Force a specific puzzle to be loaded so we don't make a network call.
-			cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-			defer cleanup()
+			ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 			router := chi.NewRouter()
 			RegisterRoutes(router, pool)
@@ -1023,15 +977,11 @@ func TestRoute_UpdateCrosswordAnswer_Error(t *testing.T) {
 func TestRoute_ShowCrosswordClue(t *testing.T) {
 	// This acts as a small integration test requesting clues to be shown and
 	// making sure events are properly emitted.
-	pool, _, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, events, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, _ := NewRedisPool(t)
+	registry, events := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	// Ensure that we have received the proper event.
 	verify := func(fn func(clue string)) {
@@ -1095,15 +1045,11 @@ func TestRoute_ShowCrosswordClue(t *testing.T) {
 func TestRoute_GetCrosswordEvents(t *testing.T) {
 	// This acts as a small integration test ensuring that the event stream
 	// receives the events put into a registry.
-	pool, _, cleanup := NewRedisPool(t)
-	defer cleanup()
-
-	registry, _, cleanup := NewRegistry(t)
-	defer cleanup()
+	pool, _ := NewRedisPool(t)
+	registry, _ := NewRegistry(t)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	cleanup = ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-	defer cleanup()
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
 	router := chi.NewRouter()
 	RegisterRoutesWithRegistry(router, pool, registry)
@@ -1148,9 +1094,12 @@ func TestRoute_GetCrosswordEvents(t *testing.T) {
 	assert.Equal(t, 0, len(events))
 }
 
-func NewRedisPool(t *testing.T) (*redis.Pool, redis.Conn, func()) {
+func NewRedisPool(t *testing.T) (*redis.Pool, redis.Conn) {
+	t.Helper()
+
 	s, err := miniredis.Run()
 	require.NoError(t, err)
+	t.Cleanup(s.Close)
 
 	pool := &redis.Pool{
 		Dial: func() (redis.Conn, error) {
@@ -1159,24 +1108,23 @@ func NewRedisPool(t *testing.T) (*redis.Pool, redis.Conn, func()) {
 	}
 
 	conn := pool.Get()
+	t.Cleanup(func() { conn.Close() })
 
-	return pool, conn, func() {
-		conn.Close()
-		s.Close()
-	}
+	return pool, conn
 }
 
-func NewRegistry(t *testing.T) (*pubsub.Registry, <-chan pubsub.Event, func()) {
+func NewRegistry(t *testing.T) (*pubsub.Registry, <-chan pubsub.Event) {
+	t.Helper()
+
 	registry := new(pubsub.Registry)
 	stream := make(chan pubsub.Event, 10)
+	t.Cleanup(func() { close(stream) })
 
 	id, err := registry.Subscribe("channel", stream)
 	require.NoError(t, err)
+	t.Cleanup(func() { registry.Unsubscribe("channel", id) })
 
-	return registry, stream, func() {
-		registry.Unsubscribe("channel", id)
-		close(stream)
-	}
+	return registry, stream
 }
 
 // GlobalRoute is a client that makes requests against the URL of the global

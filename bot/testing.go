@@ -4,29 +4,31 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 )
 
 // SaveEnvironmentVars saves all of the environment variables and then clears
 // the environment.  The saved variables are returned so that they can be
 // restored later.
-func SaveEnvironmentVars() map[string]string {
-	defer os.Clearenv()
+func SaveEnvironmentVars(t *testing.T) {
+	t.Helper()
 
 	vars := make(map[string]string)
 	for _, env := range os.Environ() {
 		parts := strings.SplitN(env, "=", 2)
 		vars[parts[0]] = parts[1]
 	}
-	return vars
-}
 
-// RestoreEnvironmentVars restores a set of saved environment variables.
-func RestoreEnvironmentVars(vars map[string]string) {
+	// When the test is complete restore the environment variables.
+	t.Cleanup(func() {
+		os.Clearenv()
+		for key, value := range vars {
+			_ = os.Setenv(key, value)
+		}
+	})
+
 	os.Clearenv()
-	for key, value := range vars {
-		_ = os.Setenv(key, value)
-	}
 }
 
 type CountDownLatch struct {

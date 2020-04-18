@@ -39,11 +39,11 @@ func LoadTestPuzzle(t *testing.T, filename string) *Puzzle {
 
 // ForcePuzzleToBeLoaded sets up a cached version of a puzzle using a file from
 // the testdata directory.
-func ForcePuzzleToBeLoaded(t *testing.T, filename string) func() {
+func ForcePuzzleToBeLoaded(t *testing.T, filename string) {
 	t.Helper()
 
 	testCachedPuzzle = LoadTestPuzzle(t, filename)
-	return func() { testCachedPuzzle = nil }
+	t.Cleanup(func() { testCachedPuzzle = nil })
 }
 
 // ForceErrorDuringLoad sets up an error to be returned when an attempt is made
