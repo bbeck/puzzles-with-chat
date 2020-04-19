@@ -48,7 +48,9 @@ func ForcePuzzleToBeLoaded(t *testing.T, filename string) {
 
 // ForceErrorDuringLoad sets up an error to be returned when an attempt is made
 // to load a puzzle.
-func ForceErrorDuringLoad(err error) func() {
+func ForceErrorDuringLoad(t *testing.T, err error) {
+	t.Helper()
+
 	testCachedError = err
-	return func() { testCachedError = nil }
+	t.Cleanup(func() { testCachedError = nil })
 }
