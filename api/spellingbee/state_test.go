@@ -342,6 +342,72 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 	}
 }
 
+func TestState_ClearUnofficialAnswers(t *testing.T) {
+	tests := []struct {
+		name     string
+		puzzle   *Puzzle
+		answers  []string // The answers already given
+		expected []string // The expected answers
+	}{
+		{
+			name:   "no answers",
+			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+		},
+		{
+			name:   "no unofficial answers",
+			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+			},
+			expected: []string{
+				"COCONUT",
+				"CONCOCT",
+			},
+		},
+		{
+			name:   "one unofficial answer",
+			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			answers: []string{
+				"CONCOCTOR",
+			},
+		},
+		{
+			name:   "multiple unofficial answers",
+			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			answers: []string{
+				"CONCOCTOR",
+				"CONTO",
+			},
+		},
+		{
+			name:   "mixed unofficial answers",
+			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+				"CONCOCTOR",
+				"CONTO",
+			},
+			expected: []string{
+				"COCONUT",
+				"CONCOCT",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := newState(test.puzzle)
+			state.Words = test.answers
+
+			state.ClearUnofficialAnswers()
+
+			assert.ElementsMatch(t, test.expected, state.Words)
+		})
+	}
+}
+
 func newState(puzzle *Puzzle) *State {
 	return &State{
 		Status: model.StatusSolving,

@@ -86,6 +86,27 @@ func (s *State) ApplyAnswer(answer string, allowUnofficial bool) error {
 	return nil
 }
 
+// ClearUnofficialAnswers goes through all of the provided answers for a puzzle
+// and removes any that are on the unofficial answers list.
+func (s *State) ClearUnofficialAnswers() {
+	contains := func(words []string, word string) bool {
+		index := sort.SearchStrings(words, word)
+		return index < len(words) && words[index] == word
+	}
+
+	var updatedWords []string
+	for _, word := range s.Words {
+		if !contains(s.Puzzle.UnofficialAnswers, word) {
+			updatedWords = append(updatedWords, word)
+		}
+	}
+
+	// Shouldn't need to re-sort because they were already in sorted order.
+	s.Words = updatedWords
+
+	// TODO: In the future this will have to recompute the score
+}
+
 // StateKey returns the key that should be used in redis to store a particular
 // spelling bee solve's state.
 func StateKey(name string) string {
