@@ -70,7 +70,7 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.ElementsMatch(t, []string{Channel.channel, channel2.channel}, events[0].Payload)
 
 	// Lastly remove the second channel from the database.
-	_, err := conn.Do("DEL", fmt.Sprintf("%s:crossword:state", channel2.channel))
+	_, err := conn.Do("DEL", StateKey(channel2.channel))
 	require.NoError(t, err)
 
 	// Now we expect there to be one channels in the stream.
