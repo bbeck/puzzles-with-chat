@@ -318,6 +318,97 @@ func TestRoute_UpdateSetting_Error(t *testing.T) {
 	}
 }
 
+func TestRoute_ToggleStatus(t *testing.T) {
+	// This acts as a small integration test toggling the status of a spelling bee
+	// puzzle being solved.
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(t *testing.T, fn func(s State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(State)
+
+			// Events should never have the answers
+			assert.Nil(t, state.Puzzle.OfficialAnswers)
+			assert.Nil(t, state.Puzzle.UnofficialAnswers)
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, "channel")
+		require.NoError(t, err)
+
+		// Database should always have the answers
+		assert.NotNil(t, state.Puzzle.OfficialAnswers)
+		assert.NotNil(t, state.Puzzle.UnofficialAnswers)
+		fn(state)
+	}
+
+	router := chi.NewRouter()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	// Start a puzzle on another channel in the selected state.
+	state := State{
+		Status: model.StatusSelected,
+		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+	}
+	SetState(conn, Channel.channel, state)
+
+	// Toggle the status, it should transition to solving.
+	response := Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		assert.Equal(t, model.StatusSolving, state.Status)
+		assert.NotNil(t, state.LastStartTime)
+	})
+
+	// Toggle the status again, it should transition to paused. Make sure we
+	// sleep for at least a nanosecond first so that the solve was unpaused for
+	// a non-zero duration.
+	time.Sleep(1 * time.Nanosecond)
+	response = Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		assert.Equal(t, model.StatusPaused, state.Status)
+		assert.Nil(t, state.LastStartTime)
+		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
+	})
+
+	// Toggle the status again, it should transition back to solving.
+	response = Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		assert.Equal(t, model.StatusSolving, state.Status)
+		assert.NotNil(t, state.LastStartTime)
+		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
+	})
+
+	// Force the puzzle to be complete.
+	state, err := GetState(conn, "channel")
+	require.NoError(t, err)
+	state.Status = model.StatusComplete
+	require.NoError(t, SetState(conn, "channel", state))
+
+	// Try to toggle the status one more time.  Now that the puzzle is complete
+	// it should return a HTTP error.
+	response = Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+	state, err = GetState(conn, "channel")
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusComplete, state.Status)
+}
+
 func NewRedisPool(t *testing.T) (*redis.Pool, redis.Conn) {
 	t.Helper()
 
