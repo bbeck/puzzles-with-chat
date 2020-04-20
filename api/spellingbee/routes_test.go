@@ -31,9 +31,6 @@ func TestRoute_GetChannels(t *testing.T) {
 	// event stream receives the events as new channels start and finish solves.
 	pool, conn := NewRedisPool(t)
 
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "nytbee-20200408.html")
-
 	router := chi.NewRouter()
 	RegisterRoutes(router, pool)
 
@@ -45,9 +42,13 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.Equal(t, "channels", events[0].Kind)
 	assert.Empty(t, events[0].Payload)
 
-	// Start a puzzle.
-	response := Channel.PUT("/", `{"nytbee": "2020-04-08"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
+	// Start a puzzle in the first channel.
+	state := State{
+		Status: model.StatusSolving,
+		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+		Words:  []string{},
+	}
+	SetState(conn, Channel.channel, state)
 
 	// Now reconnect to the stream and we should receive one active channel.
 	_, stop = Global.SSE("/channels", router)
@@ -57,19 +58,22 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.ElementsMatch(t, []string{Channel.channel}, events[0].Payload)
 
 	// Start a puzzle on another channel.
-	channel2 := ChannelRoute{channel: "channel2"}
-	response = channel2.PUT("/", `{"nytbee": "2020-04-08"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
+	state = State{
+		Status: model.StatusSolving,
+		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+		Words:  []string{},
+	}
+	SetState(conn, "channel2", state)
 
 	// Now we expect there to be 2 channels in the stream.
 	_, stop = Global.SSE("/channels", router)
 	events = stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
-	assert.ElementsMatch(t, []string{Channel.channel, channel2.channel}, events[0].Payload)
+	assert.ElementsMatch(t, []string{Channel.channel, "channel2"}, events[0].Payload)
 
 	// Lastly remove the second channel from the database.
-	_, err := conn.Do("DEL", StateKey(channel2.channel))
+	_, err := conn.Do("DEL", StateKey("channel2"))
 	require.NoError(t, err)
 
 	// Now we expect there to be one channels in the stream.
@@ -218,9 +222,6 @@ func TestRoute_UpdateSetting_ClearsUnofficialAnswers(t *testing.T) {
 	// setting and ensuring that it removes any unofficial answers.
 	pool, conn := NewRedisPool(t)
 	registry, events := NewRegistry(t)
-
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "nytbee-20200408.html")
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
