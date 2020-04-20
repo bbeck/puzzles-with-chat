@@ -20,6 +20,7 @@ func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub
 
 	r.Route("/spellingbee/{channel}", func(r chi.Router) {
 		r.Put("/", UpdatePuzzle(pool, registry))
+		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
 	})
 }
 
@@ -144,5 +145,105 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 			Kind:    "state",
 			Payload: state,
 		})
+	}
+}
+
+// UpdateSetting changes a specified crossword setting to a new value.
+func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+		setting := chi.URLParam(r, "setting")
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		// Load the existing settings for the channel so that we can apply the
+		// updates to them.
+		settings, err := GetSettings(conn, channel)
+		if err != nil {
+			log.Printf("unable to load spelling bee settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Apply the update to the settings in memory.
+		var shouldClearUnofficialWords bool
+		switch setting {
+		case "allow_unofficial_answers":
+			var value bool
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse spelling bee allow unofficial answers setting json %v: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			settings.AllowUnofficialAnswers = value
+			shouldClearUnofficialWords = !value
+
+		case "font_size":
+			var value model.FontSize
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse spelling bee font size setting json %s: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			settings.FontSize = value
+
+		default:
+			log.Printf("unrecognized crossword setting name %s", setting)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// Save the settings back to the database.
+		if err = SetSettings(conn, channel, settings); err != nil {
+			log.Printf("unable to save spelling bee settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Load the state and clear any unofficial words if we changed a setting
+		// requires this.  We do this after the setting is applied so that if there
+		// was an error earlier we don't modify the solve's state.
+		var updatedState *State
+		if shouldClearUnofficialWords {
+			state, err := GetState(conn, channel)
+			if err != nil {
+				log.Printf("unable to load state for channel %s: %+v", channel, err)
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			// There's no need to update cells if the puzzle hasn't been selected or
+			// started or is already complete.
+			status := state.Status
+			if status != model.StatusCreated && status != model.StatusSelected && status != model.StatusComplete {
+				state.ClearUnofficialAnswers()
+
+				if err := SetState(conn, channel, state); err != nil {
+					log.Printf("unable to save state for channel %s: %+v", channel, err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				updatedState = &state
+			}
+		}
+
+		// Now broadcast the new settings to all of the clients in the channel.
+		registry.Publish(pubsub.Channel(channel), pubsub.Event{
+			Kind:    "settings",
+			Payload: settings,
+		})
+
+		if updatedState != nil {
+			// Broadcast the updated state to all of the clients, making sure to not
+			// include the answers.
+			updatedState.Puzzle = updatedState.Puzzle.WithoutAnswers()
+
+			registry.Publish(pubsub.Channel(channel), pubsub.Event{
+				Kind:    "state",
+				Payload: *updatedState,
+			})
+		}
 	}
 }

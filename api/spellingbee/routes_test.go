@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/alicebob/miniredis"
 	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
@@ -168,6 +169,150 @@ func TestRoute_UpdatePuzzle_Error(t *testing.T) {
 
 			response := Channel.PUT("/", test.payload, router)
 			assert.Equal(t, test.expected, response.Code)
+		})
+	}
+}
+
+func TestRoute_UpdateSetting(t *testing.T) {
+	// This acts as a small integration test updating each setting in turn and
+	// making sure the proper value is written to the database and that clients
+	// receive events notifying them of the setting change.
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(t *testing.T, fn func(s Settings)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "settings", event.Kind)
+			fn(event.Payload.(Settings))
+		default:
+			assert.Fail(t, "no settings event available")
+		}
+
+		// Next check that the database has a valid settings object
+		settings, err := GetSettings(conn, "channel")
+		require.NoError(t, err)
+		fn(settings)
+	}
+
+	router := chi.NewRouter()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	// Update each setting, one at a time.
+	response := Channel.PUT("/setting/allow_unofficial_answers", `true`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(s Settings) { assert.True(t, s.AllowUnofficialAnswers) })
+
+	response = Channel.PUT("/setting/font_size", `"xlarge"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(s Settings) { assert.Equal(t, model.FontSizeXLarge, s.FontSize) })
+}
+
+func TestRoute_UpdateSetting_ClearsUnofficialAnswers(t *testing.T) {
+	// This acts as a small integration test toggling the AllowUnofficialAnswers
+	// setting and ensuring that it removes any unofficial answers.
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
+
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	ForcePuzzleToBeLoaded(t, "nytbee-20200408.html")
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(t *testing.T, fn func(s State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			// Ignore the setting change event we receive
+			if event.Kind == "settings" {
+				return
+			}
+			require.Equal(t, "state", event.Kind)
+			state := event.Payload.(State)
+
+			// Events should never have the answers
+			assert.Nil(t, state.Puzzle.OfficialAnswers)
+			assert.Nil(t, state.Puzzle.UnofficialAnswers)
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, "channel")
+		require.NoError(t, err)
+
+		// Database should always have the answers
+		assert.NotNil(t, state.Puzzle.OfficialAnswers)
+		assert.NotNil(t, state.Puzzle.UnofficialAnswers)
+		fn(state)
+	}
+
+	router := chi.NewRouter()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	// Setup the state with some unofficial answers in it.
+	state := State{
+		Status: model.StatusSolving,
+		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+		Words: []string{
+			"COCONUT",
+			"CONCOCT",
+			"CONCOCTOR",
+			"CONTO",
+		},
+	}
+	SetState(conn, Channel.channel, state)
+
+	// Set the AllowUnofficialAnswers setting to false
+	response := Channel.PUT("/setting/allow_unofficial_answers", `false`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		expected := []string{"COCONUT", "CONCOCT"}
+		assert.ElementsMatch(t, expected, state.Words)
+	})
+}
+
+func TestRoute_UpdateSetting_Error(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting string
+		json    string
+	}{
+		{
+			name:    "allow_unofficial_answers",
+			setting: "allow_unofficial_answers",
+			json:    `{`,
+		},
+		{
+			name:    "font_size",
+			setting: "font_size",
+			json:    `{`,
+		},
+		{
+			name:    "invalid setting name",
+			setting: "foo_bar_baz",
+			json:    `false`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pool, _ := NewRedisPool(t)
+
+			router := chi.NewRouter()
+			RegisterRoutes(router, pool)
+
+			response := Channel.PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
 		})
 	}
 }

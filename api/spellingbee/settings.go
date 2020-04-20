@@ -10,8 +10,8 @@ import (
 // Settings represents the optional behaviors that can be enabled or disabled
 // by a streamer for their channel's spelling bee solves.
 type Settings struct {
-	// When enabled unofficial words will be allowed.
-	AllowUnofficialWords bool `json:"allow_unofficial_words"`
+	// When enabled unofficial answers will be allowed.
+	AllowUnofficialAnswers bool `json:"allow_unofficial_answers"`
 
 	// What font size words should be rendered with.
 	FontSize model.FontSize `json:"font_size"`
