@@ -22,6 +22,7 @@ func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub
 		r.Put("/", UpdatePuzzle(pool, registry))
 		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
 		r.Put("/status", ToggleStatus(pool, registry))
+		r.Post("/answer", AddAnswer(pool, registry))
 	})
 }
 
@@ -310,5 +311,91 @@ func ToggleStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 			Kind:    "state",
 			Payload: state,
 		})
+	}
+}
+
+// AddAnswer applies an answer to the puzzle solve.
+func AddAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+
+		if r.ContentLength > 1024 {
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		var answer string
+		if err := render.DecodeJSON(r.Body, &answer); err != nil {
+			log.Printf("unable to read request body: %+v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if len(answer) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		state, err := GetState(conn, channel)
+		if err != nil {
+			log.Printf("unable to load state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if state.Status != model.StatusSolving {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+
+		settings, err := GetSettings(conn, channel)
+		if err != nil {
+			log.Printf("unable to load settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if err := state.ApplyAnswer(answer, settings.AllowUnofficialAnswers); err != nil {
+			log.Printf("unable to apply answer %s for channel %s: %+v", answer, channel, err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// If we just solved the puzzle then we should stop the timer.
+		if state.Status == model.StatusComplete {
+			now := time.Now()
+			total := state.TotalSolveDuration.Nanoseconds() + now.Sub(*state.LastStartTime).Nanoseconds()
+			state.LastStartTime = nil
+			state.TotalSolveDuration = model.Duration{Duration: time.Duration(total)}
+		}
+
+		// Save the updated state.
+		if err := SetState(conn, channel, state); err != nil {
+			log.Printf("unable to save state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Broadcast to all of the clients that the puzzle has been selected, making
+		// sure to not include the answers.  It's okay to overwrite the puzzle
+		// attribute because we just wrote this state instance to the database
+		// and will be discarding it immediately publishing.
+		state.Puzzle = state.Puzzle.WithoutAnswers()
+
+		registry.Publish(pubsub.Channel(channel), pubsub.Event{
+			Kind:    "state",
+			Payload: state,
+		})
+
+		// If we've just finished the solve then send a complete event as well.
+		if state.Status == model.StatusComplete {
+			registry.Publish(pubsub.Channel(channel), pubsub.Event{
+				Kind:    "complete",
+				Payload: nil,
+			})
+		}
 	}
 }

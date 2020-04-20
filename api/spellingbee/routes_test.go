@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -48,7 +49,7 @@ func TestRoute_GetChannels(t *testing.T) {
 		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
 		Words:  []string{},
 	}
-	SetState(conn, Channel.channel, state)
+	require.NoError(t, SetState(conn, Channel.channel, state))
 
 	// Now reconnect to the stream and we should receive one active channel.
 	_, stop = Global.SSE("/channels", router)
@@ -63,7 +64,7 @@ func TestRoute_GetChannels(t *testing.T) {
 		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
 		Words:  []string{},
 	}
-	SetState(conn, "channel2", state)
+	require.NoError(t, SetState(conn, "channel2", state))
 
 	// Now we expect there to be 2 channels in the stream.
 	_, stop = Global.SSE("/channels", router)
@@ -96,7 +97,9 @@ func TestRoute_UpdatePuzzle_NYTBee(t *testing.T) {
 
 	// Ensure that we have received the proper event and wrote the proper thing
 	// to the database.
-	verify := func(fn func(State)) {
+	verify := func(t *testing.T, fn func(State)) {
+		t.Helper()
+
 		// First check that we've received an event with the correct value
 		select {
 		case event := <-events:
@@ -128,13 +131,12 @@ func TestRoute_UpdatePuzzle_NYTBee(t *testing.T) {
 
 	response := Channel.PUT("/", `{"nytbee": "2020-04-08"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	verify(t, func(state State) {
 		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Nil(t, state.LastStartTime)
 		assert.Equal(t, 0., state.TotalSolveDuration.Seconds())
 	})
-
 }
 
 func TestRoute_UpdatePuzzle_Error(t *testing.T) {
@@ -271,7 +273,7 @@ func TestRoute_UpdateSetting_ClearsUnofficialAnswers(t *testing.T) {
 			"CONTO",
 		},
 	}
-	SetState(conn, Channel.channel, state)
+	require.NoError(t, SetState(conn, Channel.channel, state))
 
 	// Set the AllowUnofficialAnswers setting to false
 	response := Channel.PUT("/setting/allow_unofficial_answers", `false`, router)
@@ -363,7 +365,7 @@ func TestRoute_ToggleStatus(t *testing.T) {
 		Status: model.StatusSelected,
 		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
 	}
-	SetState(conn, Channel.channel, state)
+	require.NoError(t, SetState(conn, Channel.channel, state))
 
 	// Toggle the status, it should transition to solving.
 	response := Channel.PUT("/status", ``, router)
@@ -395,10 +397,10 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	})
 
 	// Force the puzzle to be complete.
-	state, err := GetState(conn, "channel")
+	state, err := GetState(conn, Channel.channel)
 	require.NoError(t, err)
 	state.Status = model.StatusComplete
-	require.NoError(t, SetState(conn, "channel", state))
+	require.NoError(t, SetState(conn, Channel.channel, state))
 
 	// Try to toggle the status one more time.  Now that the puzzle is complete
 	// it should return a HTTP error.
@@ -407,6 +409,301 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	state, err = GetState(conn, "channel")
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusComplete, state.Status)
+}
+
+func TestRoute_AddAnswer_NoUnofficialAnswers(t *testing.T) {
+	// This acts as a small integration test of adding answers to a spelling bee
+	// puzzle being solved.
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(t *testing.T, fn func(s State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(State)
+
+			// Events should never have the answers
+			assert.Nil(t, state.Puzzle.OfficialAnswers)
+			assert.Nil(t, state.Puzzle.UnofficialAnswers)
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, Channel.channel)
+		require.NoError(t, err)
+
+		// Database should always have the answers
+		assert.NotNil(t, state.Puzzle.OfficialAnswers)
+		assert.NotNil(t, state.Puzzle.UnofficialAnswers)
+		fn(state)
+	}
+
+	router := chi.NewRouter()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	state := State{
+		Status: model.StatusSelected,
+		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+	}
+	require.NoError(t, SetState(conn, Channel.channel, state))
+
+	// Apply a correct answer before the puzzle has been started, should get an
+	// error.
+	response := Channel.POST("/answer", `"COCONUT"`, router)
+	assert.Equal(t, http.StatusConflict, response.Code)
+
+	// Transition to solving.
+	state.Status = model.StatusSolving
+	require.NoError(t, SetState(conn, Channel.channel, state))
+
+	// Now applying the answer should succeed.
+	response = Channel.POST("/answer", `"COCONUT"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		assert.Contains(t, state.Words, "COCONUT")
+	})
+
+	// Applying an incorrect answer should fail.
+	response = Channel.POST("/answer", `"CCCC"`, router)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+
+	// Applying an unofficial answer should fail.
+	response = Channel.POST("/answer", `"CONCOCTOR"`, router)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func TestRoute_AddAnswer_AllowUnofficialAnswers(t *testing.T) {
+	// This acts as a small integration test of adding answers to a spelling bee
+	// puzzle being solved.
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(t *testing.T, fn func(s State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(State)
+
+			// Events should never have the answers
+			assert.Nil(t, state.Puzzle.OfficialAnswers)
+			assert.Nil(t, state.Puzzle.UnofficialAnswers)
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, Channel.channel)
+		require.NoError(t, err)
+
+		// Database should always have the answers
+		assert.NotNil(t, state.Puzzle.OfficialAnswers)
+		assert.NotNil(t, state.Puzzle.UnofficialAnswers)
+		fn(state)
+	}
+
+	router := chi.NewRouter()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	settings := Settings{
+		AllowUnofficialAnswers: true,
+	}
+	require.NoError(t, SetSettings(conn, Channel.channel, settings))
+
+	state := State{
+		Status: model.StatusSolving,
+		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+	}
+	require.NoError(t, SetState(conn, Channel.channel, state))
+
+	// Applying an answer from the official list should succeed.
+	response := Channel.POST("/answer", `"COCONUT"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		assert.Contains(t, state.Words, "COCONUT")
+	})
+
+	// Applying an answer from the unofficial list should also succeed.
+	response = Channel.POST("/answer", `"CONCOCTOR"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		assert.Contains(t, state.Words, "CONCOCTOR")
+	})
+
+	// Applying an incorrect answer should fail.
+	response = Channel.POST("/answer", `"CCCC"`, router)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func TestRoute_AddAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
+	// This acts as a small integration test ensuring that the timer stops
+	// counting once the puzzle has been solved.
+	pool, conn := NewRedisPool(t)
+	registry, events := NewRegistry(t)
+
+	// Ensure that we have received the proper event and wrote the proper thing
+	// to the database.
+	verify := func(t *testing.T, fn func(s State)) {
+		t.Helper()
+
+		// First check that we've received an event with the correct value
+		select {
+		case event := <-events:
+			require.Equal(t, "state", event.Kind)
+
+			state := event.Payload.(State)
+
+			// Events should never have the answers
+			assert.Nil(t, state.Puzzle.OfficialAnswers)
+			assert.Nil(t, state.Puzzle.UnofficialAnswers)
+			fn(state)
+
+		default:
+			assert.Fail(t, "no state event available")
+		}
+
+		// Next check that the database has a valid settings object
+		state, err := GetState(conn, Channel.channel)
+		require.NoError(t, err)
+
+		// Database should always have the answers
+		assert.NotNil(t, state.Puzzle.OfficialAnswers)
+		assert.NotNil(t, state.Puzzle.UnofficialAnswers)
+		fn(state)
+	}
+
+	router := chi.NewRouter()
+	RegisterRoutesWithRegistry(router, pool, registry)
+
+	// Set the state to have all of the words except for one.
+	now := time.Now()
+	state := State{
+		Status: model.StatusSolving,
+		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+		Words: []string{
+			"CONCOCT",
+			"CONTORT",
+			"CONTOUR",
+			"COOT",
+			"COTTON",
+			"COTTONY",
+			"COUNT",
+			"COUNTRY",
+			"COUNTY",
+			"COURT",
+			"CROUTON",
+			"CURT",
+			"CUTOUT",
+			"NUTTY",
+			"ONTO",
+			"OUTCRY",
+			"OUTRO",
+			"OUTRUN",
+			"ROOT",
+			"ROTO",
+			"ROTOR",
+			"ROUT",
+			"RUNOUT",
+			"RUNT",
+			"RUNTY",
+			"RUTTY",
+			"TONY",
+			"TOON",
+			"TOOT",
+			"TORN",
+			"TORO",
+			"TORT",
+			"TOUR",
+			"TOUT",
+			"TROT",
+			"TROUT",
+			"TROY",
+			"TRYOUT",
+			"TURN",
+			"TURNOUT",
+			"TUTOR",
+			"TUTU",
+			"TYCOON",
+			"TYRO",
+			"UNCUT",
+			"UNTO",
+			"YURT",
+		},
+		LastStartTime: &now,
+	}
+	require.NoError(t, SetState(conn, Channel.channel, state))
+
+	// Apply the last answer, but wait a bit first to ensure that a non-zero
+	// amount of time has passed in the solve.
+	time.Sleep(2 * time.Millisecond)
+
+	response := Channel.POST("/answer", `"COCONUT"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	verify(t, func(state State) {
+		require.Equal(t, model.StatusComplete, state.Status)
+		assert.Nil(t, state.LastStartTime)
+		assert.True(t, state.TotalSolveDuration.Seconds() > 0)
+	})
+
+}
+
+func TestRoute_AddAnswer_Error(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected int
+	}{
+		{
+			name:     "empty answer",
+			json:     `""`,
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "long answer",
+			json:     `"` + RandomString(1023) + `"`,
+			expected: http.StatusRequestEntityTooLarge,
+		},
+		{
+			name:     "non-string answer",
+			json:     `true`,
+			expected: http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pool, conn := NewRedisPool(t)
+
+			router := chi.NewRouter()
+			RegisterRoutes(router, pool)
+
+			state := State{
+				Status: model.StatusSolving,
+				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			}
+			require.NoError(t, SetState(conn, Channel.channel, state))
+
+			response := Channel.POST("/answer", test.json, router)
+			assert.Equal(t, test.expected, response.Code)
+		})
+	}
 }
 
 func NewRedisPool(t *testing.T) (*redis.Pool, redis.Conn) {
@@ -423,7 +720,7 @@ func NewRedisPool(t *testing.T) (*redis.Pool, redis.Conn) {
 	}
 
 	conn := pool.Get()
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { _ = conn.Close() })
 
 	return pool, conn
 }
@@ -454,9 +751,19 @@ func (r GlobalRoute) GET(url string, router chi.Router) *httptest.ResponseRecord
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
+
 func (r GlobalRoute) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {
 	url = path.Join("/spellingbee", url)
 	request := httptest.NewRequest(http.MethodPut, url, strings.NewReader(body))
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func (r GlobalRoute) POST(url, body string, router chi.Router) *httptest.ResponseRecorder {
+	url = path.Join("/spellingbee", url)
+	request := httptest.NewRequest(http.MethodPost, url, strings.NewReader(body))
 
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
@@ -531,9 +838,25 @@ func (r ChannelRoute) PUT(url, body string, router chi.Router) *httptest.Respons
 	return Global.PUT(url, body, router)
 }
 
+func (r ChannelRoute) POST(url, body string, router chi.Router) *httptest.ResponseRecorder {
+	url = path.Join(r.channel, url)
+	return Global.POST(url, body, router)
+}
+
 func (r ChannelRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
 	url = path.Join(r.channel, url)
 	return Global.SSE(url, router)
+}
+
+func RandomString(n int) string {
+	var alphabet = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	bs := make([]rune, n)
+	for i := range bs {
+		bs[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+
+	return string(bs)
 }
 
 // Create a http.ResponseWriter that synchronizes whenever reads or writes
