@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
+	"github.com/bbeck/twitch-plays-crosswords/api/spellingbee"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/gomodule/redigo/redis"
@@ -23,6 +24,7 @@ func main() {
 	// Register handlers for our paths.
 	r.Route("/api", func(r chi.Router) {
 		crossword.RegisterRoutes(r, pool)
+		spellingbee.RegisterRoutes(r, pool)
 	})
 
 	// Start the server.
