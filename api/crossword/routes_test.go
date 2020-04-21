@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/alicebob/miniredis"
 	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
 	"github.com/go-chi/chi"
@@ -25,18 +24,13 @@ import (
 )
 
 var Global = GlobalRoute{}
-var Channel = ChannelRoute{channel: "channel"}
+var Channel = ChannelRoute{name: "channel"}
 
 func TestRoute_GetChannels(t *testing.T) {
 	// This acts as a small integration test ensuring that the active channels
 	// event stream receives the events as new channels start and finish solves.
-	pool, conn := NewRedisPool(t)
-
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-
-	router := chi.NewRouter()
-	RegisterRoutes(router, pool)
+	router, pool, _ := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
 
 	// Connect to the stream when there's no active solves happening, we should
 	// receive an event that contains an empty list of channels.
@@ -47,30 +41,29 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.Empty(t, events[0].Payload)
 
 	// Start a crossword.
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Now reconnect to the stream and we should receive one active channel.
 	_, stop = Global.SSE("/channels", router)
 	events = stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
-	assert.ElementsMatch(t, []string{Channel.channel}, events[0].Payload)
+	assert.ElementsMatch(t, []string{Channel.name}, events[0].Payload)
 
 	// Start a crossword on another channel.
-	channel2 := ChannelRoute{channel: "channel2"}
-	response = channel2.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
+	channel2 := ChannelRoute{name: "channel2"}
+	require.NoError(t, SetState(conn, channel2.name, state))
 
 	// Now we expect there to be 2 channels in the stream.
 	_, stop = Global.SSE("/channels", router)
 	events = stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
-	assert.ElementsMatch(t, []string{Channel.channel, channel2.channel}, events[0].Payload)
+	assert.ElementsMatch(t, []string{Channel.name, channel2.name}, events[0].Payload)
 
 	// Lastly remove the second channel from the database.
-	_, err := conn.Do("DEL", StateKey(channel2.channel))
+	_, err := conn.Do("DEL", StateKey(channel2.name))
 	require.NoError(t, err)
 
 	// Now we expect there to be one channels in the stream.
@@ -78,127 +71,63 @@ func TestRoute_GetChannels(t *testing.T) {
 	events = stop()
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
-	assert.ElementsMatch(t, []string{Channel.channel}, events[0].Payload)
+	assert.ElementsMatch(t, []string{Channel.name}, events[0].Payload)
 }
 
 func TestRoute_UpdateSetting(t *testing.T) {
 	// This acts as a small integration test updating each setting in turn and
 	// making sure the proper value is written to the database and that clients
 	// receive events notifying them of the setting change.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
-
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s Settings)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "settings", event.Kind)
-			fn(event.Payload.(Settings))
-		default:
-			assert.Fail(t, "no settings event available")
-		}
-
-		// Next check that the database has a valid settings object
-		settings, err := GetSettings(conn, "channel")
-		require.NoError(t, err)
-		fn(settings)
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
+	router, pool, registry := NewTestRouter(t)
+	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Update each setting, one at a time.
 	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s Settings) { assert.True(t, s.OnlyAllowCorrectAnswers) })
+	VerifySettings(t, pool, events, func(s Settings) {
+		assert.True(t, s.OnlyAllowCorrectAnswers)
+	})
 
 	response = Channel.PUT("/setting/clues_to_show", `"none"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s Settings) { assert.Equal(t, NoCluesVisible, s.CluesToShow) })
+	VerifySettings(t, pool, events, func(s Settings) {
+		assert.Equal(t, NoCluesVisible, s.CluesToShow)
+	})
 
 	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s Settings) { assert.Equal(t, model.FontSizeXLarge, s.ClueFontSize) })
+	VerifySettings(t, pool, events, func(s Settings) {
+		assert.Equal(t, model.FontSizeXLarge, s.ClueFontSize)
+	})
 
 	response = Channel.PUT("/setting/show_notes", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(s Settings) { assert.True(t, s.ShowNotes) })
+	VerifySettings(t, pool, events, func(s Settings) {
+		assert.True(t, s.ShowNotes)
+	})
 }
 
 func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
 	// This acts as a small integration test toggling the OnlyAllowCorrectAnswers
 	// setting and ensuring that it clears any incorrect answer cells.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
 
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			// Ignore the setting change event we receive
-			if event.Kind == "settings" {
-				return
-			}
-
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	drainEvents := func() {
-		for {
-			select {
-			case <-events:
-			default:
-				return
-			}
-		}
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
-
-	// Toggle the status, it should transition to solving.
-	response = Channel.PUT("/status", ``, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
-
-	// Apply an incorrect across answer.
-	response = Channel.PUT("/answer/1a", `"QNORA"`, router)
-	assert.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
+	// Set a state that has an incorrect answer filled in for 1a.
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	state.Status = model.StatusSolving
+	state.Cells[0][0] = "Q"
+	state.Cells[0][1] = "N"
+	state.Cells[0][2] = "O"
+	state.Cells[0][3] = "R"
+	state.Cells[0][4] = "A"
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Set the OnlyAllowCorrectAnswers setting to true
-	response = Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
+	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.False(t, state.AcrossCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "", state.Cells[0][1])
@@ -243,10 +172,7 @@ func TestRoute_UpdateSetting_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pool, _ := NewRedisPool(t)
-
-			router := chi.NewRouter()
-			RegisterRoutes(router, pool)
+			router, _, _ := NewTestRouter(t)
 
 			response := Channel.PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
 			assert.NotEqual(t, http.StatusOK, response.Code)
@@ -258,43 +184,15 @@ func TestRoute_UpdatePuzzle_NewYorkTimes(t *testing.T) {
 	// This acts as a small integration test updating the date of the New York
 	// Times crossword we're working on and ensuring the proper values are written
 	// to the database.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
 	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
 	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -308,43 +206,15 @@ func TestRoute_UpdatePuzzle_WallStreetJournal(t *testing.T) {
 	// This acts as a small integration test updating the date of the Wall Street
 	// Journal crossword we're working on and ensuring the proper values are
 	// written to the database.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
 	ForcePuzzleToBeLoaded(t, "puzzle-wsj-20190102.json")
 
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
 	response := Channel.PUT("/", `{"wall_street_journal_date": "2019-01-02"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -358,43 +228,15 @@ func TestRoute_UpdatePuzzle_PuzFile(t *testing.T) {
 	// This acts as a small integration test uploading a .puz file of the
 	// crossword we're working on and ensuring the proper values are written to
 	// the database.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
 	ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
 
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
 	response := Channel.PUT("/", `{"puz_file_bytes": "unused"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -408,43 +250,15 @@ func TestRoute_UpdatePuzzle_PuzURL(t *testing.T) {
 	// This acts as a small integration test retrieving a .puz file from a URL of
 	// the crossword we're working on and ensuring the proper values are written
 	// to the database.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
 	ForcePuzzleToBeLoaded(t, "puzzle-wp-20051206.json")
 
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
 	response := Channel.PUT("/", `{"puz_file_url": "unused"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusSelected, state.Status)
 		assert.NotNil(t, state.Puzzle)
 		assert.Equal(t, 0, len(state.AcrossCluesFilled))
@@ -499,12 +313,8 @@ func TestRoute_UpdatePuzzle_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pool, _ := NewRedisPool(t)
-
+			router, _, _ := NewTestRouter(t)
 			ForceErrorDuringLoad(t, test.forcedError)
-
-			router := chi.NewRouter()
-			RegisterRoutes(router, pool)
 
 			response := Channel.PUT("/", test.payload, router)
 			assert.Equal(t, test.expected, response.Code)
@@ -515,58 +325,18 @@ func TestRoute_UpdatePuzzle_Error(t *testing.T) {
 func TestRoute_ToggleStatus(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
 
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	drainEvents := func() {
-		for {
-			select {
-			case <-events:
-			default:
-				return
-			}
-		}
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
+	// Set a state that has a puzzle selected but not yet started.
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Toggle the status, it should transition to solving.
-	response = Channel.PUT("/status", ``, router)
+	response := Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusSolving, state.Status)
 		assert.NotNil(t, state.LastStartTime)
 	})
@@ -577,7 +347,7 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	time.Sleep(1 * time.Nanosecond)
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusPaused, state.Status)
 		assert.Nil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
@@ -586,87 +356,40 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	// Toggle the status again, it should transition back to solving.
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusSolving, state.Status)
 		assert.NotNil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
 	})
 
 	// Force the puzzle to be complete.
-	state, err := GetState(conn, "channel")
-	require.NoError(t, err)
 	state.Status = model.StatusComplete
-	require.NoError(t, SetState(conn, "channel", state))
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Try to toggle the status one more time.  Now that the puzzle is complete
-	// it should return a HTTP error.
+	// it should return an HTTP error.
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusBadRequest, response.Code)
-	state, err = GetState(conn, "channel")
+	state, err := GetState(conn, "channel")
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusComplete, state.Status)
 }
 
 func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
-	// This acts as a small integration test toggling the status of a crossword
+	// This acts as a small integration test of applying answers to a crossword
 	// being solved.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
 
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	drainEvents := func() {
-		for {
-			select {
-			case <-events:
-			default:
-				return
-			}
-		}
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
-
-	// Toggle the status, it should transition to solving.
-	response = Channel.PUT("/status", ``, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	state.Status = model.StatusSolving
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Apply a correct across answer.
-	response = Channel.PUT("/answer/1a", `"QANDA"`, router)
+	response := Channel.PUT("/answer/1a", `"QANDA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.True(t, state.AcrossCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "A", state.Cells[0][1])
@@ -678,7 +401,7 @@ func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Apply a correct down answer.
 	response = Channel.PUT("/answer/1d", `"QTIP"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.True(t, state.DownCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "T", state.Cells[1][0])
@@ -689,7 +412,7 @@ func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Apply an incorrect across answer.
 	response = Channel.PUT("/answer/6a", `"FLOOR"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.True(t, state.AcrossCluesFilled[6])
 		assert.Equal(t, "F", state.Cells[0][6])
 		assert.Equal(t, "L", state.Cells[0][7])
@@ -701,7 +424,7 @@ func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Apply an incorrect down answer.
 	response = Channel.PUT("/answer/11d", `"HEYA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.True(t, state.DownCluesFilled[11])
 		assert.Equal(t, "H", state.Cells[0][12])
 		assert.Equal(t, "E", state.Cells[1][12])
@@ -712,7 +435,6 @@ func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
 	// Pause the solve.
 	response = Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
 
 	// Try to apply an answer.
 	response = Channel.PUT("/answer/6a", `"ATTIC"`, router)
@@ -722,68 +444,22 @@ func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
 func TestRoute_UpdateAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	// This acts as a small integration test toggling the status of a crossword
 	// being solved.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
 
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+	// Change the settings to only allow correct answers.
+	settings := Settings{OnlyAllowCorrectAnswers: true}
+	require.NoError(t, SetSettings(conn, Channel.name, settings))
 
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	drainEvents := func() {
-		for {
-			select {
-			case <-events:
-			default:
-				return
-			}
-		}
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
-	// Change the settings to require correct answers
-	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
-
-	response = Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
-
-	// Toggle the status, it should transition to solving.
-	response = Channel.PUT("/status", ``, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	state.Status = model.StatusSolving
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Apply a correct across answer.
-	response = Channel.PUT("/answer/1a", `"QANDA"`, router)
+	response := Channel.PUT("/answer/1a", `"QANDA"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.True(t, state.AcrossCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "A", state.Cells[0][1])
@@ -795,7 +471,7 @@ func TestRoute_UpdateAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	// Apply a correct down answer.
 	response = Channel.PUT("/answer/1d", `"QTIP"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		assert.True(t, state.DownCluesFilled[1])
 		assert.Equal(t, "Q", state.Cells[0][0])
 		assert.Equal(t, "T", state.Cells[1][0])
@@ -807,121 +483,60 @@ func TestRoute_UpdateAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
 	response = Channel.PUT("/answer/6a", `"FLOOR"`, router)
 	assert.Equal(t, http.StatusBadRequest, response.Code)
 
-	state, err := GetState(conn, "channel")
-	require.NoError(t, err)
-	assert.False(t, state.AcrossCluesFilled[6])
-
 	// Apply an incorrect down answer.
 	response = Channel.PUT("/answer/11d", `"HEYA"`, router)
 	assert.Equal(t, http.StatusBadRequest, response.Code)
-
-	state, err = GetState(conn, "channel")
-	require.NoError(t, err)
-	assert.False(t, state.DownCluesFilled[11])
 }
 
 func TestRoute_UpdateAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	// This acts as a small integration test ensuring that the timer stops
 	// counting once the crossword has been solved.
-	pool, conn := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
 
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-
-	// Ensure that we have received the proper event and wrote the proper thing
-	// to the database.
-	verify := func(fn func(s State)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "state", event.Kind)
-
-			state := event.Payload.(State)
-			assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-			fn(state)
-
-		default:
-			assert.Fail(t, "no state event available")
-		}
-
-		// Next check that the database has a valid settings object
-		state, err := GetState(conn, "channel")
-		require.NoError(t, err)
-		assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
-		fn(state)
-	}
-
-	drainEvents := func() {
-		for {
-			select {
-			case <-events:
-			default:
-				return
-			}
-		}
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
-
-	// Toggle the status, it should transition to solving.
-	response = Channel.PUT("/status", ``, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
-
-	// Solve the entire puzzle except for the last answer.
-	answers := map[string]string{
-		"1a":  "Q AND A",
-		"6a":  "ATTIC",
-		"11a": "HON",
-		"14a": "THIRD",
-		"15a": "LAID ASIDE",
-		"17a": "IM TOO OLD FOR THIS",
-		"19a": "PERU",
-		"20a": "LEAF",
-		"21a": "PEONS",
-		"22a": "DOG TAG",
-		"24a": "LOL",
-		"25a": "HAVE NO OOMPH",
-		"30a": "MATTE",
-		"33a": "IMPLORED",
-		"35a": "ERR",
-		"36a": "RANGE",
-		"38a": "EMO",
-		"39a": "WAIT HERE",
-		"42a": "EGYPT",
-		"44a": "BOO OFF STAGE",
-		"47a": "ERS",
-		"48a": "EUGENE",
-		"51a": "SHARI",
-		"54a": "SINN",
-		"56a": "WING",
-		"58a": "ITS A ZOO OUT THERE",
-		"61a": "STEGOSAUR",
-		"62a": "HIT ON",
-		"63a": "IPA",
-		"64a": "NURSE",
-	}
-	for clue, answer := range answers {
-		response = Channel.PUT(fmt.Sprintf("/answer/%s", clue), fmt.Sprintf(`"%s"`, answer), router)
-		assert.Equal(t, http.StatusOK, response.Code)
-	}
-	drainEvents()
+	// Setup a state that has the entire puzzle solved except for the last answer.
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	state.Status = model.StatusSolving
+	state.ApplyAnswer("1a", "Q AND A", false)
+	state.ApplyAnswer("6a", "ATTIC", false)
+	state.ApplyAnswer("11a", "HON", false)
+	state.ApplyAnswer("14a", "THIRD", false)
+	state.ApplyAnswer("15a", "LAID ASIDE", false)
+	state.ApplyAnswer("17a", "IM TOO OLD FOR THIS", false)
+	state.ApplyAnswer("19a", "PERU", false)
+	state.ApplyAnswer("20a", "LEAF", false)
+	state.ApplyAnswer("21a", "PEONS", false)
+	state.ApplyAnswer("22a", "DOG TAG", false)
+	state.ApplyAnswer("24a", "LOL", false)
+	state.ApplyAnswer("25a", "HAVE NO OOMPH", false)
+	state.ApplyAnswer("30a", "MATTE", false)
+	state.ApplyAnswer("33a", "IMPLORED", false)
+	state.ApplyAnswer("35a", "ERR", false)
+	state.ApplyAnswer("36a", "RANGE", false)
+	state.ApplyAnswer("38a", "EMO", false)
+	state.ApplyAnswer("39a", "WAIT HERE", false)
+	state.ApplyAnswer("42a", "EGYPT", false)
+	state.ApplyAnswer("44a", "BOO OFF STAGE", false)
+	state.ApplyAnswer("47a", "ERS", false)
+	state.ApplyAnswer("48a", "EUGENE", false)
+	state.ApplyAnswer("51a", "SHARI", false)
+	state.ApplyAnswer("54a", "SINN", false)
+	state.ApplyAnswer("56a", "WING", false)
+	state.ApplyAnswer("58a", "ITS A ZOO OUT THERE", false)
+	state.ApplyAnswer("61a", "STEGOSAUR", false)
+	state.ApplyAnswer("62a", "HIT ON", false)
+	state.ApplyAnswer("63a", "IPA", false)
+	state.ApplyAnswer("64a", "NURSE", false)
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Apply the last answer, but wait a bit first to ensure that a non-zero
 	// amount of time has passed in the solve.
 	time.Sleep(10 * time.Millisecond)
 
-	response = Channel.PUT("/answer/65a", `"OZONE"`, router)
+	response := Channel.PUT("/answer/65a", `"OZONE"`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
-	verify(func(state State) {
+	VerifyState(t, pool, events, func(state State) {
 		require.Equal(t, model.StatusComplete, state.Status)
 		assert.Nil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0)
@@ -953,22 +568,14 @@ func TestRoute_UpdateAnswer_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			pool, _ := NewRedisPool(t)
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
 
-			// Force a specific puzzle to be loaded so we don't make a network call.
-			ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+			state := NewState(t, "xwordinfo-nyt-20181231.json")
+			state.Status = model.StatusSolving
+			require.NoError(t, SetState(conn, Channel.name, state))
 
-			router := chi.NewRouter()
-			RegisterRoutes(router, pool)
-
-			response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-			require.Equal(t, http.StatusOK, response.Code)
-
-			// Toggle the status, it should transition to solving.
-			response = Channel.PUT("/status", ``, router)
-			require.Equal(t, http.StatusOK, response.Code)
-
-			response = Channel.PUT("/answer/1a", test.json, router)
+			response := Channel.PUT("/answer/1a", test.json, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -977,55 +584,25 @@ func TestRoute_UpdateAnswer_Error(t *testing.T) {
 func TestRoute_ShowClue(t *testing.T) {
 	// This acts as a small integration test requesting clues to be shown and
 	// making sure events are properly emitted.
-	pool, _ := NewRedisPool(t)
-	registry, events := NewRegistry(t)
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-
-	// Ensure that we have received the proper event.
-	verify := func(fn func(clue string)) {
-		t.Helper()
-
-		// First check that we've received an event with the correct value
-		select {
-		case event := <-events:
-			require.Equal(t, "show_clue", event.Kind)
-			fn(event.Payload.(string))
-
-		default:
-			assert.Fail(t, "no show_clue event available")
-		}
-	}
-
-	drainEvents := func() {
-		for {
-			select {
-			case <-events:
-			default:
-				return
-			}
-		}
-	}
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
-
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
-	drainEvents()
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Request showing an across clue.
-	response = Channel.GET("/show/1a", router)
+	response := Channel.GET("/show/1a", router)
 	require.Equal(t, http.StatusOK, response.Code)
-	verify(func(clue string) {
+	VerifyShowClue(t, events, func(clue string) {
 		assert.Equal(t, "1a", clue)
 	})
 
 	// Request showing a down clue.
 	response = Channel.GET("/show/16d", router)
 	require.Equal(t, http.StatusOK, response.Code)
-	verify(func(clue string) {
+	VerifyShowClue(t, events, func(clue string) {
 		assert.Equal(t, "16d", clue)
 	})
 
@@ -1037,7 +614,7 @@ func TestRoute_ShowClue(t *testing.T) {
 	// fail because it doesn't mutate the state of the puzzle in any way.
 	response = Channel.GET("/show/999a", router)
 	require.Equal(t, http.StatusOK, response.Code)
-	verify(func(clue string) {
+	VerifyShowClue(t, events, func(clue string) {
 		assert.Equal(t, "999a", clue)
 	})
 }
@@ -1045,14 +622,8 @@ func TestRoute_ShowClue(t *testing.T) {
 func TestRoute_GetEvents(t *testing.T) {
 	// This acts as a small integration test ensuring that the event stream
 	// receives the events put into a registry.
-	pool, _ := NewRedisPool(t)
-	registry, _ := NewRegistry(t)
-
-	// Force a specific puzzle to be loaded so we don't make a network call.
-	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
-
-	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
+	router, pool, _ := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
 
 	// Connect to the stream when there's no puzzle selected, we should receive
 	// just the channel's settings.
@@ -1061,9 +632,9 @@ func TestRoute_GetEvents(t *testing.T) {
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "settings", events[0].Kind)
 
-	// Select a puzzle
-	response := Channel.PUT("/", `{"new_york_times_date": "2018-12-31"}`, router)
-	require.Equal(t, http.StatusOK, response.Code)
+	// Select a puzzle.
+	state := NewState(t, "xwordinfo-nyt-20181231.json")
+	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Now reconnect to the stream and we should receive both the puzzle and the
 	// channel's current state.
@@ -1074,7 +645,7 @@ func TestRoute_GetEvents(t *testing.T) {
 	assert.Equal(t, "state", events[1].Kind)
 
 	// Toggle the status to solving, this should cause the state to be sent again.
-	response = Channel.PUT("/status", ``, router)
+	response := Channel.PUT("/status", ``, router)
 	require.Equal(t, http.StatusOK, response.Code)
 
 	events = flush()
@@ -1089,42 +660,89 @@ func TestRoute_GetEvents(t *testing.T) {
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "state", events[0].Kind)
 
+	// Now change a setting, this should cause the settings to be sent again.
+	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	events = flush()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "settings", events[0].Kind)
+
 	// Disconnect, there shouldn't be any events anymore.
 	events = stop()
 	assert.Equal(t, 0, len(events))
 }
 
-func NewRedisPool(t *testing.T) (*redis.Pool, redis.Conn) {
+// VerifySettings performs test specific verifications on the settings objects
+// in both event and database forms.
+func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(s Settings)) {
 	t.Helper()
 
-	s, err := miniredis.Run()
-	require.NoError(t, err)
-	t.Cleanup(s.Close)
+	// First check that we've received an event with the correct value
+	select {
+	case event := <-events:
+		// Ignore any non-settings events.
+		if event.Kind != "settings" {
+			return
+		}
+		fn(event.Payload.(Settings))
 
-	pool := &redis.Pool{
-		Dial: func() (redis.Conn, error) {
-			return redis.Dial("tcp", s.Addr())
-		},
+	default:
+		assert.Fail(t, "no settings event available")
 	}
 
-	conn := pool.Get()
-	t.Cleanup(func() { conn.Close() })
-
-	return pool, conn
+	// Next check that the database has a valid settings object
+	conn := NewRedisConnection(t, pool)
+	settings, err := GetSettings(conn, "channel")
+	require.NoError(t, err)
+	fn(settings)
 }
 
-func NewRegistry(t *testing.T) (*pubsub.Registry, <-chan pubsub.Event) {
+// VerifyState performs common verifications for state objects in both event
+// and database forms and then calls a custom verify function for test specific
+// verifications.
+func VerifyState(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(s State)) {
 	t.Helper()
 
-	registry := new(pubsub.Registry)
-	stream := make(chan pubsub.Event, 10)
-	t.Cleanup(func() { close(stream) })
+	// First check that we've received an event with the correct value
+	select {
+	case event := <-events:
+		// Ignore any non-state events.
+		if event.Kind != "state" {
+			return
+		}
 
-	id, err := registry.Subscribe("channel", stream)
+		state := event.Payload.(State)
+		assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
+		fn(state)
+
+	default:
+		assert.Fail(t, "no state event available")
+	}
+
+	// Next check that the database has a valid settings object
+	conn := NewRedisConnection(t, pool)
+	state, err := GetState(conn, "channel")
 	require.NoError(t, err)
-	t.Cleanup(func() { registry.Unsubscribe("channel", id) })
+	assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
+	fn(state)
+}
 
-	return registry, stream
+// VerifyShowClue performs common verifications for show clue events.
+func VerifyShowClue(t *testing.T, events <-chan pubsub.Event, fn func(clue string)) {
+	t.Helper()
+
+	// First check that we've received an event with the correct value
+	select {
+	case event := <-events:
+		if event.Kind != "show_clue" {
+			return
+		}
+		fn(event.Payload.(string))
+
+	default:
+		assert.Fail(t, "no show_clue event available")
+	}
 }
 
 // GlobalRoute is a client that makes requests against the URL of the global
@@ -1203,21 +821,21 @@ func (r GlobalRoute) SSE(url string, router chi.Router) (flush func() []pubsub.E
 // ChannelRoute is a client that makes requests against the URL of a particular
 // user's channel.
 type ChannelRoute struct {
-	channel string
+	name string
 }
 
 func (r ChannelRoute) GET(url string, router chi.Router) *httptest.ResponseRecorder {
-	url = path.Join(r.channel, url)
+	url = path.Join(r.name, url)
 	return Global.GET(url, router)
 }
 
 func (r ChannelRoute) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {
-	url = path.Join(r.channel, url)
+	url = path.Join(r.name, url)
 	return Global.PUT(url, body, router)
 }
 
 func (r ChannelRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
-	url = path.Join(r.channel, url)
+	url = path.Join(r.name, url)
 	return Global.SSE(url, router)
 }
 

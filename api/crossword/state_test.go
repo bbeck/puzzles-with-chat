@@ -9,19 +9,19 @@ import (
 
 func TestState_ApplyAnswer_Cells(t *testing.T) {
 	tests := []struct {
-		name   string
-		puzzle *Puzzle
-		setup  map[string]string // initial answers applied before the desired answer
-		clue   string
-		answer string
-		verify func(*testing.T, *State)
+		name     string
+		filename string
+		setup    map[string]string // initial answers applied before the desired answer
+		clue     string
+		answer   string
+		verify   func(*testing.T, State)
 	}{
 		{
-			name:   "across answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			name:     "across answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "Q AND A",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -30,11 +30,11 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 			},
 		},
 		{
-			name:   "down answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1d",
-			answer: "QTIP",
-			verify: func(t *testing.T, state *State) {
+			name:     "down answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1d",
+			answer:   "QTIP",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "T", state.Cells[1][0])
 				assert.Equal(t, "I", state.Cells[2][0])
@@ -42,14 +42,14 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 			},
 		},
 		{
-			name:   "overwriting across answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "overwriting across answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "XXXXX",
 			},
 			clue:   "1a",
 			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -58,14 +58,14 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 			},
 		},
 		{
-			name:   "overwriting down answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "overwriting down answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1d": "XXXX",
 			},
 			clue:   "1d",
 			answer: "QTIP",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "T", state.Cells[1][0])
 				assert.Equal(t, "I", state.Cells[2][0])
@@ -73,11 +73,11 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 			},
 		},
 		{
-			name:   "unknown letters",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: ". AND .",
-			verify: func(t *testing.T, state *State) {
+			name:     "unknown letters",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   ". AND .",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -86,14 +86,14 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 			},
 		},
 		{
-			name:   "delete part of answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "delete part of answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "Q AND A",
 			},
 			clue:   "1a",
 			answer: ".AND.",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -102,11 +102,11 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 			},
 		},
 		{
-			name:   "rebus",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "(RED)AND(BLUE)",
-			verify: func(t *testing.T, state *State) {
+			name:     "rebus",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "(RED)AND(BLUE)",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "RED", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -118,33 +118,33 @@ func TestState_ApplyAnswer_Cells(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(test.puzzle)
+			state := NewState(t, test.filename)
 			for clue, answer := range test.setup {
-				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+				require.NoError(t, state.ApplyAnswer(clue, answer, false))
 			}
 
-			err := s.ApplyAnswer(test.clue, test.answer, false)
+			err := state.ApplyAnswer(test.clue, test.answer, false)
 			require.NoError(t, err)
-			test.verify(t, s)
+			test.verify(t, state)
 		})
 	}
 }
 
 func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 	tests := []struct {
-		name   string
-		puzzle *Puzzle
-		setup  map[string]string // initial answers applied before the desired answer
-		clue   string
-		answer string
-		verify func(*testing.T, *State)
+		name     string
+		filename string
+		setup    map[string]string // initial answers applied before the desired answer
+		clue     string
+		answer   string
+		verify   func(*testing.T, State)
 	}{
 		{
-			name:   "across answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			name:     "across answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "Q AND A",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -153,11 +153,11 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 			},
 		},
 		{
-			name:   "down answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1d",
-			answer: "QTIP",
-			verify: func(t *testing.T, state *State) {
+			name:     "down answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1d",
+			answer:   "QTIP",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "T", state.Cells[1][0])
 				assert.Equal(t, "I", state.Cells[2][0])
@@ -165,11 +165,11 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 			},
 		},
 		{
-			name:   "unknown letters",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: ". AND .",
-			verify: func(t *testing.T, state *State) {
+			name:     "unknown letters",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   ". AND .",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -178,14 +178,14 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 			},
 		},
 		{
-			name:   "can fill in some unknown letters",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "can fill in some unknown letters",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": ". AND .",
 			},
 			clue:   "1a",
 			answer: "Q AND .",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -194,14 +194,14 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 			},
 		},
 		{
-			name:   "can fill in all unknown letters",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "can fill in all unknown letters",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": ". AND .",
 			},
 			clue:   "1a",
 			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -210,11 +210,11 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 			},
 		},
 		{
-			name:   "rebus",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181227-rebus.json"),
-			clue:   "30a",
-			answer: "AERIAL RE(CON)",
-			verify: func(t *testing.T, state *State) {
+			name:     "rebus",
+			filename: "xwordinfo-nyt-20181227-rebus.json",
+			clue:     "30a",
+			answer:   "AERIAL RE(CON)",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "A", state.Cells[6][0])
 				assert.Equal(t, "E", state.Cells[6][1])
 				assert.Equal(t, "R", state.Cells[6][2])
@@ -231,35 +231,35 @@ func TestState_ApplyAnswer_Cells_CorrectOnly(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(test.puzzle)
+			state := NewState(t, test.filename)
 			for clue, answer := range test.setup {
-				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+				require.NoError(t, state.ApplyAnswer(clue, answer, false))
 			}
 
-			err := s.ApplyAnswer(test.clue, test.answer, true)
+			err := state.ApplyAnswer(test.clue, test.answer, true)
 			require.NoError(t, err)
-			test.verify(t, s)
+			test.verify(t, state)
 		})
 	}
 }
 
 func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 	tests := []struct {
-		name   string
-		puzzle *Puzzle
-		setup  map[string]string // initial answers applied before the desired answer
-		clue   string
-		answer string
+		name     string
+		filename string
+		setup    map[string]string // initial answers applied before the desired answer
+		clue     string
+		answer   string
 	}{
 		{
-			name:   "cannot specify incorrect cell",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "R AND A",
+			name:     "cannot specify incorrect cell",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "R AND A",
 		},
 		{
-			name:   "cannot change correct cell",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "cannot change correct cell",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "Q AND A",
 			},
@@ -267,8 +267,8 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 			answer: "R AND A",
 		},
 		{
-			name:   "cannot clear correct cell",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "cannot clear correct cell",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "Q AND A",
 			},
@@ -276,8 +276,8 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 			answer: ". AND A",
 		},
 		{
-			name:   "cannot incorrectly specify missing cell",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "cannot incorrectly specify missing cell",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": ". AND A",
 			},
@@ -288,12 +288,12 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(test.puzzle)
+			state := NewState(t, test.filename)
 			for clue, answer := range test.setup {
-				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+				require.NoError(t, state.ApplyAnswer(clue, answer, false))
 			}
 
-			err := s.ApplyAnswer(test.clue, test.answer, true)
+			err := state.ApplyAnswer(test.clue, test.answer, true)
 			assert.Error(t, err)
 		})
 	}
@@ -301,19 +301,19 @@ func TestState_ApplyAnswer_Cells_CorrectOnly_Error(t *testing.T) {
 
 func TestState_ApplyAnswer_Filled(t *testing.T) {
 	tests := []struct {
-		name   string
-		puzzle *Puzzle
-		setup  map[string]string // initial answers applied before the desired answer
-		clue   string
-		answer string
-		verify func(*testing.T, *State)
+		name     string
+		filename string
+		setup    map[string]string // initial answers applied before the desired answer
+		clue     string
+		answer   string
+		verify   func(*testing.T, State)
 	}{
 		{
-			name:   "across answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			name:     "across answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "Q AND A",
+			verify: func(t *testing.T, state State) {
 				assert.True(t, state.AcrossCluesFilled[1])
 
 				// Everything else should be unfilled
@@ -328,11 +328,11 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 			},
 		},
 		{
-			name:   "down answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1d",
-			answer: "QTIP",
-			verify: func(t *testing.T, state *State) {
+			name:     "down answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1d",
+			answer:   "QTIP",
+			verify: func(t *testing.T, state State) {
 				assert.True(t, state.DownCluesFilled[1])
 
 				// Everything else should be unfilled
@@ -347,8 +347,8 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 			},
 		},
 		{
-			name:   "across answer completes multiple down clues",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "across answer completes multiple down clues",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"14a": "THIRD",
 				"17a": "IM TOO OLD FOR THIS",
@@ -357,7 +357,7 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 			},
 			clue:   "1a",
 			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.True(t, state.DownCluesFilled[1])
 				assert.True(t, state.DownCluesFilled[2])
 				assert.True(t, state.DownCluesFilled[3])
@@ -374,8 +374,8 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 			},
 		},
 		{
-			name:   "down answer completes multiple across clues",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "down answer completes multiple across clues",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"2d": "AHMED",
 				"3d": "NITRO",
@@ -384,7 +384,7 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 			},
 			clue:   "1d",
 			answer: "QTIP",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.True(t, state.AcrossCluesFilled[1])
 				assert.True(t, state.AcrossCluesFilled[14])
 				assert.False(t, state.AcrossCluesFilled[17])
@@ -395,39 +395,39 @@ func TestState_ApplyAnswer_Filled(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(test.puzzle)
+			state := NewState(t, test.filename)
 			for clue, answer := range test.setup {
-				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+				require.NoError(t, state.ApplyAnswer(clue, answer, false))
 			}
 
-			err := s.ApplyAnswer(test.clue, test.answer, false)
+			err := state.ApplyAnswer(test.clue, test.answer, false)
 			require.NoError(t, err)
-			test.verify(t, s)
+			test.verify(t, state)
 		})
 	}
 }
 
 func TestState_ApplyAnswer_Status(t *testing.T) {
 	tests := []struct {
-		name   string
-		puzzle *Puzzle
-		setup  map[string]string // initial answers applied before the desired answer
-		clue   string
-		answer string
-		verify func(*testing.T, *State)
+		name     string
+		filename string
+		setup    map[string]string // initial answers applied before the desired answer
+		clue     string
+		answer   string
+		verify   func(*testing.T, State)
 	}{
 		{
-			name:   "single answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			name:     "single answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "Q AND A",
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, model.StatusSolving, state.Status)
 			},
 		},
 		{
-			name:   "complete and correct puzzle",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "complete and correct puzzle",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"6a":  "ATTIC",
 				"11a": "HON",
@@ -462,13 +462,13 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 			},
 			clue:   "1a",
 			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, model.StatusComplete, state.Status)
 			},
 		},
 		{
-			name:   "complete and incorrect puzzle",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "complete and incorrect puzzle",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"6a":  "XXXXX",
 				"11a": "XXX",
@@ -503,7 +503,7 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 			},
 			clue:   "1a",
 			answer: "Q AND A",
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, model.StatusSolving, state.Status)
 			},
 		},
@@ -511,67 +511,69 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(test.puzzle)
+			state := NewState(t, test.filename)
+			state.Status = model.StatusSolving
+
 			for clue, answer := range test.setup {
-				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+				require.NoError(t, state.ApplyAnswer(clue, answer, false))
 			}
 
-			err := s.ApplyAnswer(test.clue, test.answer, false)
+			err := state.ApplyAnswer(test.clue, test.answer, false)
 			require.NoError(t, err)
-			test.verify(t, s)
+			test.verify(t, state)
 		})
 	}
 }
 
 func TestState_ApplyAnswer_Error(t *testing.T) {
 	tests := []struct {
-		name   string
-		puzzle *Puzzle
-		clue   string
-		answer string
+		name     string
+		filename string
+		clue     string
+		answer   string
 	}{
 		{
-			name:   "bad clue",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "xyz",
-			answer: "ABC",
+			name:     "bad clue",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "xyz",
+			answer:   "ABC",
 		},
 		{
-			name:   "invalid clue",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "199a",
-			answer: "ABC",
+			name:     "invalid clue",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "199a",
+			answer:   "ABC",
 		},
 		{
-			name:   "bad answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: ")Q AND A",
+			name:     "bad answer",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   ")Q AND A",
 		},
 		{
-			name:   "answer too short",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "ABC",
+			name:     "answer too short",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "ABC",
 		},
 		{
-			name:   "answer too long",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+			name:     "answer too long",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
 		},
 		{
-			name:   "answer too short (rebus)",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
-			clue:   "1a",
-			answer: "(Q AND A)",
+			name:     "answer too short (rebus)",
+			filename: "xwordinfo-nyt-20181231.json",
+			clue:     "1a",
+			answer:   "(Q AND A)",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(test.puzzle)
-			err := s.ApplyAnswer(test.clue, test.answer, false)
+			state := NewState(t, test.filename)
+			err := state.ApplyAnswer(test.clue, test.answer, false)
 			assert.Error(t, err)
 		})
 	}
@@ -579,18 +581,18 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 
 func TestState_ClearIncorrectCells(t *testing.T) {
 	tests := []struct {
-		name   string
-		puzzle *Puzzle
-		setup  map[string]string
-		verify func(*testing.T, *State)
+		name     string
+		filename string
+		setup    map[string]string
+		verify   func(*testing.T, State)
 	}{
 		{
-			name:   "correct across answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "correct across answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "QANDA",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "A", state.Cells[0][1])
 				assert.Equal(t, "N", state.Cells[0][2])
@@ -600,12 +602,12 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 			},
 		},
 		{
-			name:   "correct down answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "correct down answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1d": "QTIP",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "T", state.Cells[1][0])
 				assert.Equal(t, "I", state.Cells[2][0])
@@ -614,12 +616,12 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 			},
 		},
 		{
-			name:   "partially incorrect across answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "partially incorrect across answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "QNORA",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "", state.Cells[0][1])
 				assert.Equal(t, "", state.Cells[0][2])
@@ -629,12 +631,12 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 			},
 		},
 		{
-			name:   "partially incorrect down answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "partially incorrect down answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1d": "QTOP",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "Q", state.Cells[0][0])
 				assert.Equal(t, "T", state.Cells[1][0])
 				assert.Equal(t, "", state.Cells[2][0])
@@ -643,12 +645,12 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 			},
 		},
 		{
-			name:   "completely incorrect across answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "completely incorrect across answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "XXXXX",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "", state.Cells[0][0])
 				assert.Equal(t, "", state.Cells[0][1])
 				assert.Equal(t, "", state.Cells[0][2])
@@ -658,12 +660,12 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 			},
 		},
 		{
-			name:   "completely incorrect down answer",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "completely incorrect down answer",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1d": "XXXX",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.Equal(t, "", state.Cells[0][0])
 				assert.Equal(t, "", state.Cells[1][0])
 				assert.Equal(t, "", state.Cells[2][0])
@@ -672,24 +674,24 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 			},
 		},
 		{
-			name:   "incorrect across answer clears completed down clue",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "incorrect across answer clears completed down clue",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "XXXXX",
 				"1d": "XTIP",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.False(t, state.DownCluesFilled[1])
 			},
 		},
 		{
-			name:   "incorrect down answer clears completed across clue",
-			puzzle: LoadTestPuzzle(t, "xwordinfo-nyt-20181231.json"),
+			name:     "incorrect down answer clears completed across clue",
+			filename: "xwordinfo-nyt-20181231.json",
 			setup: map[string]string{
 				"1a": "XANDA",
 				"1d": "XXXX",
 			},
-			verify: func(t *testing.T, state *State) {
+			verify: func(t *testing.T, state State) {
 				assert.False(t, state.AcrossCluesFilled[1])
 			},
 		},
@@ -697,14 +699,14 @@ func TestState_ClearIncorrectCells(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := newState(test.puzzle)
+			state := NewState(t, test.filename)
 			for clue, answer := range test.setup {
-				require.NoError(t, s.ApplyAnswer(clue, answer, false))
+				require.NoError(t, state.ApplyAnswer(clue, answer, false))
 			}
 
-			err := s.ClearIncorrectCells()
+			err := state.ClearIncorrectCells()
 			assert.NoError(t, err)
-			test.verify(t, s)
+			test.verify(t, state)
 		})
 	}
 }
@@ -835,19 +837,4 @@ func TestParseAnswer_Error(t *testing.T) {
 			assert.Error(t, err)
 		})
 	}
-}
-
-func newState(puzzle *Puzzle) *State {
-	var s State
-	s.Puzzle = puzzle
-
-	for y := 0; y < s.Puzzle.Rows; y++ {
-		s.Cells = append(s.Cells, make([]string, s.Puzzle.Cols))
-	}
-
-	s.AcrossCluesFilled = make(map[int]bool)
-	s.DownCluesFilled = make(map[int]bool)
-	s.Status = model.StatusSolving
-
-	return &s
 }
