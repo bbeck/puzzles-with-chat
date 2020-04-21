@@ -831,7 +831,7 @@ func TestRoute_GetEvents(t *testing.T) {
 	state := NewState(t, "xwordinfo-nyt-20181231.json")
 	require.NoError(t, SetState(conn, Channel.name, state))
 
-	// Now reconnect to the stream and we should receive both the puzzle and the
+	// Now reconnect to the stream and we should receive both the settings and the
 	// channel's current state.
 	flush, stop := Channel.SSE("/events", router)
 	events = flush()

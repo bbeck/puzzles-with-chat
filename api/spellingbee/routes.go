@@ -23,6 +23,7 @@ func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub
 		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
 		r.Put("/status", ToggleStatus(pool, registry))
 		r.Post("/answer", AddAnswer(pool, registry))
+		r.Get("/events", GetEvents(pool, registry))
 	})
 }
 
@@ -93,7 +94,7 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
 
-		// Since there are multiple ways to specify which crossword to solve we'll
+		// Since there are multiple ways to specify which puzzle to solve we'll
 		// parse the payload into a generic map instead of a specific object.
 		var payload map[string]string
 		if err := render.DecodeJSON(r.Body, &payload); err != nil {
@@ -150,7 +151,7 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 	}
 }
 
-// UpdateSetting changes a specified crossword setting to a new value.
+// UpdateSetting changes a specified spelling bee setting to a new value.
 func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
@@ -191,7 +192,7 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 			settings.FontSize = value
 
 		default:
-			log.Printf("unrecognized crossword setting name %s", setting)
+			log.Printf("unrecognized spelling bee setting name %s", setting)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -397,5 +398,68 @@ func AddAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 				Payload: nil,
 			})
 		}
+	}
+}
+
+// GetEvents establishes an event stream with a client.  An event stream is
+// server side event stream (SSE) with a client's browser that allows one way
+// communication from the server to the client.  Clients that call into this
+// handler will keep an open connection open to the server waiting to receive
+// events as JSON objects.  The server can send events to all clients of a
+// channel using the pubsub.Registry's Publish method.
+func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+
+		// Construct the stream that all events for this particular client will be
+		// placed into.
+		stream := make(chan pubsub.Event, 10)
+		defer close(stream)
+
+		// Setup a connection to redis so that we can read settings and the current
+		// state of the solve.
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		// Always send the settings if there are any.
+		settings, err := GetSettings(conn, channel)
+		if err != nil {
+			log.Printf("unable to read settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		stream <- pubsub.Event{
+			Kind:    "settings",
+			Payload: settings,
+		}
+
+		// Send the current state of the solve if there is one, but make sure to
+		// mask the solution to the puzzle.
+		state, err := GetState(conn, channel)
+		if err != nil {
+			log.Printf("unable to read state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if state.Puzzle != nil {
+			state.Puzzle = state.Puzzle.WithoutAnswers()
+
+			stream <- pubsub.Event{
+				Kind:    "state",
+				Payload: state,
+			}
+		}
+
+		// Now that we've seeded the stream with the initialization events,
+		// subscribe it to receive all future events for the channel.
+		id, err := registry.Subscribe(pubsub.Channel(channel), stream)
+		defer registry.Unsubscribe(pubsub.Channel(channel), id)
+		if err != nil {
+			log.Printf("unable to subscribe client to channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		pubsub.EmitEvents(r.Context(), w, stream)
 	}
 }
