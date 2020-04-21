@@ -66,12 +66,12 @@ var MagicNumber = []byte("ACROSS&DOWN\000")
 // LoadFromEncodedPuzFile will base64 decode the input and then attempt to load
 // the resulting binary as a .puz file into a Puzzle object.
 func LoadFromEncodedPuzFile(encoded string) (*Puzzle, error) {
-	if testCachedPuzzle != nil {
-		return testCachedPuzzle, nil
+	if testPuzzle != nil {
+		return testPuzzle, nil
 	}
 
-	if testCachedError != nil {
-		return nil, testCachedError
+	if testPuzzleLoadError != nil {
+		return nil, testPuzzleLoadError
 	}
 
 	bs, err := base64.StdEncoding.DecodeString(encoded)
@@ -89,12 +89,12 @@ func LoadFromEncodedPuzFile(encoded string) (*Puzzle, error) {
 // If the URL cannot be retrieved or the puzzle parsed then an error is
 // returned.
 func LoadFromPuzFileURL(url string) (*Puzzle, error) {
-	if testCachedPuzzle != nil {
-		return testCachedPuzzle, nil
+	if testPuzzle != nil {
+		return testPuzzle, nil
 	}
 
-	if testCachedError != nil {
-		return nil, testCachedError
+	if testPuzzleLoadError != nil {
+		return nil, testPuzzleLoadError
 	}
 
 	// First, download the .puz file from the URL.

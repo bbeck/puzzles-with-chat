@@ -74,6 +74,36 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.ElementsMatch(t, []string{Channel.name}, events[0].Payload)
 }
 
+func TestRoute_GetChannels_Error(t *testing.T) {
+	tests := []struct {
+		name                  string
+		loadChannelNamesError error
+	}{
+		{
+			name:                  "error loading channel names",
+			loadChannelNamesError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			// Start a puzzle in the channel.
+			state := NewState(t, "xwordinfo-nyt-20181231.json")
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringChannelNameLoad(t, test.loadChannelNamesError)
+
+			// This won't start a background goroutine to send events because the
+			// request will fail before reaching that part of the code.
+			response := Global.GET("/channels", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 func TestRoute_UpdateSetting(t *testing.T) {
 	// This acts as a small integration test updating each setting in turn and
 	// making sure the proper value is written to the database and that clients
@@ -137,7 +167,7 @@ func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateSetting_Error(t *testing.T) {
+func TestRoute_UpdateSetting_JSONError(t *testing.T) {
 	tests := []struct {
 		name    string
 		setting string
@@ -175,6 +205,52 @@ func TestRoute_UpdateSetting_Error(t *testing.T) {
 			router, _, _ := NewTestRouter(t)
 
 			response := Channel.PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
+func TestRoute_UpdateSettings_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name                   string
+		forceSettingsLoadError error
+		forceSettingsSaveError error
+		forceStateLoadError    error
+		forceStateSaveError    error
+	}{
+		{
+			name:                   "error loading settings",
+			forceSettingsLoadError: errors.New("forced error"),
+		},
+		{
+			name:                   "error saving settings",
+			forceSettingsSaveError: errors.New("forced error"),
+		},
+		{
+			name:                "error loading state",
+			forceStateLoadError: errors.New("forced error"),
+		},
+		{
+			name:                "error saving state",
+			forceStateSaveError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20181231.json")
+			state.Status = model.StatusSolving
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.forceSettingsLoadError)
+			ForceErrorDuringSettingsSave(t, test.forceSettingsSaveError)
+			ForceErrorDuringStateLoad(t, test.forceStateLoadError)
+			ForceErrorDuringStateSave(t, test.forceStateSaveError)
+
+			response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
 			assert.NotEqual(t, http.StatusOK, response.Code)
 		})
 	}
@@ -268,55 +344,88 @@ func TestRoute_UpdatePuzzle_PuzURL(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdatePuzzle_Error(t *testing.T) {
+func TestRoute_UpdatePuzzle_JSONError(t *testing.T) {
 	tests := []struct {
-		name        string
-		payload     string
-		forcedError error
-		expected    int
+		name     string
+		json     string
+		expected int
 	}{
 		{
 			name:     "bad json",
-			payload:  `{"new_york_times_date": }`,
+			json:     `{"new_york_times_date": }`,
 			expected: http.StatusBadRequest,
 		},
 		{
 			name:     "invalid json",
-			payload:  `{}`,
+			json:     `{}`,
 			expected: http.StatusBadRequest,
-		},
-		{
-			name:        "nyt error",
-			payload:     `{"new_york_times_date": "bad"}`,
-			forcedError: errors.New("forced error"),
-			expected:    http.StatusInternalServerError,
-		},
-		{
-			name:        "wsj error",
-			payload:     `{"wall_street_journal_date": "bad"}`,
-			forcedError: errors.New("forced error"),
-			expected:    http.StatusInternalServerError,
-		},
-		{
-			name:        "puz bytes error",
-			payload:     `{"puz_file_bytes": "bad"}`,
-			forcedError: errors.New("forced error"),
-			expected:    http.StatusInternalServerError,
-		},
-		{
-			name:        "puz url error",
-			payload:     `{"puz_file_url": "bad"}`,
-			forcedError: errors.New("forced error"),
-			expected:    http.StatusInternalServerError,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			router, _, _ := NewTestRouter(t)
-			ForceErrorDuringLoad(t, test.forcedError)
+			ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
 
-			response := Channel.PUT("/", test.payload, router)
+			response := Channel.PUT("/", test.json, router)
+			assert.Equal(t, test.expected, response.Code)
+		})
+	}
+}
+
+func TestRoute_UpdatePuzzle_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name                 string
+		json                 string
+		forcePuzzleLoadError error
+		forceStateSaveError  error
+		expected             int
+	}{
+		{
+			name:                 "nyt error loading puzzle",
+			json:                 `{"new_york_times_date": "unused"}`,
+			forcePuzzleLoadError: errors.New("forced error"),
+			expected:             http.StatusInternalServerError,
+		},
+		{
+			name:                 "wsj error loading puzzle",
+			json:                 `{"wall_street_journal_date": "unused"}`,
+			forcePuzzleLoadError: errors.New("forced error"),
+			expected:             http.StatusInternalServerError,
+		},
+		{
+			name:                 "puz bytes error loading puzzle",
+			json:                 `{"puz_file_bytes": "unused"}`,
+			forcePuzzleLoadError: errors.New("forced error"),
+			expected:             http.StatusInternalServerError,
+		},
+		{
+			name:                 "puz url error loading puzzle",
+			json:                 `{"puz_file_url": "unused"}`,
+			forcePuzzleLoadError: errors.New("forced error"),
+			expected:             http.StatusInternalServerError,
+		},
+		{
+			name:                "error saving state",
+			json:                `{"new_york_times_date": "unused"}`,
+			forceStateSaveError: errors.New("forced error"),
+			expected:            http.StatusInternalServerError,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, _, _ := NewTestRouter(t)
+
+			if test.forcePuzzleLoadError != nil {
+				ForceErrorDuringPuzzleLoad(t, test.forcePuzzleLoadError)
+			} else {
+				ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20181231.json")
+			}
+
+			ForceErrorDuringStateSave(t, test.forceStateSaveError)
+
+			response := Channel.PUT("/", test.json, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -373,6 +482,52 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	state, err := GetState(conn, "channel")
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusComplete, state.Status)
+}
+
+func TestRoute_ToggleStatus_Error(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialStatus  model.Status
+		loadStateError error
+		saveStateError error
+	}{
+		{
+			name:          "status created",
+			initialStatus: model.StatusCreated,
+		},
+		{
+			name:           "error loading state",
+			initialStatus:  model.StatusSelected,
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			initialStatus:  model.StatusSelected,
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20181231.json")
+			state.Status = test.initialStatus
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			if test.loadStateError != nil {
+				ForceErrorDuringStateLoad(t, test.loadStateError)
+			}
+
+			if test.saveStateError != nil {
+				ForceErrorDuringStateSave(t, test.saveStateError)
+			}
+
+			response := Channel.PUT("/status", "", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
 }
 
 func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
@@ -581,6 +736,46 @@ func TestRoute_UpdateAnswer_Error(t *testing.T) {
 	}
 }
 
+func TestRoute_UpdateAnswer_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name              string
+		loadSettingsError error
+		loadStateError    error
+		saveStateError    error
+	}{
+		{
+			name:              "error loading settings",
+			loadSettingsError: errors.New("forced error"),
+		},
+		{
+			name:           "error loading state",
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20181231.json")
+			state.Status = model.StatusSolving
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.loadSettingsError)
+			ForceErrorDuringStateLoad(t, test.loadStateError)
+			ForceErrorDuringStateSave(t, test.saveStateError)
+
+			response := Channel.PUT("/answer/1a", `"QANDA"`, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 func TestRoute_ShowClue(t *testing.T) {
 	// This acts as a small integration test requesting clues to be shown and
 	// making sure events are properly emitted.
@@ -671,6 +866,41 @@ func TestRoute_GetEvents(t *testing.T) {
 	// Disconnect, there shouldn't be any events anymore.
 	events = stop()
 	assert.Equal(t, 0, len(events))
+}
+
+func TestRoute_GetEvents_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name                   string
+		forceSettingsLoadError error
+		forceStateLoadError    error
+	}{
+		{
+			name:                   "error loading settings",
+			forceSettingsLoadError: errors.New("forced error"),
+		},
+		{
+			name:                "error loading state",
+			forceStateLoadError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20181231.json")
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.forceSettingsLoadError)
+			ForceErrorDuringStateLoad(t, test.forceStateLoadError)
+
+			// This won't start a background goroutine to send events because the
+			// request will fail before reaching that part of the code.
+			response := Channel.GET("/events", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
 }
 
 // VerifySettings performs test specific verifications on the settings objects

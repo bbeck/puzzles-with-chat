@@ -25,12 +25,12 @@ var XWordInfoHeaders = map[string]string{
 //
 // If the puzzle cannot be loaded or parsed then an error is returned.
 func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
-	if testCachedPuzzle != nil {
-		return testCachedPuzzle, nil
+	if testPuzzle != nil {
+		return testPuzzle, nil
 	}
 
-	if testCachedError != nil {
-		return nil, testCachedError
+	if testPuzzleLoadError != nil {
+		return nil, testPuzzleLoadError
 	}
 
 	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/Data.aspx?date=%s", date)
