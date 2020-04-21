@@ -82,6 +82,40 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.ElementsMatch(t, []string{Channel.name}, events[0].Payload)
 }
 
+func TestRoute_GetChannels_Error(t *testing.T) {
+	tests := []struct {
+		name                  string
+		loadChannelNamesError error
+	}{
+		{
+			name:                  "error loading channel names",
+			loadChannelNamesError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			// Start a puzzle in the channel.
+			state := State{
+				Status: model.StatusSolving,
+				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+				Words:  []string{},
+			}
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringChannelNameLoad(t, test.loadChannelNamesError)
+
+			// This won't start a background goroutine to send events because the
+			// request will fail before reaching that part of the code.
+			response := Global.GET("/channels", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 func TestRoute_UpdatePuzzle_NYTBee(t *testing.T) {
 	// This acts as a small integration test updating the date of the NYTBee
 	// puzzle we're working on and ensuring the proper values are written
@@ -104,35 +138,55 @@ func TestRoute_UpdatePuzzle_NYTBee(t *testing.T) {
 
 func TestRoute_UpdatePuzzle_Error(t *testing.T) {
 	tests := []struct {
-		name        string
-		payload     string
-		forcedError error
-		expected    int
+		name                  string
+		json                  string
+		forcedPuzzleLoadError error
+		forcedStateSaveError  error
+		expected              int
 	}{
 		{
-			name:     "bad json",
-			payload:  `{"nytbee": }`,
-			expected: http.StatusBadRequest,
+			name:                  "bad json",
+			json:                  `{"nytbee": }`,
+			forcedPuzzleLoadError: nil,
+			forcedStateSaveError:  nil,
+			expected:              http.StatusBadRequest,
 		},
 		{
-			name:     "invalid json",
-			payload:  `{}`,
-			expected: http.StatusBadRequest,
+			name:                  "invalid json",
+			json:                  `{}`,
+			forcedPuzzleLoadError: nil,
+			forcedStateSaveError:  nil,
+			expected:              http.StatusBadRequest,
 		},
 		{
-			name:        "nytbee error",
-			payload:     `{"nytbee": "bad"}`,
-			forcedError: errors.New("forced error"),
-			expected:    http.StatusInternalServerError,
+			name:                  "nytbee error loading puzzle",
+			json:                  `{"nytbee": "bad"}`,
+			forcedPuzzleLoadError: errors.New("forced error"),
+			forcedStateSaveError:  nil,
+			expected:              http.StatusInternalServerError,
+		},
+		{
+			name:                  "error saving state",
+			json:                  `{"nytbee": "bad"}`,
+			forcedPuzzleLoadError: nil,
+			forcedStateSaveError:  errors.New("forced error"),
+			expected:              http.StatusInternalServerError,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			router, _, _ := NewTestRouter(t)
-			ForceErrorDuringLoad(t, test.forcedError)
 
-			response := Channel.PUT("/", test.payload, router)
+			if test.forcedPuzzleLoadError != nil {
+				ForceErrorDuringPuzzleLoad(t, test.forcedPuzzleLoadError)
+			} else {
+				ForcePuzzleToBeLoaded(t, "nytbee-20200408.html")
+			}
+
+			ForceErrorDuringStateSave(t, test.forcedStateSaveError)
+
+			response := Channel.PUT("/", test.json, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -188,7 +242,7 @@ func TestRoute_UpdateSetting_ClearsUnofficialAnswers(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdateSetting_Error(t *testing.T) {
+func TestRoute_UpdateSetting_JSONError(t *testing.T) {
 	tests := []struct {
 		name    string
 		setting string
@@ -216,6 +270,54 @@ func TestRoute_UpdateSetting_Error(t *testing.T) {
 			router, _, _ := NewTestRouter(t)
 
 			response := Channel.PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
+func TestRoute_UpdateSetting_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name              string
+		loadSettingsError error
+		saveSettingsError error
+		loadStateError    error
+		saveStateError    error
+	}{
+		{
+			name:              "error loading settings",
+			loadSettingsError: errors.New("forced error"),
+		},
+		{
+			name:              "error saving settings",
+			saveSettingsError: errors.New("forced error"),
+		},
+		{
+			name:           "error loading state",
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := State{
+				Status: model.StatusSolving,
+				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			}
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.loadSettingsError)
+			ForceErrorDuringSettingsSave(t, test.saveSettingsError)
+			ForceErrorDuringStateLoad(t, test.loadStateError)
+			ForceErrorDuringStateSave(t, test.saveStateError)
+
+			response := Channel.PUT(fmt.Sprintf("/setting/%s", "allow_unofficial_answers"), "false", router)
 			assert.NotEqual(t, http.StatusOK, response.Code)
 		})
 	}
@@ -277,6 +379,54 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	state, err = GetState(conn, "channel")
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusComplete, state.Status)
+}
+
+func TestRoute_ToggleStatus_Error(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialStatus  model.Status
+		loadStateError error
+		saveStateError error
+	}{
+		{
+			name:          "status created",
+			initialStatus: model.StatusCreated,
+		},
+		{
+			name:           "error loading state",
+			initialStatus:  model.StatusSelected,
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			initialStatus:  model.StatusSelected,
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := State{
+				Status: test.initialStatus,
+				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			}
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			if test.loadStateError != nil {
+				ForceErrorDuringStateLoad(t, test.loadStateError)
+			}
+
+			if test.saveStateError != nil {
+				ForceErrorDuringStateSave(t, test.saveStateError)
+			}
+
+			response := Channel.PUT("/status", "", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
 }
 
 func TestRoute_AddAnswer_NoUnofficialAnswers(t *testing.T) {
@@ -469,6 +619,48 @@ func TestRoute_AddAnswer_Error(t *testing.T) {
 
 			response := Channel.POST("/answer", test.json, router)
 			assert.Equal(t, test.expected, response.Code)
+		})
+	}
+}
+
+func TestRoute_AddAnswer_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name              string
+		loadSettingsError error
+		loadStateError    error
+		saveStateError    error
+	}{
+		{
+			name:              "error loading settings",
+			loadSettingsError: errors.New("forced error"),
+		},
+		{
+			name:           "error loading state",
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := State{
+				Status: model.StatusSolving,
+				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			}
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.loadSettingsError)
+			ForceErrorDuringStateLoad(t, test.loadStateError)
+			ForceErrorDuringStateSave(t, test.saveStateError)
+
+			response := Channel.POST("/answer", `"COCONUT"`, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
 		})
 	}
 }

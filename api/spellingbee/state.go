@@ -123,6 +123,11 @@ var StateTTL = 4 * time.Hour
 // is automatically updated.
 func GetState(conn redis.Conn, channel string) (State, error) {
 	var state State
+
+	if testStateLoadError != nil {
+		return state, testStateLoadError
+	}
+
 	err := db.GetWithTTLRefresh(conn, StateKey(channel), &state, StateTTL)
 	return state, err
 }
@@ -130,6 +135,10 @@ func GetState(conn redis.Conn, channel string) (State, error) {
 // SetState writes the state for a channel's spelling bee solve to redis.  If
 // the state can't be property written then an error will be returned.
 func SetState(conn redis.Conn, channel string, state State) error {
+	if testStateSaveError != nil {
+		return testStateSaveError
+	}
+
 	return db.SetWithTTL(conn, StateKey(channel), state, StateTTL)
 }
 
@@ -137,9 +146,13 @@ func SetState(conn redis.Conn, channel string, state State) error {
 // a state present in redis.  If there are no channels then an empty slice is
 // returned.  This method does not update the expiration times of any state.
 func GetChannelNamesWithState(conn redis.Conn) ([]string, error) {
-	keys, err := db.ScanKeys(conn, StateKey("*"))
-
 	channels := make([]string, 0)
+
+	if testChannelNamesLoadError != nil {
+		return channels, testChannelNamesLoadError
+	}
+
+	keys, err := db.ScanKeys(conn, StateKey("*"))
 	for _, key := range keys {
 		channels = append(channels, strings.Replace(key, StateKey(""), "", 1))
 	}

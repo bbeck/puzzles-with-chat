@@ -19,12 +19,12 @@ import (
 // If the puzzle cannot be loaded or the HTML properly parsed then an error is
 // returned.
 func LoadFromNYTBee(date string) (*Puzzle, error) {
-	if testCachedPuzzle != nil {
-		return testCachedPuzzle, nil
+	if testPuzzle != nil {
+		return testPuzzle, nil
 	}
 
-	if testCachedError != nil {
-		return nil, testCachedError
+	if testPuzzleLoadError != nil {
+		return nil, testPuzzleLoadError
 	}
 
 	published, err := time.Parse("2006-01-02", date)
