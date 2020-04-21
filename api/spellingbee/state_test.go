@@ -10,7 +10,7 @@ import (
 func TestState_ApplyAnswer_Words(t *testing.T) {
 	tests := []struct {
 		name            string
-		puzzle          *Puzzle
+		filename        string
 		initialWords    []string
 		answer          string
 		allowUnofficial bool
@@ -18,26 +18,26 @@ func TestState_ApplyAnswer_Words(t *testing.T) {
 	}{
 		{
 			name:          "answer from official list",
-			puzzle:        LoadTestPuzzle(t, "nytbee-20200408.html"),
+			filename:      "nytbee-20200408.html",
 			answer:        "COCONUT",
 			expectedWords: []string{"COCONUT"},
 		},
 		{
 			name:            "answer from unofficial list",
-			puzzle:          LoadTestPuzzle(t, "nytbee-20200408.html"),
+			filename:        "nytbee-20200408.html",
 			answer:          "CONCOCTOR",
 			allowUnofficial: true,
 			expectedWords:   []string{"CONCOCTOR"},
 		},
 		{
 			name:          "lowercase answer",
-			puzzle:        LoadTestPuzzle(t, "nytbee-20200408.html"),
+			filename:      "nytbee-20200408.html",
 			answer:        "coconut",
 			expectedWords: []string{"COCONUT"},
 		},
 		{
 			name:          "words stay sorted",
-			puzzle:        LoadTestPuzzle(t, "nytbee-20200408.html"),
+			filename:      "nytbee-20200408.html",
 			initialWords:  []string{"COUNTY", "CROUTON"},
 			answer:        "COURT",
 			expectedWords: []string{"COUNTY", "COURT", "CROUTON"},
@@ -46,10 +46,8 @@ func TestState_ApplyAnswer_Words(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			state := newState(test.puzzle)
-			for _, word := range test.initialWords {
-				state.Words = append(state.Words, word)
-			}
+			state := NewState(t, test.filename)
+			state.Words = test.initialWords
 
 			err := state.ApplyAnswer(test.answer, test.allowUnofficial)
 			require.NoError(t, err)
@@ -61,20 +59,20 @@ func TestState_ApplyAnswer_Words(t *testing.T) {
 func TestState_ApplyAnswer_Status(t *testing.T) {
 	tests := []struct {
 		name            string
-		puzzle          *Puzzle
+		filename        string
 		answers         []string
 		allowUnofficial bool
 		expectedStatus  model.Status
 	}{
 		{
 			name:           "single answer",
-			puzzle:         LoadTestPuzzle(t, "nytbee-20200408.html"),
+			filename:       "nytbee-20200408.html",
 			answers:        []string{"COCONUT"},
 			expectedStatus: model.StatusSolving,
 		},
 		{
-			name:   "all official answers (unofficial not allowed)",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "all official answers (unofficial not allowed)",
+			filename: "nytbee-20200408.html",
 			answers: []string{
 				"COCONUT",
 				"CONCOCT",
@@ -129,8 +127,8 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 			expectedStatus:  model.StatusComplete,
 		},
 		{
-			name:   "all official answers (unofficial allowed)",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "all official answers (unofficial allowed)",
+			filename: "nytbee-20200408.html",
 			answers: []string{
 				"COCONUT",
 				"CONCOCT",
@@ -185,8 +183,8 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 			expectedStatus:  model.StatusSolving,
 		},
 		{
-			name:   "all answers (unofficial allowed)",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "all answers (unofficial allowed)",
+			filename: "nytbee-20200408.html",
 			answers: []string{
 				"COCONUT",
 				"CONCOCT",
@@ -282,7 +280,9 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			state := newState(test.puzzle)
+			state := NewState(t, test.filename)
+			state.Status = model.StatusSolving
+
 			for _, answer := range test.answers {
 				require.NoError(t, state.ApplyAnswer(answer, test.allowUnofficial))
 			}
@@ -295,35 +295,35 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 func TestState_ApplyAnswer_Error(t *testing.T) {
 	tests := []struct {
 		name            string
-		puzzle          *Puzzle
+		filename        string
 		initialWords    []string
 		answer          string
 		allowUnofficial bool
 	}{
 		{
-			name:   "not allowed letter",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-			answer: "WXYZ",
+			name:     "not allowed letter",
+			filename: "nytbee-20200408.html",
+			answer:   "WXYZ",
 		},
 		{
 			name:         "already given answer",
-			puzzle:       LoadTestPuzzle(t, "nytbee-20200408.html"),
+			filename:     "nytbee-20200408.html",
 			initialWords: []string{"COCONUT"},
 			answer:       "COCONUT",
 		},
 		{
-			name:   "answer not in official list",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-			answer: "CONCOCTOR",
+			name:     "answer not in official list",
+			filename: "nytbee-20200408.html",
+			answer:   "CONCOCTOR",
 		},
 		{
-			name:   "answer from unofficial list, not allowed",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-			answer: "CONCOCTOR",
+			name:     "answer from unofficial list, not allowed",
+			filename: "nytbee-20200408.html",
+			answer:   "CONCOCTOR",
 		},
 		{
 			name:            "answer not in either list",
-			puzzle:          LoadTestPuzzle(t, "nytbee-20200408.html"),
+			filename:        "nytbee-20200408.html",
 			answer:          "CCCC",
 			allowUnofficial: true,
 		},
@@ -331,10 +331,8 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			state := newState(test.puzzle)
-			for _, word := range test.initialWords {
-				state.Words = append(state.Words, word)
-			}
+			state := NewState(t, test.filename)
+			state.Words = test.initialWords
 
 			err := state.ApplyAnswer(test.answer, test.allowUnofficial)
 			assert.Error(t, err)
@@ -345,17 +343,17 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 func TestState_ClearUnofficialAnswers(t *testing.T) {
 	tests := []struct {
 		name     string
-		puzzle   *Puzzle
+		filename string
 		answers  []string // The answers already given
 		expected []string // The expected answers
 	}{
 		{
-			name:   "no answers",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "no answers",
+			filename: "nytbee-20200408.html",
 		},
 		{
-			name:   "no unofficial answers",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "no unofficial answers",
+			filename: "nytbee-20200408.html",
 			answers: []string{
 				"COCONUT",
 				"CONCOCT",
@@ -366,23 +364,23 @@ func TestState_ClearUnofficialAnswers(t *testing.T) {
 			},
 		},
 		{
-			name:   "one unofficial answer",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "one unofficial answer",
+			filename: "nytbee-20200408.html",
 			answers: []string{
 				"CONCOCTOR",
 			},
 		},
 		{
-			name:   "multiple unofficial answers",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "multiple unofficial answers",
+			filename: "nytbee-20200408.html",
 			answers: []string{
 				"CONCOCTOR",
 				"CONTO",
 			},
 		},
 		{
-			name:   "mixed unofficial answers",
-			puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
+			name:     "mixed unofficial answers",
+			filename: "nytbee-20200408.html",
 			answers: []string{
 				"COCONUT",
 				"CONCOCT",
@@ -398,20 +396,12 @@ func TestState_ClearUnofficialAnswers(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			state := newState(test.puzzle)
+			state := NewState(t, test.filename)
 			state.Words = test.answers
 
 			state.ClearUnofficialAnswers()
 
 			assert.ElementsMatch(t, test.expected, state.Words)
 		})
-	}
-}
-
-func newState(puzzle *Puzzle) *State {
-	return &State{
-		Status: model.StatusSolving,
-		Puzzle: puzzle,
-		Words:  make([]string, 0),
 	}
 }

@@ -41,11 +41,8 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.Empty(t, events[0].Payload)
 
 	// Start a puzzle in the first channel.
-	state := State{
-		Status: model.StatusSolving,
-		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-		Words:  []string{},
-	}
+	state := NewState(t, "nytbee-20200408.html")
+	state.Status = model.StatusSolving
 	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Now reconnect to the stream and we should receive one active channel.
@@ -56,11 +53,6 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.ElementsMatch(t, []string{Channel.name}, events[0].Payload)
 
 	// Start a puzzle on another channel.
-	state = State{
-		Status: model.StatusSolving,
-		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-		Words:  []string{},
-	}
 	require.NoError(t, SetState(conn, "channel2", state))
 
 	// Now we expect there to be 2 channels in the stream.
@@ -99,11 +91,8 @@ func TestRoute_GetChannels_Error(t *testing.T) {
 			conn := NewRedisConnection(t, pool)
 
 			// Start a puzzle in the channel.
-			state := State{
-				Status: model.StatusSolving,
-				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-				Words:  []string{},
-			}
+			state := NewState(t, "nytbee-20200408.html")
+			state.Status = model.StatusSolving
 			require.NoError(t, SetState(conn, Channel.name, state))
 
 			ForceErrorDuringChannelNameLoad(t, test.loadChannelNamesError)
@@ -136,38 +125,49 @@ func TestRoute_UpdatePuzzle_NYTBee(t *testing.T) {
 	})
 }
 
-func TestRoute_UpdatePuzzle_Error(t *testing.T) {
+func TestRoute_UpdatePuzzle_JSONError(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected int
+	}{
+		{
+			name:     "bad json",
+			json:     `{"nytbee": }`,
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "invalid json",
+			json:     `{}`,
+			expected: http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, _, _ := NewTestRouter(t)
+			ForcePuzzleToBeLoaded(t, "nytbee-20200408.html")
+
+			response := Channel.PUT("/", test.json, router)
+			assert.Equal(t, test.expected, response.Code)
+		})
+	}
+}
+
+func TestRoute_UpdatePuzzle_LoadSaveError(t *testing.T) {
 	tests := []struct {
 		name                  string
-		json                  string
 		forcedPuzzleLoadError error
 		forcedStateSaveError  error
 		expected              int
 	}{
 		{
-			name:                  "bad json",
-			json:                  `{"nytbee": }`,
-			forcedPuzzleLoadError: nil,
-			forcedStateSaveError:  nil,
-			expected:              http.StatusBadRequest,
-		},
-		{
-			name:                  "invalid json",
-			json:                  `{}`,
-			forcedPuzzleLoadError: nil,
-			forcedStateSaveError:  nil,
-			expected:              http.StatusBadRequest,
-		},
-		{
 			name:                  "nytbee error loading puzzle",
-			json:                  `{"nytbee": "bad"}`,
 			forcedPuzzleLoadError: errors.New("forced error"),
-			forcedStateSaveError:  nil,
 			expected:              http.StatusInternalServerError,
 		},
 		{
 			name:                  "error saving state",
-			json:                  `{"nytbee": "bad"}`,
 			forcedPuzzleLoadError: nil,
 			forcedStateSaveError:  errors.New("forced error"),
 			expected:              http.StatusInternalServerError,
@@ -186,7 +186,7 @@ func TestRoute_UpdatePuzzle_Error(t *testing.T) {
 
 			ForceErrorDuringStateSave(t, test.forcedStateSaveError)
 
-			response := Channel.PUT("/", test.json, router)
+			response := Channel.PUT("/", `{"nytbee": "ignored"}`, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -221,16 +221,9 @@ func TestRoute_UpdateSetting_ClearsUnofficialAnswers(t *testing.T) {
 	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Setup the state with some unofficial answers in it.
-	state := State{
-		Status: model.StatusSolving,
-		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-		Words: []string{
-			"COCONUT",
-			"CONCOCT",
-			"CONCOCTOR",
-			"CONTO",
-		},
-	}
+	state := NewState(t, "nytbee-20200408.html")
+	state.Status = model.StatusSolving
+	state.Words = []string{"COCONUT", "CONCOCT", "CONCOCTOR", "CONTO"}
 	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Set the AllowUnofficialAnswers setting to false
@@ -306,10 +299,8 @@ func TestRoute_UpdateSetting_LoadSaveError(t *testing.T) {
 			router, pool, _ := NewTestRouter(t)
 			conn := NewRedisConnection(t, pool)
 
-			state := State{
-				Status: model.StatusSolving,
-				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-			}
+			state := NewState(t, "nytbee-20200408.html")
+			state.Status = model.StatusSolving
 			require.NoError(t, SetState(conn, Channel.name, state))
 
 			ForceErrorDuringSettingsLoad(t, test.loadSettingsError)
@@ -330,11 +321,8 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	conn := NewRedisConnection(t, pool)
 	events := NewEventSubscription(t, registry, Channel.name)
 
-	// Start a puzzle on another channel in the selected state.
-	state := State{
-		Status: model.StatusSelected,
-		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-	}
+	// Start a puzzle in the selected state.
+	state := NewState(t, "nytbee-20200408.html")
 	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Toggle the status, it should transition to solving.
@@ -409,10 +397,8 @@ func TestRoute_ToggleStatus_Error(t *testing.T) {
 			router, pool, _ := NewTestRouter(t)
 			conn := NewRedisConnection(t, pool)
 
-			state := State{
-				Status: test.initialStatus,
-				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-			}
+			state := NewState(t, "nytbee-20200408.html")
+			state.Status = test.initialStatus
 			require.NoError(t, SetState(conn, Channel.name, state))
 
 			if test.loadStateError != nil {
@@ -436,10 +422,7 @@ func TestRoute_AddAnswer_NoUnofficialAnswers(t *testing.T) {
 	conn := NewRedisConnection(t, pool)
 	events := NewEventSubscription(t, registry, Channel.name)
 
-	state := State{
-		Status: model.StatusSelected,
-		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-	}
+	state := NewState(t, "nytbee-20200408.html")
 	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Apply a correct answer before the puzzle has been started, should get an
@@ -474,15 +457,11 @@ func TestRoute_AddAnswer_AllowUnofficialAnswers(t *testing.T) {
 	conn := NewRedisConnection(t, pool)
 	events := NewEventSubscription(t, registry, Channel.name)
 
-	settings := Settings{
-		AllowUnofficialAnswers: true,
-	}
+	settings := Settings{AllowUnofficialAnswers: true}
 	require.NoError(t, SetSettings(conn, Channel.name, settings))
 
-	state := State{
-		Status: model.StatusSolving,
-		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-	}
+	state := NewState(t, "nytbee-20200408.html")
+	state.Status = model.StatusSolving
 	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Applying an answer from the official list should succeed.
@@ -512,62 +491,57 @@ func TestRoute_AddAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	events := NewEventSubscription(t, registry, Channel.name)
 
 	// Set the state to have all of the words except for one.
-	now := time.Now()
-	state := State{
-		Status: model.StatusSolving,
-		Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-		Words: []string{
-			"CONCOCT",
-			"CONTORT",
-			"CONTOUR",
-			"COOT",
-			"COTTON",
-			"COTTONY",
-			"COUNT",
-			"COUNTRY",
-			"COUNTY",
-			"COURT",
-			"CROUTON",
-			"CURT",
-			"CUTOUT",
-			"NUTTY",
-			"ONTO",
-			"OUTCRY",
-			"OUTRO",
-			"OUTRUN",
-			"ROOT",
-			"ROTO",
-			"ROTOR",
-			"ROUT",
-			"RUNOUT",
-			"RUNT",
-			"RUNTY",
-			"RUTTY",
-			"TONY",
-			"TOON",
-			"TOOT",
-			"TORN",
-			"TORO",
-			"TORT",
-			"TOUR",
-			"TOUT",
-			"TROT",
-			"TROUT",
-			"TROY",
-			"TRYOUT",
-			"TURN",
-			"TURNOUT",
-			"TUTOR",
-			"TUTU",
-			"TYCOON",
-			"TYRO",
-			"UNCUT",
-			"UNTO",
-			"YURT",
-		},
-		LastStartTime: &now,
-	}
+	state := NewState(t, "nytbee-20200408.html")
+	state.Status = model.StatusSolving
+	state.ApplyAnswer("CONCOCT", false)
+	state.ApplyAnswer("CONTORT", false)
+	state.ApplyAnswer("CONTOUR", false)
+	state.ApplyAnswer("COOT", false)
+	state.ApplyAnswer("COTTON", false)
+	state.ApplyAnswer("COTTONY", false)
+	state.ApplyAnswer("COUNT", false)
+	state.ApplyAnswer("COUNTRY", false)
+	state.ApplyAnswer("COUNTY", false)
+	state.ApplyAnswer("COURT", false)
+	state.ApplyAnswer("CROUTON", false)
+	state.ApplyAnswer("CURT", false)
+	state.ApplyAnswer("CUTOUT", false)
+	state.ApplyAnswer("NUTTY", false)
+	state.ApplyAnswer("ONTO", false)
+	state.ApplyAnswer("OUTCRY", false)
+	state.ApplyAnswer("OUTRO", false)
+	state.ApplyAnswer("OUTRUN", false)
+	state.ApplyAnswer("ROOT", false)
+	state.ApplyAnswer("ROTO", false)
+	state.ApplyAnswer("ROTOR", false)
+	state.ApplyAnswer("ROUT", false)
+	state.ApplyAnswer("RUNOUT", false)
+	state.ApplyAnswer("RUNT", false)
+	state.ApplyAnswer("RUNTY", false)
+	state.ApplyAnswer("RUTTY", false)
+	state.ApplyAnswer("TONY", false)
+	state.ApplyAnswer("TOON", false)
+	state.ApplyAnswer("TOOT", false)
+	state.ApplyAnswer("TORN", false)
+	state.ApplyAnswer("TORO", false)
+	state.ApplyAnswer("TORT", false)
+	state.ApplyAnswer("TOUR", false)
+	state.ApplyAnswer("TOUT", false)
+	state.ApplyAnswer("TROT", false)
+	state.ApplyAnswer("TROUT", false)
+	state.ApplyAnswer("TROY", false)
+	state.ApplyAnswer("TRYOUT", false)
+	state.ApplyAnswer("TURN", false)
+	state.ApplyAnswer("TURNOUT", false)
+	state.ApplyAnswer("TUTOR", false)
+	state.ApplyAnswer("TUTU", false)
+	state.ApplyAnswer("TYCOON", false)
+	state.ApplyAnswer("TYRO", false)
+	state.ApplyAnswer("UNCUT", false)
+	state.ApplyAnswer("UNTO", false)
+	state.ApplyAnswer("YURT", false)
 	require.NoError(t, SetState(conn, Channel.name, state))
+	require.Equal(t, model.StatusSolving, state.Status)
 
 	// Apply the last answer, but wait a bit first to ensure that a non-zero
 	// amount of time has passed in the solve.
@@ -611,10 +585,8 @@ func TestRoute_AddAnswer_Error(t *testing.T) {
 			router, pool, _ := NewTestRouter(t)
 			conn := NewRedisConnection(t, pool)
 
-			state := State{
-				Status: model.StatusSolving,
-				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-			}
+			state := NewState(t, "nytbee-20200408.html")
+			state.Status = model.StatusSolving
 			require.NoError(t, SetState(conn, Channel.name, state))
 
 			response := Channel.POST("/answer", test.json, router)
@@ -649,10 +621,8 @@ func TestRoute_AddAnswer_LoadSaveError(t *testing.T) {
 			router, pool, _ := NewTestRouter(t)
 			conn := NewRedisConnection(t, pool)
 
-			state := State{
-				Status: model.StatusSolving,
-				Puzzle: LoadTestPuzzle(t, "nytbee-20200408.html"),
-			}
+			state := NewState(t, "nytbee-20200408.html")
+			state.Status = model.StatusSolving
 			require.NoError(t, SetState(conn, Channel.name, state))
 
 			ForceErrorDuringSettingsLoad(t, test.loadSettingsError)

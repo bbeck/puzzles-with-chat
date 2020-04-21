@@ -2,6 +2,7 @@ package spellingbee
 
 import (
 	"github.com/alicebob/miniredis"
+	"github.com/bbeck/twitch-plays-crosswords/api/model"
 	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
 	"github.com/go-chi/chi"
 	"github.com/gomodule/redigo/redis"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // A cached puzzle to use instead of fetching a puzzle.  This is used by test
@@ -170,4 +172,16 @@ func NewEventSubscription(t *testing.T, registry *pubsub.Registry, channel strin
 
 	t.Cleanup(func() { registry.Unsubscribe(pubsub.Channel(channel), id) })
 	return events
+}
+
+// NewState creates a new spelling bee puzzle state that has been properly
+// initialized with the puzzle corresponding to the provided filename.
+func NewState(t *testing.T, filename string) State {
+	now := time.Now()
+	return State{
+		Status:        model.StatusSelected,
+		Puzzle:        LoadTestPuzzle(t, filename),
+		Words:         make([]string, 0),
+		LastStartTime: &now,
+	}
 }
