@@ -1,9 +1,9 @@
 import React from "react";
 import "bootstrap/dist/js/bootstrap.bundle.min";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "./crossword.css";
+import "crossword/view.css";
 
-export function Crossword(props) {
+export default function CrosswordView(props) {
   const state = props.state;
   const puzzle = state && state.puzzle;
   if (!state || !puzzle) {

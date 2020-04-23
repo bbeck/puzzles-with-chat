@@ -1,33 +1,36 @@
 import React from "react";
 import {Router} from "@reach/router";
-import {Crossword} from "./crossword";
-import {EventStream} from "./event-stream";
-import {Fireworks} from "./fireworks";
-import {Nav} from "./nav";
+import EventStream from "event-stream";
+import Nav from "nav";
+import CrosswordApp from "crossword/app";
 
-function App() {
+export default function App() {
   return (
     <Router>
       <Home path="/"/>
-      <Channel path="/:channel/"/>
-      <Channel path="/:channel/:view"/>
+      <ChannelHome path="/:channel/"/>
+
+      <CrosswordApp path="/:channel/crossword/"/>
+      <CrosswordApp path="/:channel/crossword/:view"/>
+
+      {/* These routes are temporary redirects from old paths that are no longer valid. */}
+      <ChannelRedirect path="/:channel/progress" view="progress"/>
+      <ChannelRedirect path="/:channel/streamer" view="streamer"/>
     </Router>
   );
 }
 
 function Home() {
-  const [stream] = React.useState(
+  const [crosswords] = React.useState(
     new EventStream(`/api/crossword/channels`)
   );
-
-  const [channels, setChannels] = React.useState(null);
-
+  const [crosswordChannels, setCrosswordChannels] = React.useState(null);
   React.useEffect(() => {
-    stream.setHandler(message => {
+    crosswords.setHandler(message => {
       const event = JSON.parse(message.data);
       switch (event.kind) {
         case "channels":
-          setChannels(event.payload);
+          setCrosswordChannels(event.payload);
           break;
 
         case "ping":
@@ -37,7 +40,7 @@ function Home() {
           console.log("unhandled event:", event);
       }
     });
-  }, [stream, setChannels]);
+  }, [crosswords, setCrosswordChannels]);
 
   return (
     <div>
@@ -60,7 +63,12 @@ function Home() {
           you'll find a list of all of the solving sessions that are in
           progress. Please click through to the streamer you were looking for.
         </p>
-        <ActiveChannelList channels={channels}/>
+
+        <h6>Channels with active crosswords:</h6>
+        <ActiveChannelList channels={crosswordChannels} puzzle="crossword"/>
+
+        <hr className="my-4"/>
+
         <p>
           Questions? Comments? Feedback? Feel free to whisper @mistaeksweremade
           on Twitch.
@@ -80,10 +88,11 @@ function ActiveChannelList(props) {
     );
   }
 
+  const puzzle = props.puzzle;
   const links = [];
   for (let i = 0; i < channels.length; i++) {
     links.push(
-      <a className="list-group-item list-group-item-action" href={`/${channels[i]}`} key={channels[i]}>
+      <a className="list-group-item list-group-item-action" href={`/${channels[i]}/${puzzle}`} key={channels[i]}>
         {channels[i]}
       </a>
     );
@@ -96,72 +105,64 @@ function ActiveChannelList(props) {
   );
 }
 
-function Channel(props) {
-  const [stream] = React.useState(
-    new EventStream(`/api/crossword/${props.channel}/events`)
-  );
-
-  const [settings, setSettings] = React.useState({
-    clues_to_show: "all",
-    clue_font_size: "normal",
-    only_allow_correct_answers: false,
-    show_notes: false,
-  });
-
-  const [state, setState] = React.useState({});
-
-  const [showFireworks, setShowFireworks] = React.useState(false);
-
-  React.useEffect(() => {
-    stream.setHandler(message => {
-      const event = JSON.parse(message.data);
-      switch(event.kind) {
-        case "settings":
-          setSettings(event.payload);
-          break;
-
-        case "state":
-          // If we get a state update while watching the fireworks animation,
-          // then finish the show and start the new puzzle.
-          setShowFireworks(false);
-          setState(event.payload);
-          break;
-
-        case "show_clue":
-          // This is a bit of a hack since we just reach into the DOM to grab
-          // the clue element, but this is just presentation logic and not
-          // state, so trying to pull a reference to the clue element from deep
-          // within the component hierarchy is quite complicated and much uglier
-          // than this hack.
-          const clue = document.getElementById(event.payload);
-          if (clue !== null) {
-            clue.scrollIntoView();
-            clue.classList.add("shown");
-            setTimeout(() => clue.classList.remove("shown"), 2500);
-          }
-          break;
-
-        case "complete":
-          setShowFireworks(true);
-          setTimeout(() => setShowFireworks(false), 20000);
-          break;
-
-        case "ping":
-          break;
-
-        default:
-          console.log("unhandled event:", event);
-      }
-    });
-  }, [stream, setSettings, setState, setShowFireworks]);
+function ChannelHome(props) {
+  const channel = props.channel;
 
   return (
-    <React.Fragment>
-      <Nav channel={props.channel} view={props.view} settings={settings} status={state.status}/>
-      <Crossword view={props.view} state={state} settings={settings}/>
-      {showFireworks && <Fireworks/>}
-    </React.Fragment>
-  );
+    <div>
+      <Nav />
+      <div className="jumbotron">
+        <h2>Solve a crossword</h2>
+        <p>
+          Cooperatively solve a crossword puzzle from the New York Times, Wall
+          Street Journal, or another source using an uploaded .puz file.  Create
+          your own rules by deciding whether or not to allow incorrect answers
+          in the puzzle grid or to hide some or all of the clues.
+        </p>
+        <a className="btn btn-primary btn-lg" href={`${channel}/crossword`} role="button">
+          Start Solving
+        </a>
+        <hr className="my-4"/>
+        <h2>Solve a spelling bee</h2>
+        <p>
+          Cooperatively solve a spelling bee puzzle from the New York Times.
+          See how many words of length 4 or greater you and your chat can
+          discover from a collection of 7 letters.  Remember all words must use
+          the center letter.  Create your own rules by deciding whether or not
+          to only allow the words from the official New York Times dictionary or
+          to use a less restrictive dictionary.
+        </p>
+        <a className="btn btn-primary btn-lg" href={`${channel}/spellingbee`} role="button">
+          Start Solving
+        </a>
+      </div>
+    </div>
+  )
 }
 
-export default App;
+function ChannelRedirect(props) {
+  const channel = props.channel;
+  const view = props.view;
+
+  return (
+    <div>
+      <Nav/>
+      <div className="jumbotron">
+        <h2>URL paths have changed!</h2>
+        <p>
+          In order to accommodate multiple types of puzzles being solved the
+          URLs of this application have changed slightly. The URL you are
+          looking for has moved to:
+        </p>
+        <div className="alert alert-dark">
+          <a href={`/${channel}/crossword/${view}`}>
+            {document.location.origin}/{channel}/crossword/{view}
+          </a>
+        </div>
+        <p>
+          Please update any bookmarks you may have to reflect the new URL.
+        </p>
+      </div>
+    </div>
+  );
+}

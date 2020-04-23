@@ -1,7 +1,7 @@
 // An EventStream is an encapsulation around an EventSource that ensures
 // that the client remains connected to the EventSource.  It watches for
 // errors that may occur, and reconnects when one happens.
-export class EventStream {
+export default class EventStream {
   constructor(url) {
     this.url = url;
     this.source = null;

@@ -1,0 +1,27 @@
+.navbar #puzzle-dropdown-menu,
+.navbar #settings-dropdown-menu,
+.navbar #views-dropdown-menu {
+  width: 500px;
+}
+
+.navbar #puzzle-dropdown-menu .dropdown-item,
+.navbar #settings-dropdown-menu .dropdown-item,
+.navbar #views-dropdown-menu .dropdown-item {
+  background-color: transparent;
+}
+
+.navbar #puzzle-dropdown-menu .dropdown-item .lead,
+.navbar #settings-dropdown-menu .dropdown-item .lead,
+.navbar #views-dropdown-menu .dropdown-item .lead {
+  color: #212529;
+}
+
+.navbar #puzzle-dropdown-menu .dropdown-item .input-group,
+.navbar #settings-dropdown-menu .dropdown-item .switch,
+.navbar #settings-dropdown-menu .dropdown-item .btn-group {
+  margin: 8px 0 0 0;
+}
+
+.navbar #settings-dropdown-menu .dropdown-item button {
+  width: 110px;
+}

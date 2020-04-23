@@ -39,6 +39,18 @@ export function isNewYorkTimesDateAllowed(date) {
   return true;
 }
 
+// The following script was used to obtain the WSJ dates.
+//
+// for yy in {09..20}; do
+//   curl --silent "https://www.fleetingimage.com/wij/xyzzy/${yy}-wsj.html" |
+//   python3 -c '
+// import re, sys
+// for date in re.findall("""href=["]wsj([0-9]+).puz["]""", sys.stdin.read()):
+//   print("20" + date)
+//   '
+// done |
+// sed -E 's/(....)(..)(..)/"\1-\2-\3",/g' |
+// sort -u
 const allowedWallStreetJournalDates = new Set([
   "2009-01-02",
   "2009-01-09",
