@@ -31,6 +31,7 @@ type Puzzle struct {
 func (p *Puzzle) WithoutAnswers() *Puzzle {
 	var puzzle Puzzle
 	puzzle.PublishedDate = p.PublishedDate
+	puzzle.CenterLetter = p.CenterLetter
 	puzzle.Letters = p.Letters
 	puzzle.OfficialAnswers = nil
 	puzzle.UnofficialAnswers = nil

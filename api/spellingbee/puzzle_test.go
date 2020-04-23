@@ -155,19 +155,27 @@ func TestPuzzle_UnmarshalJSON(t *testing.T) {
 func TestPuzzle_WithoutAnswers(t *testing.T) {
 	tests := []struct {
 		name       string
+		center     string
+		letters    []string
 		official   []string
 		unofficial []string
 	}{
 		{
-			name: "nil answers",
+			name:    "nil answers",
+			center:  "A",
+			letters: []string{"B", "C", "D", "E", "F", "G"},
 		},
 		{
 			name:       "empty answers",
+			center:     "A",
+			letters:    []string{"B", "C", "D", "E", "F", "G"},
 			official:   []string{},
 			unofficial: []string{},
 		},
 		{
 			name:       "non-empty answers",
+			center:     "A",
+			letters:    []string{"B", "C", "D", "E", "F", "G"},
 			official:   []string{"official"},
 			unofficial: []string{"unofficial"},
 		},
@@ -175,9 +183,19 @@ func TestPuzzle_WithoutAnswers(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			puzzle := &Puzzle{OfficialAnswers: test.official, UnofficialAnswers: test.unofficial}
-			assert.Nil(t, puzzle.WithoutAnswers().OfficialAnswers)
-			assert.Nil(t, puzzle.WithoutAnswers().UnofficialAnswers)
+			puzzle := &Puzzle{
+				CenterLetter:      test.center,
+				Letters:           test.letters,
+				OfficialAnswers:   test.official,
+				UnofficialAnswers: test.unofficial,
+			}
+
+			puzzle = puzzle.WithoutAnswers()
+
+			assert.Equal(t, test.center, puzzle.CenterLetter)
+			assert.Equal(t, test.letters, puzzle.Letters)
+			assert.Nil(t, puzzle.OfficialAnswers)
+			assert.Nil(t, puzzle.UnofficialAnswers)
 		})
 	}
 }
