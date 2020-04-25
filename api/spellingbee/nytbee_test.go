@@ -18,7 +18,7 @@ func TestInferPuzzle(t *testing.T) {
 		letters    []string
 	}{
 		{
-			name: "nytbee-20200408 words",
+			name: "nytbee-20200408",
 			official: []string{
 				"COCONUT",
 				"CONCOCT",
@@ -111,6 +111,13 @@ func TestInferPuzzle(t *testing.T) {
 			},
 			center:  "T",
 			letters: []string{"C", "N", "O", "R", "U", "Y"},
+		},
+		{
+			name:       "multiple options for center letter",
+			official:   []string{"ABCYZ"},
+			unofficial: []string{"DEYZ"},
+			center:     "Y", // We take the center candidate that's first alphabetically
+			letters:    []string{"A", "B", "C", "D", "E", "Z"},
 		},
 	}
 
@@ -242,11 +249,6 @@ func TestInferPuzzle_Error(t *testing.T) {
 			name:       "unofficial word too short",
 			official:   official,
 			unofficial: append(unofficial, "RUT"),
-		},
-		{
-			name:       "multiple options for center letter",
-			official:   []string{"COCONUT"},
-			unofficial: []string{"COCONUT"},
 		},
 		{
 			name: "no options for center letter",
@@ -399,6 +401,16 @@ func TestParseNYTBeeResponse(t *testing.T) {
 				assert.Equal(t, "T", puzzle.CenterLetter)
 
 				expected := []string{"C", "N", "O", "R", "U", "Y"}
+				assert.ElementsMatch(t, expected, puzzle.Letters)
+			},
+		},
+		{
+			name:  "multiple options for center letter",
+			input: load(t, "nytbee-20200424-multiple-centers.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, "M", puzzle.CenterLetter)
+
+				expected := []string{"N", "O", "P", "R", "T", "Y"}
 				assert.ElementsMatch(t, expected, puzzle.Letters)
 			},
 		},

@@ -99,7 +99,11 @@ func InferPuzzle(official, unofficial []string) (*Puzzle, error) {
 		}
 	}
 
-	center, letters, err := InferLetters(official)
+	var words []string
+	words = append(words, official...)
+	words = append(words, unofficial...)
+
+	center, letters, err := InferLetters(words)
 	if err != nil {
 		return nil, fmt.Errorf("error determining letters in puzzle: %+v", err)
 	}
@@ -144,15 +148,22 @@ func InferLetters(words []string) (string, []string, error) {
 	var letters []string
 	for letter, count := range frequencies {
 		if count == len(words) {
-			// This letter appears in every word, it's the central letter in the
-			// puzzle grid.  If we've already determined the central letter of the
-			// grid then we have a problem.
-			if center != "" {
-				return "", nil, errors.New("multiple candidates for center letter")
+			// This letter appears in every word so it must be the central letter in
+			// the puzzle grid.  There are cases where multiple letters can be
+			// considered the central letter (like when there is a single vowel in
+			// the grid), but in those cases the puzzle really isn't any different
+			// with either candidate as the central letter.  So we'll just choose the
+			// one that appears first alphabetically.
+			if center == "" {
+				center = letter
+				continue
 			}
 
-			center = letter
-			continue
+			if letter < center {
+				letters = append(letters, center)
+				center = letter
+				continue
+			}
 		}
 
 		letters = append(letters, letter)
