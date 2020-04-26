@@ -24,6 +24,9 @@ type State struct {
 	// The currently discovered words the puzzle.
 	Words []string `json:"words"`
 
+	// The current score of the solve.
+	Score int `json:"score"`
+
 	// The time that we last started or resumed solving the puzzle.  If the
 	// channel has not yet started solving the puzzle or is in a non-playing state
 	// this will be nil.
@@ -77,6 +80,9 @@ func (s *State) ApplyAnswer(answer string, allowUnofficial bool) error {
 	s.Words = append(s.Words, answer)
 	sort.Strings(s.Words)
 
+	// Update the score for this answer.
+	s.updateScore()
+
 	// Lastly determine if we've found all of the answers and the puzzle is now
 	// complete.
 	if len(s.Words) == len(allAnswers) {
@@ -104,7 +110,24 @@ func (s *State) ClearUnofficialAnswers() {
 	// Shouldn't need to re-sort because they were already in sorted order.
 	s.Words = updatedWords
 
-	// TODO: In the future this will have to recompute the score
+	// Since we've modified the words slice we should update the answer.
+	s.updateScore()
+}
+
+// UpdateScore updates the score for the puzzle based on all of the answers
+// that have been provided.
+func (s *State) updateScore() {
+	var score int
+	for _, word := range s.Words {
+		if len(word) == 4 {
+			score += 1
+			continue
+		}
+
+		score += len(word)
+	}
+
+	s.Score = score
 }
 
 // StateKey returns the key that should be used in redis to store a particular

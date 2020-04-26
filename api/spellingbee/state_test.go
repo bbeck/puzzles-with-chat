@@ -292,6 +292,192 @@ func TestState_ApplyAnswer_Status(t *testing.T) {
 	}
 }
 
+func TestState_ApplyAnswer_Score(t *testing.T) {
+	tests := []struct {
+		name            string
+		filename        string
+		answers         []string
+		allowUnofficial bool
+		expectedScore   int
+	}{
+		{
+			name:          "four letter answer",
+			filename:      "nytbee-20200408.html",
+			answers:       []string{"COOT"},
+			expectedScore: 1,
+		},
+		{
+			name:          "long answer",
+			filename:      "nytbee-20200408.html",
+			answers:       []string{"COCONUT"},
+			expectedScore: 7,
+		},
+		{
+			name:     "all official answers",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+				"CONTORT",
+				"CONTOUR",
+				"COOT",
+				"COTTON",
+				"COTTONY",
+				"COUNT",
+				"COUNTRY",
+				"COUNTY",
+				"COURT",
+				"CROUTON",
+				"CURT",
+				"CUTOUT",
+				"NUTTY",
+				"ONTO",
+				"OUTCRY",
+				"OUTRO",
+				"OUTRUN",
+				"ROOT",
+				"ROTO",
+				"ROTOR",
+				"ROUT",
+				"RUNOUT",
+				"RUNT",
+				"RUNTY",
+				"RUTTY",
+				"TONY",
+				"TOON",
+				"TOOT",
+				"TORN",
+				"TORO",
+				"TORT",
+				"TOUR",
+				"TOUT",
+				"TROT",
+				"TROUT",
+				"TROY",
+				"TRYOUT",
+				"TURN",
+				"TURNOUT",
+				"TUTOR",
+				"TUTU",
+				"TYCOON",
+				"TYRO",
+				"UNCUT",
+				"UNTO",
+				"YURT",
+			},
+			allowUnofficial: true,
+			expectedScore:   176,
+		},
+		{
+			name:     "all answers (unofficial allowed)",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+				"CONTORT",
+				"CONTOUR",
+				"COOT",
+				"COTTON",
+				"COTTONY",
+				"COUNT",
+				"COUNTRY",
+				"COUNTY",
+				"COURT",
+				"CROUTON",
+				"CURT",
+				"CUTOUT",
+				"NUTTY",
+				"ONTO",
+				"OUTCRY",
+				"OUTRO",
+				"OUTRUN",
+				"ROOT",
+				"ROTO",
+				"ROTOR",
+				"ROUT",
+				"RUNOUT",
+				"RUNT",
+				"RUNTY",
+				"RUTTY",
+				"TONY",
+				"TOON",
+				"TOOT",
+				"TORN",
+				"TORO",
+				"TORT",
+				"TOUR",
+				"TOUT",
+				"TROT",
+				"TROUT",
+				"TROY",
+				"TRYOUT",
+				"TURN",
+				"TURNOUT",
+				"TUTOR",
+				"TUTU",
+				"TYCOON",
+				"TYRO",
+				"UNCUT",
+				"UNTO",
+				"YURT",
+				"CONCOCTOR",
+				"CONTO",
+				"CORNUTO",
+				"CROTON",
+				"CRYOTRON",
+				"CUNT",
+				"CUTTY",
+				"CYTON",
+				"NOCTURN",
+				"NONCOUNT",
+				"NONCOUNTRY",
+				"NONCOUNTY",
+				"NOTTURNO",
+				"OCTOROON",
+				"OTTO",
+				"OUTCOUNT",
+				"OUTROOT",
+				"OUTTROT",
+				"OUTTURN",
+				"ROOTY",
+				"RYOT",
+				"TOCO",
+				"TORC",
+				"TOROT",
+				"TORR",
+				"TORY",
+				"TOTTY",
+				"TOUTON",
+				"TOYO",
+				"TOYON",
+				"TROU",
+				"TROUTY",
+				"TUNNY",
+				"TURNON",
+				"TURR",
+				"TUTTY",
+				"UNROOT",
+				"UNTORN",
+			},
+			allowUnofficial: true,
+			expectedScore:   370,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := NewState(t, test.filename)
+			state.Status = model.StatusSolving
+
+			for _, answer := range test.answers {
+				require.NoError(t, state.ApplyAnswer(answer, test.allowUnofficial))
+			}
+
+			assert.Equal(t, test.expectedScore, state.Score)
+		})
+	}
+}
+
 func TestState_ApplyAnswer_Error(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -340,7 +526,7 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 	}
 }
 
-func TestState_ClearUnofficialAnswers(t *testing.T) {
+func TestState_ClearUnofficialAnswers_Words(t *testing.T) {
 	tests := []struct {
 		name     string
 		filename string
@@ -402,6 +588,69 @@ func TestState_ClearUnofficialAnswers(t *testing.T) {
 			state.ClearUnofficialAnswers()
 
 			assert.ElementsMatch(t, test.expected, state.Words)
+		})
+	}
+}
+
+func TestState_ClearUnofficialAnswers_Score(t *testing.T) {
+	tests := []struct {
+		name          string
+		filename      string
+		answers       []string // The answers already given
+		expectedScore int      // The expected score
+	}{
+		{
+			name:          "no answers",
+			filename:      "nytbee-20200408.html",
+			expectedScore: 0,
+		},
+		{
+			name:     "no unofficial answers",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+			},
+			expectedScore: 14,
+		},
+		{
+			name:     "one unofficial answer",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"CONCOCTOR",
+			},
+			expectedScore: 0,
+		},
+		{
+			name:     "multiple unofficial answers",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"CONCOCTOR",
+				"CONTO",
+			},
+			expectedScore: 0,
+		},
+		{
+			name:     "mixed unofficial answers",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+				"CONCOCTOR",
+				"CONTO",
+			},
+			expectedScore: 14,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := NewState(t, test.filename)
+			state.Words = test.answers
+
+			state.ClearUnofficialAnswers()
+
+			assert.Equal(t, test.expectedScore, state.Score)
 		})
 	}
 }

@@ -182,6 +182,7 @@ func NewState(t *testing.T, filename string) State {
 		Status:        model.StatusSelected,
 		Puzzle:        LoadTestPuzzle(t, filename),
 		Words:         make([]string, 0),
+		Score:         0,
 		LastStartTime: &now,
 	}
 }

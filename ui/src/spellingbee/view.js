@@ -14,25 +14,23 @@ export function SpellingBeeView(props) {
   }
 
   const status = state.status;
-  const last_start_time = state.last_start_time;
-  const total_solve_duration = state.total_solve_duration;
   const settings = props.settings;
-  const view = props.view;
 
   return (
     <div id="spellingbee" className={status === "selected" || status === "paused" ? "blur" : ""}>
       <div className="puzzle">
         <Header
           date={puzzle.published}
-          last_start_time={last_start_time}
-          total_solve_duration={total_solve_duration}
+          score={state.score}
+          last_start_time={state.last_start_time}
+          total_solve_duration={state.total_solve_duration}
         />
         <Grid center={puzzle.center} letters={puzzle.letters}/>
         <Footer/>
       </div>
       <WordsList
         font_size={settings.font_size}
-        view={view}
+        view={props.view}
         words={state.words}
       />
     </div>
@@ -50,7 +48,7 @@ function Header(props) {
   return (
     <div className="header">
       <div className="date">{formatDate(props.date)}</div>
-      <div className="score">&lt;score&gt;</div>
+      <div className="score">{props.score} points</div>
       <Timer
         last_start_time={props.last_start_time}
         total_solve_duration={props.total_solve_duration}
