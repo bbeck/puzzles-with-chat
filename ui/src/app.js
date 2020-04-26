@@ -1,8 +1,9 @@
 import React from "react";
 import {Router} from "@reach/router";
-import EventStream from "event-stream";
-import Nav from "nav";
-import CrosswordApp from "crossword/app";
+import {EventStream} from "common/event-stream";
+import {Nav} from "common/nav";
+import {CrosswordApp} from "crossword/app";
+import {SpellingBeeApp} from "spellingbee/app";
 
 export default function App() {
   return (
@@ -12,6 +13,9 @@ export default function App() {
 
       <CrosswordApp path="/:channel/crossword/"/>
       <CrosswordApp path="/:channel/crossword/:view"/>
+
+      <SpellingBeeApp path="/:channel/spellingbee/"/>
+      <SpellingBeeApp path="/:channel/spellingbee/:view"/>
 
       {/* These routes are temporary redirects from old paths that are no longer valid. */}
       <ChannelRedirect path="/:channel/progress" view="progress"/>
@@ -42,6 +46,27 @@ function Home() {
     });
   }, [crosswords, setCrosswordChannels]);
 
+  const [spellingbees] = React.useState(
+    new EventStream(`/api/spellingbee/channels`)
+  );
+  const [spellingBeeChannels, setSpellingBeeChannels] = React.useState(null);
+  React.useEffect(() => {
+    spellingbees.setHandler(message => {
+      const event = JSON.parse(message.data);
+      switch (event.kind) {
+        case "channels":
+          setSpellingBeeChannels(event.payload);
+          break;
+
+        case "ping":
+          break;
+
+        default:
+          console.log("unhandled event:", event);
+      }
+    });
+  }, [spellingbees, setSpellingBeeChannels]);
+
   return (
     <div>
       <Nav/>
@@ -56,6 +81,9 @@ function Home() {
           answers to the various crossword clues into the chat and the
           application will show them on screen.
         </p>
+
+        {/*TODO: Refactor this text to include a blurb about spelling bees.*/}
+
         <p>
           If you've ended up on this page you were probably looking to spectate
           a crossword solving session that is already in progress, but didn't
@@ -66,6 +94,9 @@ function Home() {
 
         <h6>Channels with active crosswords:</h6>
         <ActiveChannelList channels={crosswordChannels} puzzle="crossword"/>
+
+        <h6>Channels with active spelling bees:</h6>
+        <ActiveChannelList channels={spellingBeeChannels} puzzle="spellingbee"/>
 
         <hr className="my-4"/>
 

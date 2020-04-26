@@ -1,6 +1,6 @@
 import React from "react";
 import formatISO from "date-fns/formatISO";
-import {DateChooser, Switch} from "nav";
+import {DateChooser, Switch} from "common/nav";
 import {
   isNewYorkTimesDateAllowed,
   isWallStreetJournalDateAllowed,
@@ -8,35 +8,6 @@ import {
   wsjFirstPuzzleDate
 } from "crossword/allowed-dates";
 import "crossword/nav.css";
-
-export function StartPauseButton(props) {
-  const status = props.status;
-
-  let message;
-  if (status === "selected") {
-    message = "Start";
-  } else if (status === "paused") {
-    message = "Unpause";
-  } else if (status === "solving") {
-    message = "Pause";
-  } else if (status === undefined || status === "created" || status === "complete") {
-    return null;
-  }
-
-  // Toggle the status.
-  function toggle() {
-    fetch(`/api/crossword/${props.channel}/status`,
-      {
-        method: "PUT",
-      });
-  }
-
-  return (
-    <form className="form-inline nav-item">
-      <button className="btn btn-success" type="button" onClick={toggle}>{message}</button>
-    </form>
-  );
-}
 
 export function ViewsDropdown(props) {
   const base = `${document.location.origin}/${props.channel}/crossword`;

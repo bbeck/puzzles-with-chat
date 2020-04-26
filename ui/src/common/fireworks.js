@@ -1,9 +1,9 @@
 import React from "react";
-import "fireworks.css";
+import "./fireworks.css";
 
 // This implementation is based heavily on https://jsfiddle.net/XWMpq/.
 
-export default class Fireworks extends React.Component {
+export class Fireworks extends React.Component {
   static maxNumRockets = 15;
   static screen = {
     w: window.innerWidth,

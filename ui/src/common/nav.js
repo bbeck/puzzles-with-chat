@@ -3,9 +3,9 @@ import "bootstrap/dist/js/bootstrap.bundle.min";
 import "bootstrap/dist/css/bootstrap.min.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import "nav.css";
+import "./nav.css";
 
-export default function Nav(props) {
+export function Nav(props) {
   // If we're not on the streamer view then don't show erorrs or any of the
   // child elements that allow the state of the application to be modified.
   if (!props.view || props.view !== "streamer") {
@@ -30,6 +30,28 @@ export default function Nav(props) {
     </nav>
   );
 }
+
+export function StartPauseButton(props) {
+  const status = props.status;
+
+  let message;
+  if (status === "selected") {
+    message = "Start";
+  } else if (status === "paused") {
+    message = "Unpause";
+  } else if (status === "solving") {
+    message = "Pause";
+  } else if (status === undefined || status === "created" || status === "complete") {
+    return null;
+  }
+
+  return (
+    <form className="form-inline nav-item">
+      <button className="btn btn-success" type="button" onClick={props.onClick}>{message}</button>
+    </form>
+  );
+}
+
 
 export function DateChooser(props) {
   const [selectedDate, setSelectedDate] = React.useState(null);

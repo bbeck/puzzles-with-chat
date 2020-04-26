@@ -1,0 +1,138 @@
+/*
+  Layout of all of the elements of the puzzle.  This defines all of the flex
+  boxes and their flex specific layout settings.
+ */
+#spellingbee {
+  display: flex;
+  justify-content: flex-start;
+}
+#spellingbee .puzzle {
+  display: flex;
+  flex-direction: column;
+}
+#spellingbee .puzzle .header {
+  display: flex;
+}
+#spellingbee .puzzle .header .date,
+#spellingbee .puzzle .header .score,
+#spellingbee .puzzle .header .timer {
+  display: flex;
+  flex-basis: 0;
+  flex-grow: 1;
+}
+#spellingbee .puzzle .header .date {
+  justify-content: flex-start;
+}
+#spellingbee .puzzle .header .score {
+  justify-content: center;
+}
+#spellingbee .puzzle .header .timer {
+  justify-content: flex-end;
+}
+#spellingbee .puzzle .grid {
+  align-self: center;
+}
+#spellingbee .puzzle .footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+#spellingbee .word-list {
+  display: flex;
+  flex-direction: column;
+}
+#spellingbee .word-list .words {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  overflow: auto;
+}
+
+
+/*
+  Size rules that define things like the capture area on the page as well as
+  things that are sized relative to that capture area and never change as parts
+  of the puzzle get smaller or bigger.
+*/
+#spellingbee {
+  height: 650px;
+  padding: 5px 0 0 5px;
+  width: 1000px;
+}
+#spellingbee .puzzle {
+  height: 650px;
+}
+#spellingbee .puzzle .header {
+  height: 25px;
+  width: 650px;
+}
+#spellingbee .puzzle .header .date,
+#spellingbee .puzzle .header .score,
+#spellingbee .puzzle .header .timer {
+  margin: 0 2px;
+  overflow: hidden;
+}
+#spellingbee .puzzle .grid {
+  height: 525px;
+  width: 525px;
+}
+#spellingbee .puzzle .grid svg .text {
+  font-size: 100px;
+}
+#spellingbee .puzzle .footer {
+  height: 100px;
+  width: 650px;
+}
+#spellingbee .word-list {
+  height: 650px;
+  margin-left: 10px;
+  width: 350px;
+}
+#spellingbee .word-list .header {
+  margin: 0 0 5px 5px;
+}
+#spellingbee .word-list .words .word {
+  margin: 5px;
+}
+#spellingbee .word-list[data-font-size="normal"] .words {
+  font-size: 100%;
+}
+#spellingbee .word-list[data-font-size="large"] .words {
+  font-size: 120%;
+}
+#spellingbee .word-list[data-font-size="xlarge"] .words {
+  font-size: 140%;
+}
+
+
+/*
+  Styling of all of the elements on the page.  This defines how things should
+  look, but not how containers should organize their children or how large
+  the containers should be.
+ */
+#spellingbee.blur {
+  filter: blur(12px);
+}
+#spellingbee .word-list .words .word {
+  border-bottom: 1px solid lightgray;
+  text-transform: lowercase;
+}
+#spellingbee .word-list .words .word.filled {
+  filter: blur(3px);
+}
+#spellingbee .puzzle .grid .cell {
+  fill: lightgray;
+  stroke: black;
+  stroke-width: 10px;
+}
+#spellingbee .puzzle .grid .cell.center {
+  fill: gold;
+}
+#spellingbee .puzzle .grid .text {
+  dominant-baseline: central;
+  font-family: sans-serif;
+  font-size: 100px;
+  font-weight: bold;
+  text-anchor: middle;
+  pointer-events: none;
+}
