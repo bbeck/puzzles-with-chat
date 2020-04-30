@@ -1,13 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/gempir/go-twitch-irc/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -119,8 +120,10 @@ func TestLocalClient_Connect(t *testing.T) {
 	require.NotNil(t, conn)
 	assert.NoError(t, err)
 
-	// Close the connection (should cause an EOF on the client).
-	conn.Close()
+	// Send the exit command, this should cause the client to close the
+	// connection.
+	_, err = conn.Write([]byte("/exit\n"))
+	assert.NoError(t, err)
 
 	// Wait for the client to process the disconnect error.
 	assert.True(t, closed.Wait(100*time.Millisecond))
@@ -188,47 +191,13 @@ func TestLocalClient_REPL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := NewTestMessageHandler(test.expectedNumMessages)
+			// Setup a reader with our lines, always include the trailing newline
+			// after the last input line.
+			reader := strings.NewReader(strings.Join(test.inputs, "\n") + "\n")
 
-			client := &LocalClient{
-				port:     GetFreePort(t),
-				handlers: []MessageHandler{handler},
-			}
-
-			listening := NewCountDownLatch(1)
-			closed := NewCountDownLatch(1)
-
-			go func() {
-				listening.CountDown()
-				defer closed.CountDown()
-
-				client.Connect() // We don't care about any errors returned when disconnecting
-			}()
-
-			// Wait for the goroutine to start listening before we attempt to connect.
-			assert.True(t, listening.Wait(100*time.Millisecond))
-
-			conn, err := net.Dial("tcp", fmt.Sprintf(":%d", client.port))
-			require.NotNil(t, conn)
-			assert.NoError(t, err)
-
-			// Send our inputs.
-			writer := bufio.NewWriter(conn)
-			for _, input := range test.inputs {
-				writer.WriteString(input)
-				writer.WriteByte('\n')
-			}
-			writer.Flush()
-
-			// Wait for the integration to receive the proper number of messages
-			// before disconnecting.
-			assert.True(t, handler.latch.Wait(100*time.Millisecond))
-
-			// Now that we're done, disconnect.
-			conn.Close()
-
-			// Wait for the client to process the disconnect error.
-			assert.True(t, closed.Wait(100*time.Millisecond))
+			handler := NewRecordingMessageHandler(test.expectedNumMessages)
+			client := &LocalClient{handler: handler}
+			client.REPL(reader, ioutil.Discard)
 
 			// Ensure that we received the correct number of messages (we may have
 			// received more).
@@ -260,21 +229,21 @@ type SeenMessage struct {
 	message  string
 }
 
-type TestMessageHandler struct {
+type RecordingMessageHandler struct {
 	latch *CountDownLatch
 	seen  []SeenMessage
 }
 
-func NewTestMessageHandler(expected int) *TestMessageHandler {
+func NewRecordingMessageHandler(expected int) *RecordingMessageHandler {
 	latch := NewCountDownLatch(expected)
-	return &TestMessageHandler{latch: latch}
+	return &RecordingMessageHandler{latch: latch}
 }
 
-func (i *TestMessageHandler) GetActiveChannelNames() ([]string, error) {
+func (i *RecordingMessageHandler) GetActiveChannelNames() ([]string, error) {
 	return nil, nil
 }
 
-func (i *TestMessageHandler) HandleChannelMessage(channel, userid, username, message string) {
+func (i *RecordingMessageHandler) HandleChannelMessage(channel, userid, username, message string) {
 	i.seen = append(i.seen, SeenMessage{
 		channel:  channel,
 		userid:   userid,

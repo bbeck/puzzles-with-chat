@@ -28,8 +28,8 @@ type Client interface {
 }
 
 // NewClient constructs a new client instance that's wired to the provided
-// message handlers and will send all channel messages to each handler.
-func NewClient(handlers []MessageHandler) (Client, error) {
+// message handler and will send all channel messages to that handler.
+func NewClient(handler MessageHandler) (Client, error) {
 	env, ok := os.LookupEnv("ENV")
 	if !ok {
 		env = "local"
@@ -38,7 +38,7 @@ func NewClient(handlers []MessageHandler) (Client, error) {
 	if env == "local" {
 		// When running locally, spawn a client that reads chat messages from a
 		// local network socket and doesn't actually connect to Twitch.
-		return &LocalClient{handlers: handlers}, nil
+		return &LocalClient{handler: handler}, nil
 	}
 
 	// In a non-local environment we return an actual client that's hooked up to
@@ -63,9 +63,7 @@ func NewClient(handlers []MessageHandler) (Client, error) {
 		uid := message.User.ID
 		user := message.User.DisplayName
 
-		for _, handler := range handlers {
-			handler.HandleChannelMessage(channel, uid, user, message.Message)
-		}
+		handler.HandleChannelMessage(channel, uid, user, message.Message)
 	})
 
 	return client, nil
@@ -74,16 +72,15 @@ func NewClient(handlers []MessageHandler) (Client, error) {
 // LocalClient listens on a local network socket and returns messages based on
 // the commands it receives.
 type LocalClient struct {
-	port     int
-	handlers []MessageHandler
+	port    int
+	handler MessageHandler
 }
 
 func (c *LocalClient) Join(...string) {}
 func (c *LocalClient) Depart(string)  {}
 
 // Connect implements a small REPL on a network socket that allows a user to
-// use the connection as a means for providing input into the bot.  Only one
-// connection at a time is supported.
+// use the connection as a means for providing input into the bot.
 func (c *LocalClient) Connect() error {
 	address := ":5000"
 	if c.port != 0 {
@@ -96,13 +93,23 @@ func (c *LocalClient) Connect() error {
 	}
 	defer func() { _ = listener.Close() }()
 
-	conn, err := listener.Accept()
-	if err != nil {
-		return err
-	}
-	defer func() { _ = conn.Close() }()
+	var done bool
+	for !done {
+		conn, err := listener.Accept()
+		if err != nil {
+			return err
+		}
 
-	return c.REPL(conn)
+		go func(conn net.Conn) {
+			defer func() { _ = conn.Close() }()
+			done = c.REPL(conn, conn)
+			if done {
+				_ = listener.Close()
+			}
+		}(conn)
+	}
+
+	return nil
 }
 
 // A regular expression that matches a command to the LocalClient to set the
@@ -113,12 +120,15 @@ var SetChannelRegexp = regexp.MustCompile(`^/channel ([^\s]+)$`)
 // user that a message should be sent from.
 var SetUserRegexp = regexp.MustCompile(`^/user ([^\s]+)$`)
 
+// A regular expression that matches a command to the LocalClient to exit.
+var ExitRegexp = regexp.MustCompile(`^/exit$`)
+
 // REPL runs a read, eval, print loop for a connected client.
-func (c *LocalClient) REPL(conn net.Conn) error {
+func (c *LocalClient) REPL(r io.Reader, w io.Writer) bool {
 	channel := "default"
 	user := "anonymous"
-	writer := bufio.NewWriter(conn)
-	reader := bufio.NewReader(conn)
+	reader := bufio.NewReader(r)
+	writer := bufio.NewWriter(w)
 
 	dedent := func(s string) string {
 		formatted := ""
@@ -155,19 +165,19 @@ func (c *LocalClient) REPL(conn net.Conn) error {
     ============================================================================
 	`)
 	if err := write(fmt.Sprintf("\n%s\n\n", banner)); err != nil {
-		return err
+		return false
 	}
 
 	// Loop until the client disconnects processing commands.
 	for {
 		// Prompt
 		if err := write(fmt.Sprintf("[%s@%s] ", user, channel)); err != nil {
-			return err
+			return false
 		}
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			return err
+			return false
 		}
 
 		input = strings.TrimSpace(input)
@@ -182,8 +192,10 @@ func (c *LocalClient) REPL(conn net.Conn) error {
 			continue
 		}
 
-		for _, handler := range c.handlers {
-			handler.HandleChannelMessage(channel, id(user), user, input)
+		if match := ExitRegexp.FindStringSubmatch(input); len(match) != 0 {
+			return true
 		}
+
+		c.handler.HandleChannelMessage(channel, id(user), user, input)
 	}
 }
