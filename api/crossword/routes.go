@@ -45,9 +45,9 @@ func GetChannels(pool *redis.Pool) http.HandlerFunc {
 
 		// Get our initial set of channels so that we can send a response to the
 		// client immediately.
-		channels, err := GetChannelNamesWithState(conn)
+		channels, err := GetActiveChannelNames(conn)
 		if err != nil {
-			log.Printf("unable to load crossword channels: %+v", err)
+			log.Printf("unable to load active crossword channels: %+v", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -68,9 +68,9 @@ func GetChannels(pool *redis.Pool) http.HandlerFunc {
 					return
 
 				case <-time.After(10 * time.Second):
-					channels, err := GetChannelNamesWithState(conn)
+					channels, err := GetActiveChannelNames(conn)
 					if err != nil {
-						log.Printf("unable to load crossword channels: %+v", err)
+						log.Printf("unable to load active crossword channels: %+v", err)
 
 						// Don't exit the goroutine here since the client is still connected.
 						// We'll just try again in the future.

@@ -165,19 +165,25 @@ func SetState(conn redis.Conn, channel string, state State) error {
 	return db.SetWithTTL(conn, StateKey(channel), state, StateTTL)
 }
 
-// GetChannelNamesWithState loads the name of all channels that currently have
-// a state present in redis.  If there are no channels then an empty slice is
-// returned.  This method does not update the expiration times of any state.
-func GetChannelNamesWithState(conn redis.Conn) ([]string, error) {
-	channels := make([]string, 0)
-
+// GetActiveChannelNames loads the name of all channels that currently have
+// an active solve happening.  A solve is considered active if its state has a
+// puzzle selected that's not yet completed.  If there are no active channels
+// then an empty slice is returned.  This method does not update the expiration
+// times of any state.
+func GetActiveChannelNames(conn redis.Conn) ([]string, error) {
 	if testChannelNamesLoadError != nil {
-		return channels, testChannelNamesLoadError
+		return nil, testChannelNamesLoadError
 	}
 
 	keys, err := db.ScanKeys(conn, StateKey("*"))
+	if err != nil {
+		return nil, err
+	}
+
+	channels := make([]string, 0)
 	for _, key := range keys {
-		channels = append(channels, strings.Replace(key, StateKey(""), "", 1))
+		channel := strings.Replace(key, StateKey(""), "", 1)
+		channels = append(channels, channel)
 	}
 
 	return channels, err
