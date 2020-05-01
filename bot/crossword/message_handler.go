@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
+	"github.com/bbeck/twitch-plays-crosswords/bot/web"
 	"log"
 	"net/http"
 	"regexp"
@@ -46,9 +45,15 @@ func (h *MessageHandler) HandleChannelMessage(channel string, _ string, _ string
 		clue := match[1]
 		answer := match[2]
 
+		bs, err := json.Marshal(answer)
+		if err != nil {
+			log.Printf("unable to marshal answer (%s) to json: %v", answer, err)
+			return
+		}
+
 		url := fmt.Sprintf("%s/%s/answer/%s", h.baseURL, channel, clue)
-		body, err := PUT(DefaultCrosswordHTTPClient, url, answer)
-		defer func() { _ = body.Close() }()
+		response, err := web.PutWithClient(DefaultCrosswordHTTPClient, url, bytes.NewReader(bs))
+		defer func() { _ = response.Body.Close() }()
 		if err != nil {
 			log.Printf("error applying answer, url: %s, answer: %s\n", url, answer)
 		}
@@ -59,59 +64,11 @@ func (h *MessageHandler) HandleChannelMessage(channel string, _ string, _ string
 		clue := match[1]
 
 		url := fmt.Sprintf("%s/%s/show/%s", h.baseURL, channel, clue)
-		body, err := GET(DefaultCrosswordHTTPClient, url)
-		defer func() { _ = body.Close() }()
+		response, err := web.GetWithClient(DefaultCrosswordHTTPClient, url, nil)
+		defer func() { _ = response.Body.Close() }()
 		if err != nil {
 			log.Printf("error showing clue, url: %s", url)
 		}
 		return
 	}
-}
-
-func GET(client *http.Client, url string) (io.ReadCloser, error) {
-	request, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		err := fmt.Errorf("unable to create HTTP request for url %s: %v", url, err)
-		return ioutil.NopCloser(nil), err
-	}
-
-	response, err := client.Do(request)
-	if err != nil {
-		err := fmt.Errorf("unable to perform HTTP GET to url %s: %v", url, err)
-		return ioutil.NopCloser(nil), err
-	}
-
-	if response.StatusCode != 200 {
-		err := fmt.Errorf("received non-200 response for GET to url %s: %v", url, err)
-		return response.Body, err
-	}
-
-	return response.Body, nil
-}
-
-func PUT(client *http.Client, url string, body interface{}) (io.ReadCloser, error) {
-	bs, err := json.Marshal(body)
-	if err != nil {
-		err := fmt.Errorf("unable to marshal body to json: %v", err)
-		return ioutil.NopCloser(nil), err
-	}
-
-	request, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(bs))
-	if err != nil {
-		err := fmt.Errorf("unable to create HTTP request for url %s: %v", url, err)
-		return ioutil.NopCloser(nil), err
-	}
-
-	response, err := client.Do(request)
-	if err != nil {
-		err := fmt.Errorf("unable to perform HTTP PUT to url %s: %v", url, err)
-		return ioutil.NopCloser(nil), err
-	}
-
-	if response.StatusCode != 200 {
-		err := fmt.Errorf("received non-200 response for PUT to url %s: %v", url, err)
-		return response.Body, err
-	}
-
-	return response.Body, nil
 }
