@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/bbeck/twitch-plays-crosswords/bot/crossword"
+	"github.com/bbeck/twitch-plays-crosswords/bot/spellingbee"
 	"io"
 	"log"
 	"os"
@@ -43,6 +44,11 @@ func main() {
 			ID:             "crossword",
 			ChannelLocator: crossword.NewChannelLocator(host),
 			MessageHandler: crossword.NewMessageHandler(host),
+		},
+		{
+			ID:             "spellingbee",
+			ChannelLocator: spellingbee.NewChannelLocator(host),
+			MessageHandler: spellingbee.NewMessageHandler(host),
 		},
 	}
 
