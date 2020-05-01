@@ -63,7 +63,6 @@ func (h *MessageHandler) HandleChannelMessage(channel string, _ string, _ string
 
 		url := fmt.Sprintf("%s/%s/answer", h.baseURL, channel)
 		response, err := web.PostWithClient(DefaultSpellingBeeHTTPClient, url, bytes.NewReader(bs))
-		log.Printf("spelling bee: apply answer %s, status: %s\n", answer, response.Status)
 		defer func() { _ = response.Body.Close() }()
 		if err != nil {
 			log.Printf("error applying answer, url: %s, answer: %s\n", url, answer)

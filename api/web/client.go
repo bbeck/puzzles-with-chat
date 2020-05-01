@@ -49,7 +49,7 @@ func GetWithClient(client *http.Client, url string, headers map[string]string) (
 		return response, fmt.Errorf("unable to GET from url %s: %v", url, err)
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return response, fmt.Errorf("received %d response for GET from url %s", response.StatusCode, url)
 	}
 
@@ -75,7 +75,7 @@ func PostWithClient(client *http.Client, url string, body io.Reader) (*http.Resp
 		return response, fmt.Errorf("unable to POST to url %s: %v", url, err)
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return response, fmt.Errorf("received %d response for POST to url %s", response.StatusCode, url)
 	}
 
@@ -101,7 +101,7 @@ func PutWithClient(client *http.Client, url string, body io.Reader) (*http.Respo
 		return response, fmt.Errorf("unable to PUT to url %s: %v", url, err)
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return response, fmt.Errorf("received %d response for PUT to url %s", response.StatusCode, url)
 	}
 

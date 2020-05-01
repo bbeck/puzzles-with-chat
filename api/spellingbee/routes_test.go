@@ -436,7 +436,7 @@ func TestRoute_AddAnswer_NoUnofficialAnswers(t *testing.T) {
 
 	// Now applying the answer should succeed.
 	response = Channel.POST("/answer", `"COCONUT"`, router)
-	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, http.StatusCreated, response.Code)
 	VerifyState(t, pool, events, func(state State) {
 		assert.Contains(t, state.Words, "COCONUT")
 	})
@@ -466,14 +466,14 @@ func TestRoute_AddAnswer_AllowUnofficialAnswers(t *testing.T) {
 
 	// Applying an answer from the official list should succeed.
 	response := Channel.POST("/answer", `"COCONUT"`, router)
-	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, http.StatusCreated, response.Code)
 	VerifyState(t, pool, events, func(state State) {
 		assert.Contains(t, state.Words, "COCONUT")
 	})
 
 	// Applying an answer from the unofficial list should also succeed.
 	response = Channel.POST("/answer", `"CONCOCTOR"`, router)
-	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, http.StatusCreated, response.Code)
 	VerifyState(t, pool, events, func(state State) {
 		assert.Contains(t, state.Words, "CONCOCTOR")
 	})
@@ -548,7 +548,7 @@ func TestRoute_AddAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 
 	response := Channel.POST("/answer", `"COCONUT"`, router)
-	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, http.StatusCreated, response.Code)
 	VerifyState(t, pool, events, func(state State) {
 		require.Equal(t, model.StatusComplete, state.Status)
 		assert.Nil(t, state.LastStartTime)
@@ -670,7 +670,7 @@ func TestRoute_GetEvents(t *testing.T) {
 
 	// Now specify an answer, this should cause the state to be sent again.
 	response = Channel.POST("/answer", `"COCONUT"`, router)
-	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, http.StatusCreated, response.Code)
 
 	events = flush()
 	assert.Equal(t, 1, len(events))

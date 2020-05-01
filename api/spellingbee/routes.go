@@ -148,6 +148,8 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 			Kind:    "state",
 			Payload: state,
 		})
+
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -248,6 +250,8 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 				Payload: *updatedState,
 			})
 		}
+
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -312,6 +316,8 @@ func ToggleStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 			Kind:    "state",
 			Payload: state,
 		})
+
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -398,6 +404,8 @@ func AddAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 				Payload: nil,
 			})
 		}
+
+		w.WriteHeader(http.StatusCreated)
 	}
 }
 
