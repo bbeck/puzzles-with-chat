@@ -10,8 +10,10 @@ import (
 	"time"
 )
 
+type ID string
+
 type Integration struct {
-	ID             string
+	ID             ID
 	ChannelLocator ChannelLocator
 	MessageHandler MessageHandler
 }
@@ -27,7 +29,7 @@ type ChannelLocator interface {
 // A MessageHandler represents an implementation of a bot that processes chat
 // messages from a client in order to play a game in a channel.
 type MessageHandler interface {
-	HandleChannelMessage(channel, userid, username, message string)
+	HandleChannelMessage(channel, userID, username, message string)
 }
 
 func main() {
@@ -35,9 +37,6 @@ func main() {
 	if !ok {
 		log.Fatal("missing API_HOST environment variable")
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	var integrations = []Integration{
 		{
@@ -47,34 +46,49 @@ func main() {
 		},
 	}
 
-	var handlers []MessageHandler
-	for _, integration := range integrations {
-		handlers = append(handlers, integration.MessageHandler)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// The message router gets notified when the locator discovers channels and
+	// routes messages from a client to the appropriate message handler(s).
+	router := NewMessageRouter(integrations)
 
 	// Create a new client that sends messages to each handler.
-	client, err := NewClient(handlers)
+	client, err := NewClient(router)
 	if err != nil {
 		log.Fatalf("unable to create client: %v", err)
 	}
 
-	var manager ChannelManager
-	manager.OnAddChannel = func(channel string) {
-		client.Join(channel)
-		log.Printf("joined channel %s", channel)
-	}
-	manager.OnRemoveChannel = func(channel string) {
-		client.Depart(channel)
-		log.Printf("parted channel %s", channel)
+	// The channel manager that will be used to keep track of which channels the
+	// client should be monitoring.
+	manager := ChannelManager{
+		OnAddChannel: func(channel string) {
+			client.Join(channel)
+			log.Printf("joined channel %s", channel)
+		},
+		OnRemoveChannel: func(channel string) {
+			client.Depart(channel)
+			log.Printf("parted channel %s", channel)
+		},
+		OnUpdateChannels: router.UpdateChannels,
 	}
 
-	// Start the channel locators to discover which channels should be joined.
+	// Start each channel locator to discover which channels the client should
+	// join.
 	for _, integration := range integrations {
+		id := integration.ID
+
+		onUpdate := func(channels []string) {
+			// Let the manager know the most recent set of channels for this
+			// integration.
+			manager.Update(id, channels)
+		}
+
 		onError := func(err error) {
 			log.Printf("error while locating channels in integration %s: %+v", integration.ID, err)
 		}
 
-		go integration.ChannelLocator.Run(ctx, manager.Update, onError)
+		go integration.ChannelLocator.Run(ctx, onUpdate, onError)
 	}
 
 	for {
