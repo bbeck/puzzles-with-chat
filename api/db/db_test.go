@@ -12,8 +12,6 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	server, conn := NewMiniredis(t)
-
 	type Entry struct {
 		Id int `json:"id"`
 	}
@@ -51,6 +49,8 @@ func TestGet(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
 			// Write all of the initial entries into the database.
 			for key, entry := range test.initial {
 				bs, err := json.Marshal(entry)
@@ -72,8 +72,6 @@ func TestGet(t *testing.T) {
 }
 
 func TestGet_Error(t *testing.T) {
-	server, conn := NewMiniredis(t)
-
 	type Entry struct{}
 
 	tests := []struct {
@@ -102,6 +100,8 @@ func TestGet_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
 			// Write all of the initial entries into the database.
 			for key, bs := range test.initial {
 				err := server.Set(key, string(bs))
@@ -126,9 +126,158 @@ func TestGet_Error(t *testing.T) {
 	}
 }
 
-func TestGetWithTTLRefresh(t *testing.T) {
-	server, conn := NewMiniredis(t)
+func TestGetAll(t *testing.T) {
+	type Entry struct {
+		Id int `json:"id"`
+	}
 
+	tests := []struct {
+		name     string
+		initial  map[string]Entry       // Entries that should be present for the test.
+		keys     []string               // The keys that should be retrieved.
+		expected map[string]interface{} // The entries expected to be returned.
+	}{
+		{
+			name: "no keys",
+			keys: []string{},
+		},
+		{
+			name: "missing all entries",
+			keys: []string{"1", "2"},
+			expected: map[string]interface{}{
+				"1": Entry{},
+				"2": Entry{},
+			},
+		},
+		{
+			name: "one key",
+			initial: map[string]Entry{
+				"1": {1},
+			},
+			keys: []string{"1"},
+			expected: map[string]interface{}{
+				"1": Entry{1},
+			},
+		},
+		{
+			name: "multiple keys",
+			initial: map[string]Entry{
+				"1": {1},
+				"2": {2},
+			},
+			keys: []string{"1", "2"},
+			expected: map[string]interface{}{
+				"1": Entry{1},
+				"2": Entry{2},
+			},
+		},
+		{
+			name: "some keys missing",
+			initial: map[string]Entry{
+				"1": {1},
+				"3": {3},
+			},
+			keys: []string{"1", "2", "3"},
+			expected: map[string]interface{}{
+				"1": Entry{1},
+				"2": Entry{},
+				"3": Entry{3},
+			},
+		},
+		{
+			name: "extra keys in database",
+			initial: map[string]Entry{
+				"1": {1},
+				"2": {2},
+				"3": {3},
+			},
+			keys: []string{"1", "2"},
+			expected: map[string]interface{}{
+				"1": Entry{1},
+				"2": Entry{2},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
+			// Write all of the initial entries into the database.
+			for key, entry := range test.initial {
+				bs, err := json.Marshal(entry)
+				require.NoError(t, err)
+
+				err = server.Set(key, string(bs))
+				require.NoError(t, err)
+			}
+
+			// Get the entries we care about.
+			values, err := GetAll(conn, test.keys, Entry{})
+
+			// Verify our results.
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, values)
+		})
+	}
+}
+
+func TestGetAll_Error(t *testing.T) {
+	type Entry struct{}
+
+	tests := []struct {
+		name       string
+		connection ConnectionFunc
+		initial    map[string][]byte // Entries that should be present for the test.
+		keys       []string          // The keys of the entries to retrieve.
+		expected   error
+	}{
+		{
+			name: "conn.Do error",
+			connection: func(command string, args ...interface{}) (interface{}, error) {
+				return nil, errors.New("forced error")
+			},
+			keys:     []string{"key"},
+			expected: errors.New("forced error"),
+		},
+		{
+			name: "json.Unmarshal error",
+			initial: map[string][]byte{
+				"key": []byte(""),
+			},
+			keys: []string{"key"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
+			// Write all of the initial entries into the database.
+			for key, bs := range test.initial {
+				err := server.Set(key, string(bs))
+				require.NoError(t, err)
+			}
+
+			// If we weren't provided a connection to use, then use the one connected
+			// to the miniredis server.
+			var connection Connection = test.connection
+			if test.connection == nil {
+				connection = conn
+			}
+
+			_, err := GetAll(connection, test.keys, Entry{})
+
+			// Verify we got the error we expected.
+			assert.Error(t, err)
+			if test.expected != nil {
+				assert.Equal(t, test.expected, err)
+			}
+		})
+	}
+}
+
+func TestGetWithTTLRefresh(t *testing.T) {
 	type Entry struct {
 		Id int `json:"id"`
 	}
@@ -159,6 +308,8 @@ func TestGetWithTTLRefresh(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
 			// Write all of the initial entries into the database.
 			for key, entry := range test.initial {
 				bs, err := json.Marshal(entry)
@@ -204,10 +355,19 @@ func TestGetWithTTLRefresh_Error(t *testing.T) {
 			key:      "key",
 			expected: errors.New("forced error"),
 		},
+		{
+			name: "json.Unmarshal error",
+			initial: map[string][]byte{
+				"key": []byte(""),
+			},
+			key: "key",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			server.FlushAll()
+
 			// Write all of the initial entries into the database.
 			for key, bs := range test.initial {
 				err := server.Set(key, string(bs))
@@ -233,8 +393,6 @@ func TestGetWithTTLRefresh_Error(t *testing.T) {
 }
 
 func TestSet(t *testing.T) {
-	server, conn := NewMiniredis(t)
-
 	type Entry struct {
 		Id int `json:"id"`
 	}
@@ -265,6 +423,8 @@ func TestSet(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
 			// Write all of the initial entries into the database.
 			for key, entry := range test.initial {
 				bs, err := json.Marshal(entry)
@@ -285,8 +445,6 @@ func TestSet(t *testing.T) {
 }
 
 func TestSet_Error(t *testing.T) {
-	_, conn := NewMiniredis(t)
-
 	tests := []struct {
 		name       string
 		connection ConnectionFunc
@@ -311,6 +469,7 @@ func TestSet_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			_, conn := NewMiniredis(t)
 
 			// If we weren't provided a connection to use, then use the one connected
 			// to the miniredis server.
@@ -331,8 +490,6 @@ func TestSet_Error(t *testing.T) {
 }
 
 func TestSetWithTTL(t *testing.T) {
-	server, conn := NewMiniredis(t)
-
 	type Entry struct {
 		Id int `json:"id"`
 	}
@@ -366,6 +523,8 @@ func TestSetWithTTL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
 			// Write all of the initial entries into the database.
 			for key, entry := range test.initial {
 				bs, err := json.Marshal(entry)
@@ -387,8 +546,6 @@ func TestSetWithTTL(t *testing.T) {
 }
 
 func TestSetWithTTL_Error(t *testing.T) {
-	_, conn := NewMiniredis(t)
-
 	tests := []struct {
 		name       string
 		connection ConnectionFunc
@@ -413,6 +570,7 @@ func TestSetWithTTL_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			_, conn := NewMiniredis(t)
 
 			// If we weren't provided a connection to use, then use the one connected
 			// to the miniredis server.
@@ -433,8 +591,6 @@ func TestSetWithTTL_Error(t *testing.T) {
 }
 
 func TestScanKeys(t *testing.T) {
-	server, conn := NewMiniredis(t)
-
 	tests := []struct {
 		name     string
 		initial  []string // Keys that should be present for the test.
@@ -466,6 +622,8 @@ func TestScanKeys(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			server, conn := NewMiniredis(t)
+
 			// Write all of the initial entries into the database.
 			for _, key := range test.initial {
 				err := server.Set(key, "")
@@ -483,8 +641,6 @@ func TestScanKeys(t *testing.T) {
 }
 
 func TestScanKeys_Error(t *testing.T) {
-	_, conn := NewMiniredis(t)
-
 	tests := []struct {
 		name       string
 		connection ConnectionFunc
@@ -520,6 +676,8 @@ func TestScanKeys_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			_, conn := NewMiniredis(t)
+
 			// If we weren't provided a connection to use, then use the one connected
 			// to the miniredis server.
 			var connection Connection = test.connection
