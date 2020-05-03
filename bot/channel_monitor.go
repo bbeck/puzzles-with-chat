@@ -4,9 +4,10 @@ import (
 	"sync"
 )
 
-// ChannelManager gets notified whenever channels are updated on a
-// per-integration basis and passes that information onto callbacks.
-type ChannelManager struct {
+// ChannelMonitor gets notified about current puzzles being solved on a per
+// channel basis and determines which channels have been added or removed and
+// notifies callbacks of the changes.
+type ChannelMonitor struct {
 	sync.Mutex
 
 	// the set of channels being monitored on a per-integration basis
@@ -19,12 +20,12 @@ type ChannelManager struct {
 	OnRemoveChannel func(channel string)
 
 	// callback to call whenever an update of channels is received
-	OnUpdateChannels func(id ID, channels []string)
+	OnUpdateChannels func(channels map[ID][]string)
 }
 
 // Update records the updated set of channels from a particular integration's
 // channel locator.
-func (m *ChannelManager) Update(id ID, channels []string) {
+func (m *ChannelMonitor) Update(update map[ID][]string) {
 	// Lock so that we have a consistent picture of the world.
 	m.Lock()
 	defer m.Unlock()
@@ -37,9 +38,12 @@ func (m *ChannelManager) Update(id ID, channels []string) {
 	before := m.AllChannels()
 
 	// Apply the update.
-	m.channels[id] = make(map[string]struct{})
-	for _, channel := range channels {
-		m.channels[id][channel] = struct{}{}
+	for id, channels := range update {
+		m.channels[id] = make(map[string]struct{})
+
+		for _, channel := range channels {
+			m.channels[id][channel] = struct{}{}
+		}
 	}
 
 	// Now compute the set of channels we are monitoring after this update.
@@ -60,12 +64,12 @@ func (m *ChannelManager) Update(id ID, channels []string) {
 
 	// Call the integration callback.
 	if m.OnUpdateChannels != nil {
-		m.OnUpdateChannels(id, channels)
+		m.OnUpdateChannels(update)
 	}
 }
 
 // Diff determines which channels are new and which are removed.
-func (m *ChannelManager) Diff(before, after map[string]bool) ([]string, []string) {
+func (m *ChannelMonitor) Diff(before, after map[string]bool) ([]string, []string) {
 	all := make(map[string]struct{})
 	for channel := range before {
 		all[channel] = struct{}{}
@@ -88,7 +92,7 @@ func (m *ChannelManager) Diff(before, after map[string]bool) ([]string, []string
 }
 
 // AllChannels calculates the union of all channels being monitored.
-func (m *ChannelManager) AllChannels() map[string]bool {
+func (m *ChannelMonitor) AllChannels() map[string]bool {
 	seen := make(map[string]bool)
 	for _, cs := range m.channels {
 		for c := range cs {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -10,46 +9,32 @@ var PRESENT = struct{}{}
 
 func TestNewMessageRouter(t *testing.T) {
 	tests := []struct {
-		name         string
-		integrations []Integration
+		name     string
+		handlers map[ID]MessageHandler
 	}{
 		{
 			name: "no integrations",
 		},
 		{
 			name: "one integration",
-			integrations: []Integration{
-				{
-					ID:             "integration-1",
-					MessageHandler: TestMessageHandler{id: "integration-1"},
-				},
+			handlers: map[ID]MessageHandler{
+				"integration-1": TestMessageHandler{id: "integration-1"},
 			},
 		},
 		{
 			name: "multiple integrations",
-			integrations: []Integration{
-				{
-					ID:             "integration-1",
-					MessageHandler: TestMessageHandler{id: "integration-1"},
-				},
-				{
-					ID:             "integration-2",
-					MessageHandler: TestMessageHandler{id: "integration-2"},
-				},
+			handlers: map[ID]MessageHandler{
+				"integration-1": TestMessageHandler{id: "integration-1"},
+				"integration-2": TestMessageHandler{id: "integration-2"},
 			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			router := NewMessageRouter(test.integrations)
+			router := NewMessageRouter(test.handlers)
 
-			assert.Equal(t, len(test.integrations), len(router.handlers))
-			for _, integration := range test.integrations {
-				require.NotNil(t, router.handlers[integration.ID])
-				require.IsType(t, TestMessageHandler{}, router.handlers[integration.ID])
-				assert.Equal(t, integration.ID, router.handlers[integration.ID].(TestMessageHandler).id)
-			}
+			assert.Equal(t, test.handlers, router.handlers)
 		})
 	}
 }
@@ -57,14 +42,14 @@ func TestNewMessageRouter(t *testing.T) {
 func TestMessageRouter_UpdateChannels(t *testing.T) {
 	tests := []struct {
 		name     string
-		initial  map[string]map[ID]struct{} // the initial set of integrations
-		updates  map[ID][]string            // the updates to apply, one at a time
+		initial  map[string]map[ID]struct{} // the initial set of channel/integration mappings
+		update   map[ID][]string            // the update to apply, one at a time
 		expected map[string]map[ID]struct{} // the expected integrations after the update
 	}{
 		{
 			name:    "add single integration to channel",
 			initial: make(map[string]map[ID]struct{}),
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {"a"},
 			},
 			expected: map[string]map[ID]struct{}{
@@ -74,7 +59,7 @@ func TestMessageRouter_UpdateChannels(t *testing.T) {
 		{
 			name:    "add single integrations to multiple channels",
 			initial: make(map[string]map[ID]struct{}),
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-1": {"a"},
 				"integration-2": {"b"},
 			},
@@ -86,7 +71,7 @@ func TestMessageRouter_UpdateChannels(t *testing.T) {
 		{
 			name:    "add multiple integrations to one channel",
 			initial: make(map[string]map[ID]struct{}),
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-1": {"a"},
 				"integration-2": {"a"},
 			},
@@ -99,7 +84,7 @@ func TestMessageRouter_UpdateChannels(t *testing.T) {
 			initial: map[string]map[ID]struct{}{
 				"a": {"integration-1": PRESENT},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-1": {},
 				"integration-2": {"a"},
 			},
@@ -112,7 +97,7 @@ func TestMessageRouter_UpdateChannels(t *testing.T) {
 			initial: map[string]map[ID]struct{}{
 				"a": {"integration-1": PRESENT},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-1": {},
 			},
 			expected: make(map[string]map[ID]struct{}),
@@ -122,30 +107,27 @@ func TestMessageRouter_UpdateChannels(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			router := &MessageRouter{
-				integrations: test.initial,
+				channels: test.initial,
 			}
 
-			for id, channels := range test.updates {
-				router.UpdateChannels(id, channels)
-			}
-
-			assertIntegrationsEqual(t, test.expected, router.integrations)
+			router.UpdateChannels(test.update)
+			assertIntegrationsEqual(t, test.expected, router.channels)
 		})
 	}
 }
 
 func TestMessageRouter_HandleChannelMessage(t *testing.T) {
 	tests := []struct {
-		name         string
-		handlers     []ID                       // which integrations should have handlers
-		integrations map[string]map[ID]struct{} // mapping of channel to its integrations
-		channel      string                     // the channel a message is received from
-		expected     []ID                       // which integrations are expected to be called
+		name     string
+		handlers []ID                       // which integrations should have handlers
+		initial  map[string]map[ID]struct{} // initial mapping of channel to its integrations
+		channel  string                     // the channel a message is received from
+		expected []ID                       // which integrations are expected to be called
 	}{
 		{
 			name:     "message on channel with integration received",
 			handlers: []ID{"integration-1"},
-			integrations: map[string]map[ID]struct{}{
+			initial: map[string]map[ID]struct{}{
 				"a": {"integration-1": struct{}{}},
 			},
 			channel:  "a",
@@ -154,7 +136,7 @@ func TestMessageRouter_HandleChannelMessage(t *testing.T) {
 		{
 			name:     "message sent to different channel not received",
 			handlers: []ID{"integration-1"},
-			integrations: map[string]map[ID]struct{}{
+			initial: map[string]map[ID]struct{}{
 				"a": {"integration-1": struct{}{}},
 			},
 			channel:  "b",
@@ -163,7 +145,7 @@ func TestMessageRouter_HandleChannelMessage(t *testing.T) {
 		{
 			name:     "message sent multiple to integrations",
 			handlers: []ID{"integration-1", "integration-2"},
-			integrations: map[string]map[ID]struct{}{
+			initial: map[string]map[ID]struct{}{
 				"a": {"integration-1": struct{}{}, "integration-2": struct{}{}},
 			},
 			channel:  "a",
@@ -184,8 +166,8 @@ func TestMessageRouter_HandleChannelMessage(t *testing.T) {
 			}
 
 			router := &MessageRouter{
-				handlers:     handlers,
-				integrations: test.integrations,
+				handlers: handlers,
+				channels: test.initial,
 			}
 
 			router.HandleChannelMessage(test.channel, "userid", "username", "message")
@@ -199,7 +181,7 @@ type TestMessageHandler struct {
 	fn func()
 }
 
-func (h TestMessageHandler) HandleChannelMessage(channel, userid, username, message string) {
+func (h TestMessageHandler) HandleChannelMessage(_, _, _, _ string) {
 	if h.fn != nil {
 		h.fn()
 	}

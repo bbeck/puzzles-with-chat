@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-func TestChannelManager_Update(t *testing.T) {
+func TestChannelMonitor_Update(t *testing.T) {
 	tests := []struct {
 		name            string
 		initial         map[ID][]string // initial channels the manager knows about
-		updates         map[ID][]string // updates to apply, one at a time
+		update          map[ID][]string // update to apply, one at a time
 		expectedAdded   []string        // expected channels added globally
 		expectedRemoved []string        // expected channels removed globally
 	}{
@@ -18,20 +18,20 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration": {"a"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {"a"},
 			},
 		},
 		{
 			name: "single integration: one added channel",
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {"a"},
 			},
 			expectedAdded: []string{"a"},
 		},
 		{
 			name: "single integration: multiple added channels",
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {"a", "b"},
 			},
 			expectedAdded: []string{"a", "b"},
@@ -41,7 +41,7 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration": {"a"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {},
 			},
 			expectedRemoved: []string{"a"},
@@ -51,7 +51,7 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration": {"a", "b"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {},
 			},
 			expectedRemoved: []string{"a", "b"},
@@ -61,7 +61,7 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration": {"b", "c"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {"a", "b"},
 			},
 			expectedAdded:   []string{"a"},
@@ -72,7 +72,7 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration": {"c", "d"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration": {"a", "b"},
 			},
 			expectedAdded:   []string{"a", "b"},
@@ -83,7 +83,7 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration-1": {"a"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-2": {"a"},
 			},
 		},
@@ -92,7 +92,7 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration-1": {"a"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-2": {"b"},
 			},
 			expectedAdded: []string{"b"},
@@ -102,7 +102,7 @@ func TestChannelManager_Update(t *testing.T) {
 			initial: map[ID][]string{
 				"integration-1": {"a"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-2": {"b"},
 				"integration-3": {"c"},
 			},
@@ -114,7 +114,7 @@ func TestChannelManager_Update(t *testing.T) {
 				"integration-1": {"a"},
 				"integration-2": {"a"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-2": {},
 			},
 		},
@@ -124,7 +124,7 @@ func TestChannelManager_Update(t *testing.T) {
 				"integration-1": {"a"},
 				"integration-2": {"b"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-2": {},
 			},
 			expectedRemoved: []string{"b"},
@@ -135,7 +135,7 @@ func TestChannelManager_Update(t *testing.T) {
 				"integration-1": {"a"},
 				"integration-2": {"b", "c"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-1": {},
 				"integration-2": {"b"},
 			},
@@ -147,7 +147,7 @@ func TestChannelManager_Update(t *testing.T) {
 				"integration-1": {"a"},
 				"integration-2": {"b"},
 			},
-			updates: map[ID][]string{
+			update: map[ID][]string{
 				"integration-1": {"c"},
 				"integration-2": {"d"},
 			},
@@ -168,27 +168,21 @@ func TestChannelManager_Update(t *testing.T) {
 				removed = append(removed, channel)
 			}
 
-			var updateID ID
-			var updateChannels []string
-			onUpdate := func(id ID, channels []string) {
-				updateID = id
-				updateChannels = channels
+			var update map[ID][]string
+			onUpdate := func(u map[ID][]string) {
+				update = u
 			}
 
-			// Setup the channel manager with our initial set of channels and handlers.
-			manager := newChannelManager(test.initial)
-			manager.OnAddChannel = onAdd
-			manager.OnRemoveChannel = onRemove
-			manager.OnUpdateChannels = onUpdate
+			// Setup the channel monitor with our initial set of channels and handlers.
+			monitor := newChannelMonitor(test.initial)
+			monitor.OnAddChannel = onAdd
+			monitor.OnRemoveChannel = onRemove
+			monitor.OnUpdateChannels = onUpdate
 
 			// Apply each update one at a time making sure OnUpdate is called with
 			// each.
-			for id, channels := range test.updates {
-				manager.Update(id, channels)
-
-				assert.Equal(t, id, updateID)
-				assert.Equal(t, channels, updateChannels)
-			}
+			monitor.Update(test.update)
+			assert.Equal(t, test.update, update)
 
 			// Verify globally we received the correct additions and removals.
 			assert.ElementsMatch(t, test.expectedAdded, added)
@@ -197,7 +191,7 @@ func TestChannelManager_Update(t *testing.T) {
 	}
 }
 
-func newChannelManager(initial map[ID][]string) *ChannelManager {
+func newChannelMonitor(initial map[ID][]string) *ChannelMonitor {
 	// Setup the channel manager with our initial set of channels and handlers.
 	var channels map[ID]map[string]struct{}
 	if initial != nil {
@@ -213,5 +207,5 @@ func newChannelManager(initial map[ID][]string) *ChannelManager {
 		}
 	}
 
-	return &ChannelManager{channels: channels}
+	return &ChannelMonitor{channels: channels}
 }
