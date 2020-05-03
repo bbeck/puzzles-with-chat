@@ -25,7 +25,7 @@ export function SpellingBeeView(props) {
           last_start_time={state.last_start_time}
           total_solve_duration={state.total_solve_duration}
         />
-        <Grid center={puzzle.center} letters={puzzle.letters}/>
+        <Grid center={puzzle.center} letters={state.letters}/>
         <Footer/>
       </div>
       <WordsList

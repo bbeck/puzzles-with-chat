@@ -166,9 +166,11 @@ func NewEventSubscription(t *testing.T, registry *pubsub.Registry, channel strin
 // initialized with the puzzle corresponding to the provided filename.
 func NewState(t *testing.T, filename string) State {
 	now := time.Now()
+	puzzle := LoadTestPuzzle(t, filename)
 	return State{
 		Status:        model.StatusSelected,
-		Puzzle:        LoadTestPuzzle(t, filename),
+		Puzzle:        puzzle,
+		Letters:       puzzle.Letters,
 		Words:         make([]string, 0),
 		Score:         0,
 		LastStartTime: &now,

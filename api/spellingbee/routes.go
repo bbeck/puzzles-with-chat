@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -19,6 +20,7 @@ func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub
 	r.Route("/spellingbee/{channel}", func(r chi.Router) {
 		r.Put("/", UpdatePuzzle(pool, registry))
 		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
+		r.Get("/shuffle", ShuffleLetters(pool, registry))
 		r.Put("/status", ToggleStatus(pool, registry))
 		r.Post("/answer", AddAnswer(pool, registry))
 		r.Get("/events", GetEvents(pool, registry))
@@ -65,9 +67,10 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 
 		// Save the puzzle to this channel's state
 		state := State{
-			Status: model.StatusSelected,
-			Puzzle: puzzle,
-			Words:  make([]string, 0),
+			Status:  model.StatusSelected,
+			Puzzle:  puzzle,
+			Letters: puzzle.Letters,
+			Words:   make([]string, 0),
 		}
 		if err := SetState(conn, channel, state); err != nil {
 			log.Printf("unable to save state for channel %s: %+v", channel, err)
@@ -187,6 +190,53 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 				Payload: *updatedState,
 			})
 		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// ShuffleLetters changes the order of the letters in the puzzle.
+func ShuffleLetters(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		state, err := GetState(conn, channel)
+		if err != nil {
+			log.Printf("unable to load state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if state.Status != model.StatusSolving {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+
+		// Shuffle the letters.
+		rand.Shuffle(len(state.Letters), func(i, j int) {
+			state.Letters[i], state.Letters[j] = state.Letters[j], state.Letters[i]
+		})
+
+		// Save the updated state.
+		if err := SetState(conn, channel, state); err != nil {
+			log.Printf("unable to save state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Broadcast to all of the clients that the puzzle has been selected, making
+		// sure to not include the answers.  It's okay to overwrite the puzzle
+		// attribute because we just wrote this state instance to the database
+		// and will be discarding it immediately publishing.
+		state.Puzzle = state.Puzzle.WithoutAnswers()
+
+		registry.Publish(pubsub.Channel(channel), pubsub.Event{
+			Kind:    "state",
+			Payload: state,
+		})
 
 		w.WriteHeader(http.StatusOK)
 	}

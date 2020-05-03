@@ -234,6 +234,87 @@ func TestRoute_UpdateSetting_LoadSaveError(t *testing.T) {
 	}
 }
 
+func TestRoute_ShuffleLetters(t *testing.T) {
+	// This acts as a small integration test toggling the order of the letters of
+	// a spelling bee puzzle being solved.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Start a puzzle in the selected state.
+	state := NewState(t, "nytbee-20200408.html")
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Shuffling the letters should fail because the puzzle is not being solved.
+	response := Channel.GET("/shuffle", router)
+	assert.Equal(t, http.StatusConflict, response.Code)
+
+	// Transition to solving.
+	state.Status = model.StatusSolving
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Shuffle the letters
+	response = Channel.GET("/shuffle", router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.NotEqual(t, state.Puzzle.Letters, state.Letters)
+	})
+}
+
+func TestRoute_ShuffleLetters_Error(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialStatus  model.Status
+		loadStateError error
+		saveStateError error
+	}{
+		{
+			name:          "status created",
+			initialStatus: model.StatusCreated,
+		},
+		{
+			name:          "status paused",
+			initialStatus: model.StatusPaused,
+		},
+		{
+			name:          "status complete",
+			initialStatus: model.StatusComplete,
+		},
+		{
+			name:           "error loading state",
+			initialStatus:  model.StatusSolving,
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			initialStatus:  model.StatusSolving,
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "nytbee-20200408.html")
+			state.Status = test.initialStatus
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			if test.loadStateError != nil {
+				ForceErrorDuringStateLoad(t, test.loadStateError)
+			}
+
+			if test.saveStateError != nil {
+				ForceErrorDuringStateSave(t, test.saveStateError)
+			}
+
+			response := Channel.GET("/shuffle", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 func TestRoute_ToggleStatus(t *testing.T) {
 	// This acts as a small integration test toggling the status of a spelling bee
 	// puzzle being solved.

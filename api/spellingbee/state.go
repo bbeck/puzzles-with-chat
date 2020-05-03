@@ -21,6 +21,10 @@ type State struct {
 	// for example when the state is being serialized to be sent to the browser.
 	Puzzle *Puzzle `json:"puzzle,omitempty"`
 
+	// The current order of the letters of the puzzle, not including the first
+	// letter.
+	Letters []string `json:"letters"`
+
 	// The currently discovered words the puzzle.
 	Words []string `json:"words"`
 
