@@ -23,86 +23,7 @@ import (
 	"time"
 )
 
-var Global = GlobalRoute{}
-var Channel = ChannelRoute{name: "channel"}
-
-func TestRoute_GetChannels(t *testing.T) {
-	// This acts as a small integration test ensuring that the active channels
-	// event stream receives the events as new channels start and finish solves.
-	router, pool, _ := NewTestRouter(t)
-	conn := NewRedisConnection(t, pool)
-
-	// Connect to the stream when there's no active solves happening, we should
-	// receive an event that contains an empty list of channels.
-	_, stop := Global.SSE("/channels", router)
-	events := stop()
-	assert.Equal(t, 1, len(events))
-	assert.Equal(t, "channels", events[0].Kind)
-	assert.Empty(t, events[0].Payload)
-
-	// Start a crossword.
-	state := NewState(t, "xwordinfo-nyt-20181231.json")
-	require.NoError(t, SetState(conn, Channel.name, state))
-
-	// Now reconnect to the stream and we should receive one active channel.
-	_, stop = Global.SSE("/channels", router)
-	events = stop()
-	assert.Equal(t, 1, len(events))
-	assert.Equal(t, "channels", events[0].Kind)
-	assert.ElementsMatch(t, []string{Channel.name}, events[0].Payload)
-
-	// Start a crossword on another channel.
-	channel2 := ChannelRoute{name: "channel2"}
-	require.NoError(t, SetState(conn, channel2.name, state))
-
-	// Now we expect there to be 2 channels in the stream.
-	_, stop = Global.SSE("/channels", router)
-	events = stop()
-	assert.Equal(t, 1, len(events))
-	assert.Equal(t, "channels", events[0].Kind)
-	assert.ElementsMatch(t, []string{Channel.name, channel2.name}, events[0].Payload)
-
-	// Lastly remove the second channel from the database.
-	_, err := conn.Do("DEL", StateKey(channel2.name))
-	require.NoError(t, err)
-
-	// Now we expect there to be one channels in the stream.
-	_, stop = Global.SSE("/channels", router)
-	events = stop()
-	assert.Equal(t, 1, len(events))
-	assert.Equal(t, "channels", events[0].Kind)
-	assert.ElementsMatch(t, []string{Channel.name}, events[0].Payload)
-}
-
-func TestRoute_GetChannels_Error(t *testing.T) {
-	tests := []struct {
-		name                  string
-		loadChannelNamesError error
-	}{
-		{
-			name:                  "error loading channel names",
-			loadChannelNamesError: errors.New("forced error"),
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			router, pool, _ := NewTestRouter(t)
-			conn := NewRedisConnection(t, pool)
-
-			// Start a puzzle in the channel.
-			state := NewState(t, "xwordinfo-nyt-20181231.json")
-			require.NoError(t, SetState(conn, Channel.name, state))
-
-			ForceErrorDuringChannelNameLoad(t, test.loadChannelNamesError)
-
-			// This won't start a background goroutine to send events because the
-			// request will fail before reaching that part of the code.
-			response := Global.GET("/channels", router)
-			assert.NotEqual(t, http.StatusOK, response.Code)
-		})
-	}
-}
+var Channel = ChannelClient{name: "channel"}
 
 func TestRoute_UpdateSetting(t *testing.T) {
 	// This acts as a small integration test updating each setting in turn and
@@ -479,7 +400,7 @@ func TestRoute_ToggleStatus(t *testing.T) {
 	// it should return an HTTP error.
 	response = Channel.PUT("/status", ``, router)
 	assert.Equal(t, http.StatusBadRequest, response.Code)
-	state, err := GetState(conn, "channel")
+	state, err := GetState(conn, Channel.name)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusComplete, state.Status)
 }
@@ -923,7 +844,7 @@ func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, 
 
 	// Next check that the database has a valid settings object
 	conn := NewRedisConnection(t, pool)
-	settings, err := GetSettings(conn, "channel")
+	settings, err := GetSettings(conn, Channel.name)
 	require.NoError(t, err)
 	fn(settings)
 }
@@ -952,7 +873,7 @@ func VerifyState(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn 
 
 	// Next check that the database has a valid settings object
 	conn := NewRedisConnection(t, pool)
-	state, err := GetState(conn, "channel")
+	state, err := GetState(conn, Channel.name)
 	require.NoError(t, err)
 	assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
 	fn(state)
@@ -975,23 +896,24 @@ func VerifyShowClue(t *testing.T, events <-chan pubsub.Event, fn func(clue strin
 	}
 }
 
-// GlobalRoute is a client that makes requests against the URL of the global
-// crossword route, not associated with any particular channel.
-type GlobalRoute struct{}
+// ChannelClient is a client that makes requests against the URL of a particular
+// user's channel.
+type ChannelClient struct {
+	name string
+}
 
-func (r GlobalRoute) GET(url string, router chi.Router) *httptest.ResponseRecorder {
-	url = path.Join("/crossword", url)
-	request := httptest.NewRequest(http.MethodGet, url, nil)
-
+func (c ChannelClient) GET(url string, router chi.Router) *httptest.ResponseRecorder {
+	url = path.Join("/crossword", c.name, url)
 	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, url, nil)
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
-func (r GlobalRoute) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {
-	url = path.Join("/crossword", url)
-	request := httptest.NewRequest(http.MethodPut, url, strings.NewReader(body))
 
+func (c ChannelClient) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {
+	url = path.Join("/crossword", c.name, url)
 	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, url, strings.NewReader(body))
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
@@ -1002,8 +924,8 @@ func (r GlobalRoute) PUT(url, body string, router chi.Router) *httptest.Response
 // the flush method can be called and it will return any queued up events.  When
 // the main thread wishes to close the connection to the router the stop method
 // can be called and it will return any unread events.
-func (r GlobalRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
-	url = path.Join("/crossword", url)
+func (c ChannelClient) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
+	url = path.Join("/crossword", c.name, url)
 	recorder := CreateTestResponseRecorder()
 
 	flush = func() []pubsub.Event {
@@ -1046,27 +968,6 @@ func (r GlobalRoute) SSE(url string, router chi.Router) (flush func() []pubsub.E
 	go router.ServeHTTP(recorder, request)
 
 	return flush, stop
-}
-
-// ChannelRoute is a client that makes requests against the URL of a particular
-// user's channel.
-type ChannelRoute struct {
-	name string
-}
-
-func (r ChannelRoute) GET(url string, router chi.Router) *httptest.ResponseRecorder {
-	url = path.Join(r.name, url)
-	return Global.GET(url, router)
-}
-
-func (r ChannelRoute) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {
-	url = path.Join(r.name, url)
-	return Global.PUT(url, body, router)
-}
-
-func (r ChannelRoute) SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
-	url = path.Join(r.name, url)
-	return Global.SSE(url, router)
 }
 
 func RandomString(n int) string {

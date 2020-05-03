@@ -35,9 +35,6 @@ var testStateLoadError error = nil
 // A cached error to use instead of writing state to the database.
 var testStateSaveError error = nil
 
-// A cached error to use instead of loading channel names from the database.
-var testChannelNamesLoadError error = nil
-
 // load will read a file from the testdata directory.
 func load(t *testing.T, filename string) io.ReadCloser {
 	t.Helper()
@@ -110,15 +107,6 @@ func ForceErrorDuringStateSave(t *testing.T, err error) {
 
 	testStateSaveError = err
 	t.Cleanup(func() { testStateSaveError = nil })
-}
-
-// ForceErrorDuringChannelNameLoad sets up an error to be returned when an
-// attempt is made to load channel names.
-func ForceErrorDuringChannelNameLoad(t *testing.T, err error) {
-	t.Helper()
-
-	testChannelNamesLoadError = err
-	t.Cleanup(func() { testChannelNamesLoadError = nil })
 }
 
 // NewTestRouter will return a router configured with a redis pool and pubsub

@@ -304,26 +304,35 @@ func SetState(conn redis.Conn, channel string, state State) error {
 	return db.SetWithTTL(conn, StateKey(channel), state, StateTTL)
 }
 
-// GetActiveChannelNames loads the name of all channels that currently have
-// an active solve happening.  A solve is considered active if its state has a
-// puzzle selected that's not yet completed.  If there are no active channels
-// then an empty slice is returned.  This method does not update the expiration
-// times of any state.
-func GetActiveChannelNames(conn redis.Conn) ([]string, error) {
-	if testChannelNamesLoadError != nil {
-		return nil, testChannelNamesLoadError
-	}
-
+// GetAllChannels returns a slice of model.Channel instances for each crossword
+// that contains state in the database.  If there are no active channels then an
+// empty slice is returned.  This method does not update the expiration times
+// of any state instance.
+func GetAllChannels(conn redis.Conn) ([]model.Channel, error) {
 	keys, err := db.ScanKeys(conn, StateKey("*"))
 	if err != nil {
 		return nil, err
 	}
 
-	channels := make([]string, 0)
-	for _, key := range keys {
-		channel := strings.Replace(key, StateKey(""), "", 1)
-		channels = append(channels, channel)
+	values, err := db.GetAll(conn, keys, State{})
+	if err != nil {
+		return nil, err
 	}
 
-	return channels, err
+	channels := make([]model.Channel, 0)
+	for key, value := range values {
+		name := strings.Replace(key, StateKey(""), "", 1)
+
+		state, ok := value.(State)
+		if !ok {
+			return nil, fmt.Errorf("unable to convert value to State: %v", value)
+		}
+
+		channels = append(channels, model.Channel{
+			Name:   name,
+			Status: state.Status,
+		})
+	}
+
+	return channels, nil
 }

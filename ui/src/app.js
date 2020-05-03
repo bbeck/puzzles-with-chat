@@ -25,37 +25,17 @@ export default function App() {
 }
 
 function Home() {
-  const [crosswords] = React.useState(
-    new EventStream(`/api/crossword/channels`)
-  );
   const [crosswordChannels, setCrosswordChannels] = React.useState(null);
-  React.useEffect(() => {
-    crosswords.setHandler(message => {
-      const event = JSON.parse(message.data);
-      switch (event.kind) {
-        case "channels":
-          setCrosswordChannels(event.payload);
-          break;
-
-        case "ping":
-          break;
-
-        default:
-          console.log("unhandled event:", event);
-      }
-    });
-  }, [crosswords, setCrosswordChannels]);
-
-  const [spellingbees] = React.useState(
-    new EventStream(`/api/spellingbee/channels`)
-  );
   const [spellingBeeChannels, setSpellingBeeChannels] = React.useState(null);
+
+  const [channels] = React.useState(new EventStream("/api/channels"));
   React.useEffect(() => {
-    spellingbees.setHandler(message => {
+    channels.setHandler(message => {
       const event = JSON.parse(message.data);
       switch (event.kind) {
         case "channels":
-          setSpellingBeeChannels(event.payload);
+          setCrosswordChannels(event.payload["crossword"].map(c => c.name));
+          setSpellingBeeChannels(event.payload["spellingbee"].map(c => c.name));
           break;
 
         case "ping":
@@ -65,7 +45,7 @@ function Home() {
           console.log("unhandled event:", event);
       }
     });
-  }, [spellingbees, setSpellingBeeChannels]);
+  }, [channels, setCrosswordChannels, setSpellingBeeChannels]);
 
   return (
     <div>

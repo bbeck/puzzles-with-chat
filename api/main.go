@@ -23,6 +23,8 @@ func main() {
 
 	// Register handlers for our paths.
 	r.Route("/api", func(r chi.Router) {
+		RegisterRoutes(r, pool)
+
 		crossword.RegisterRoutes(r, pool)
 		spellingbee.RegisterRoutes(r, pool)
 	})
