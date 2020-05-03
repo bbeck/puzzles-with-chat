@@ -156,3 +156,66 @@ func TestPost_Error(t *testing.T) {
 		})
 	}
 }
+
+func TestPut(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	}))
+	defer server.Close()
+
+	_, err := Put(server.URL, strings.NewReader(""))
+	assert.NoError(t, err)
+}
+
+func TestPut_Error(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		client  *http.Client
+		respond func(http.ResponseWriter)
+	}{
+		{
+			name: "error creating request (bad url)",
+			url:  ":",
+		},
+		{
+			name:   "error in client.Do (timeout)",
+			client: &http.Client{Timeout: 1 * time.Millisecond},
+			respond: func(writer http.ResponseWriter) {
+				time.Sleep(10 * time.Millisecond)
+				writer.WriteHeader(200)
+			},
+		},
+		{
+			name: "non-200 response",
+			respond: func(writer http.ResponseWriter) {
+				writer.WriteHeader(404)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				test.respond(w)
+			}))
+			defer server.Close()
+
+			url := test.url
+			if url == "" {
+				url = server.URL
+			}
+
+			client := test.client
+			if client == nil {
+				client = DefaultHTTPClient
+			}
+
+			response, err := PutWithClient(client, url, strings.NewReader(""))
+			if response != nil {
+				defer response.Body.Close()
+			}
+			require.Error(t, err)
+		})
+	}
+}
