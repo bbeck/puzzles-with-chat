@@ -26,6 +26,22 @@ export function CrosswordView(props) {
           they will appear on screen within the grid.  Solve the full puzzle
           correctly for a fun congratulatory demonstration.
         </p>
+        <div>
+          Potential sources of crossword .puz files:
+          <ul>
+            <li><a href="https://www.fleetingimage.com/wij/xyzzy/nyt-links.html">Puzzle Pointers</a></li>
+            <li><a href="https://crosswordfiend.com/download/">Crossword Fiend</a></li>
+          </ul>
+
+          Potential sources of cryptic crossword .puz files (keep in mind that
+          cryptic crosswords use a different set of&nbsp;
+          <a href="https://en.wikipedia.org/wiki/Cryptic_crossword">rules</a> for
+          clues than regular crosswords):
+          <ul>
+            <li><a href="https://www.fleetingimage.com/wij/xyzzy/cryptic-links.html">Cryptic Pointers</a></li>
+            <li><a href="http://world.std.com/~wij/puzzles/cru/">Cru Cryptics</a></li>
+          </ul>
+        </div>
         <hr className="my-4"/>
         <p>
           Questions? Comments? Feedback? Feel free to whisper @mistaeksweremade
