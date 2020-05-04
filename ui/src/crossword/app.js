@@ -78,7 +78,7 @@ export function CrosswordApp(props) {
 
   return (
     <>
-      <Nav view={props.view} error={error}>
+      <Nav puzzle="Crosswords" view={props.view} error={error}>
         <ul className="navbar-nav ml-auto">
           <StartPauseButton puzzle="crossword" status={state.status} onClick={toggleStatus}/>
           <ViewsDropdown channel={props.channel}/>

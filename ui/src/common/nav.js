@@ -6,19 +6,19 @@ import "react-datepicker/dist/react-datepicker.css";
 import "./nav.css";
 
 export function Nav(props) {
-  // If we're not on the streamer view then don't show erorrs or any of the
+  // If we're not on the streamer view then don't show errors or any of the
   // child elements that allow the state of the application to be modified.
   if (!props.view || props.view !== "streamer") {
     return (
       <nav className="navbar navbar-expand navbar-dark text-light bg-dark">
-        <div className="navbar-brand">Puzzles With Chat</div>
+        <BrandDropdown puzzle={props.puzzle}/>
       </nav>
     );
   }
 
   return (
     <nav className="navbar navbar-expand navbar-dark text-light bg-dark">
-      <div className="navbar-brand">Puzzles With Chat</div>
+      <BrandDropdown puzzle={props.puzzle}/>
 
       {props.error &&
       <div className="navbar-text text-danger m-auto">
@@ -28,6 +28,34 @@ export function Nav(props) {
 
       {props.children}
     </nav>
+  );
+}
+
+function BrandDropdown(props) {
+  if (!props.puzzle) {
+    return (
+      <div className="navbar-brand">Puzzles With Chat</div>
+    );
+  }
+
+  // template is a URL with a {puzzle} token in it indicating where the puzzle
+  // type belongs in the url.
+  const template = document.location.href
+    .replace("/crossword/", "/{puzzle}/")
+    .replace("/crossword", "/{puzzle}")
+    .replace("/spellingbee/", "/{puzzle}/")
+    .replace("/spellingbee", "/{puzzle}");
+
+  return (
+    <div className="nav-item dropdown">
+      <div className="navbar-brand dropdown-toggle" data-toggle="dropdown">
+        {props.puzzle} With Chat
+      </div>
+      <div className="dropdown-menu">
+        <a className="dropdown-item lead" href={template.replace("{puzzle}", "crossword")}>Crosswords</a>
+        <a className="dropdown-item lead" href={template.replace("{puzzle}", "spellingbee")}>Spelling Bee</a>
+      </div>
+    </div>
   );
 }
 
@@ -51,7 +79,6 @@ export function StartPauseButton(props) {
     </form>
   );
 }
-
 
 export function DateChooser(props) {
   const [selectedDate, setSelectedDate] = React.useState(null);

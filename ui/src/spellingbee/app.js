@@ -62,7 +62,7 @@ export function SpellingBeeApp(props) {
 
   return (
     <>
-      <Nav view={props.view} error={error}>
+      <Nav puzzle="Spelling Bee" view={props.view} error={error}>
         <ul className="navbar-nav ml-auto">
           <StartPauseButton puzzle="spellingbee" status={state.status} onClick={toggleStatus}/>
           <ViewsDropdown channel={props.channel}/>
