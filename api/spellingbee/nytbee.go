@@ -69,21 +69,42 @@ func ParseNYTBeeResponse(in io.Reader) (*Puzzle, error) {
 		return words
 	}
 
-	official := words("#main-answer-list ul li")
+	// Over time the format of the HTML has changed slightly putting the answers
+	// in a slightly different place.  Also when the site was first live it didn't
+	// always include unofficial answers.  These selectors are all of the known
+	// official answer locations along with a boolean that indicates whether or
+	// not this particular file format includes unofficial answers.
+	selectors := map[string]bool{
+		"#main-answer-list ul li":           true,
+		"#top-container #answer-list ul li": false,
+		"#top-container .answer-list ul li": false,
+		"#answer-list ul.column-list li":    false,
+	}
+
+	var official []string
+	var unofficialAnswersRequired bool
+	for selector, unofficialRequired := range selectors {
+		official = words(selector)
+		if official != nil {
+			unofficialAnswersRequired = unofficialRequired
+			break
+		}
+	}
+
 	unofficial := words("#not_official .answer-list ul li")
 
-	return InferPuzzle(official, unofficial)
+	return InferPuzzle(official, unofficial, unofficialAnswersRequired)
 }
 
 // InferPuzzle looks at the list of words and determines the puzzle structure
 // from them.  In addition it verifies that the provided words have a valid
 // structure for the puzzle.
-func InferPuzzle(official, unofficial []string) (*Puzzle, error) {
+func InferPuzzle(official, unofficial []string, unofficialRequired bool) (*Puzzle, error) {
 	// Verify we found words
 	if len(official) == 0 {
 		return nil, errors.New("no official words")
 	}
-	if len(unofficial) == 0 {
+	if unofficialRequired && len(unofficial) == 0 {
 		return nil, errors.New("no unofficial words")
 	}
 

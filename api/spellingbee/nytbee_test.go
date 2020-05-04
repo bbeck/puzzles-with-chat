@@ -123,7 +123,7 @@ func TestInferPuzzle(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			puzzle, err := InferPuzzle(test.official, test.unofficial)
+			puzzle, err := InferPuzzle(test.official, test.unofficial, false)
 			require.NoError(t, err)
 
 			assert.ElementsMatch(t, test.official, puzzle.OfficialAnswers)
@@ -278,7 +278,7 @@ func TestInferPuzzle_Error(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := InferPuzzle(test.official, test.unofficial)
+			_, err := InferPuzzle(test.official, test.unofficial, true)
 			assert.Error(t, err)
 		})
 	}
@@ -411,6 +411,129 @@ func TestParseNYTBeeResponse(t *testing.T) {
 				assert.Equal(t, "M", puzzle.CenterLetter)
 
 				expected := []string{"N", "O", "P", "R", "T", "Y"}
+				assert.ElementsMatch(t, expected, puzzle.Letters)
+			},
+		},
+		{
+			name:  "legacy format 1 (answers)",
+			input: load(t, "nytbee-20180729.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := []string{
+					"ACYCLIC",
+					"ALFALFA",
+					"ALLAY",
+					"ALLY",
+					"ANAL",
+					"ANALLY",
+					"CALCIFY",
+					"CALF",
+					"CALL",
+					"CALLA",
+					"CANAL",
+					"CANNILY",
+					"CILIA",
+					"CLAN",
+					"CLAY",
+					"CLIFF",
+					"CLINIC",
+					"CLINICAL",
+					"CLINICALLY",
+					"CLINICIAN",
+					"CYCLIC",
+					"CYCLICAL",
+					"CYCLICALLY",
+					"CYNICAL",
+					"CYNICALLY",
+					"FACIAL",
+					"FACIALLY",
+					"FAIL",
+					"FALL",
+					"FALLACY",
+					"FANCILY",
+					"FILIAL",
+					"FILIALLY",
+					"FILL",
+					"FILLY",
+					"FINAL",
+					"FINALLY",
+					"FINANCIAL",
+					"FINANCIALLY",
+					"FLAIL",
+					"FLAN",
+					"FLAY",
+					"ICILY",
+					"ILLY",
+					"INFILL",
+					"INLAY",
+					"LACY",
+					"LAIC",
+					"LAICAL",
+					"LAICALLY",
+					"LAIN",
+					"LANAI",
+					"LILAC",
+					"LILY",
+					"NAIL",
+				}
+				assert.ElementsMatch(t, expected, puzzle.OfficialAnswers)
+			},
+		},
+		{
+			name:  "legacy format 1 (letters)",
+			input: load(t, "nytbee-20180729.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, "L", puzzle.CenterLetter)
+
+				expected := []string{"A", "C", "F", "I", "N", "Y"}
+				assert.ElementsMatch(t, expected, puzzle.Letters)
+			},
+		},
+		{
+			name:  "legacy format 2 (answers)",
+			input: load(t, "nytbee-20180731.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := []string{
+					"AIRMAN",
+					"ANIMA",
+					"APIAN",
+					"ARIA",
+					"IMAM",
+					"IMPAIR",
+					"MAIM",
+					"MAIN",
+					"MANIA",
+					"MARINA",
+					"MARINARA",
+					"MARZIPAN",
+					"MINI",
+					"MINIM",
+					"MINIMA",
+					"PAIN",
+					"PAIR",
+					"PANINI",
+					"PAPARAZZI",
+					"PIAZZA",
+					"PIMP",
+					"PIZAZZ",
+					"PIZZA",
+					"PIZZAZZ",
+					"PRIM",
+					"PRIMP",
+					"RAIN",
+					"RAPINI",
+					"RIPARIAN",
+					"ZINNIA",
+				}
+				assert.ElementsMatch(t, expected, puzzle.OfficialAnswers)
+			},
+		},
+		{
+			name:  "legacy format 2 (letters)",
+			input: load(t, "nytbee-20180731.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, "I", puzzle.CenterLetter)
+
+				expected := []string{"A", "M", "N", "P", "R", "Z"}
 				assert.ElementsMatch(t, expected, puzzle.Letters)
 			},
 		},
