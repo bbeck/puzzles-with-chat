@@ -313,6 +313,12 @@ func TestState_ApplyAnswer_Score(t *testing.T) {
 			expectedScore: 7,
 		},
 		{
+			name:          "pangram",
+			filename:      "nytbee-20200408.html",
+			answers:       []string{"COUNTRY"},
+			expectedScore: 14,
+		},
+		{
 			name:     "all official answers",
 			filename: "nytbee-20200408.html",
 			answers: []string{
@@ -366,7 +372,7 @@ func TestState_ApplyAnswer_Score(t *testing.T) {
 				"YURT",
 			},
 			allowUnofficial: true,
-			expectedScore:   176,
+			expectedScore:   183,
 		},
 		{
 			name:     "all answers (unofficial allowed)",
@@ -460,7 +466,7 @@ func TestState_ApplyAnswer_Score(t *testing.T) {
 				"UNTORN",
 			},
 			allowUnofficial: true,
-			expectedScore:   370,
+			expectedScore:   384,
 		},
 	}
 

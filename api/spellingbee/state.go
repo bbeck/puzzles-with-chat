@@ -121,6 +121,21 @@ func (s *State) ClearUnofficialAnswers() {
 // UpdateScore updates the score for the puzzle based on all of the answers
 // that have been provided.
 func (s *State) updateScore() {
+	isPangram := func(word string) bool {
+		letters := map[string]struct{}{
+			s.Puzzle.CenterLetter: {},
+		}
+		for _, letter := range s.Puzzle.Letters {
+			letters[letter] = struct{}{}
+		}
+
+		for _, letter := range word {
+			delete(letters, string(letter))
+		}
+
+		return len(letters) == 0
+	}
+
 	var score int
 	for _, word := range s.Words {
 		if len(word) == 4 {
@@ -129,6 +144,11 @@ func (s *State) updateScore() {
 		}
 
 		score += len(word)
+
+		// pangrams get a 7 point bonus
+		if isPangram(word) {
+			score += 7
+		}
 	}
 
 	s.Score = score
