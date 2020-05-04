@@ -11,14 +11,14 @@ export function Nav(props) {
   if (!props.view || props.view !== "streamer") {
     return (
       <nav className="navbar navbar-expand navbar-dark text-light bg-dark">
-        <div className="navbar-brand">Twitch Plays Crosswords</div>
+        <div className="navbar-brand">Puzzles With Chat</div>
       </nav>
     );
   }
 
   return (
     <nav className="navbar navbar-expand navbar-dark text-light bg-dark">
-      <div className="navbar-brand">Twitch Plays Crosswords</div>
+      <div className="navbar-brand">Puzzles With Chat</div>
 
       {props.error &&
       <div className="navbar-text text-danger m-auto">

@@ -9,7 +9,26 @@ export function SpellingBeeView(props) {
   const puzzle = state && state.puzzle;
   if (!state || !puzzle) {
     return (
-      <h1>Spelling Bee goes here</h1>
+      <div className="jumbotron">
+        <h1>Welcome to Spelling Bee!</h1>
+        <hr className="my-4"/>
+        <p>
+          Please select a spelling bee puzzle to solve using the&nbsp;
+          <b>Puzzle</b> menu on the top right of the screen.
+        </p>
+        <p>
+          Once a puzzle is started Puzzles With Chat will allow a Twitch
+          streamer's viewers to cooperatively solve a spelling bee puzzle by
+          inputting answers into the chat.  As correct answers are inputted
+          they will appear on the screen and the score will increase.  Find all
+          of the answers for a fun congratulatory demonstration.
+        </p>
+        <hr className="my-4"/>
+        <p>
+          Questions? Comments? Feedback? Feel free to whisper @mistaeksweremade
+          on Twitch.
+        </p>
+      </div>
     );
   }
 

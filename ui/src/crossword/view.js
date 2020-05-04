@@ -9,7 +9,29 @@ export function CrosswordView(props) {
   const puzzle = state && state.puzzle;
   if (!state || !puzzle) {
     return (
-      <h1>Crossword goes here</h1>
+      <div className="jumbotron">
+        <h1>Welcome to Crosswords!</h1>
+        <hr className="my-4"/>
+        <p>
+          Please select a crossword puzzle to solve using the&nbsp;
+          <b>Puzzle</b> menu on the top right of the screen.  You can select
+          a crossword from the archives of the New York Times or Wall Street
+          Journal, or upload your own URL or .puz file to solve one from another
+          source.
+        </p>
+        <p>
+          Once a puzzle is started Puzzles With Chat will allow a Twitch
+          streamer's viewers to cooperatively solve a crossword puzzle by
+          inputting answers into the chat.  As correct answers are inputted
+          they will appear on screen within the grid.  Solve the full puzzle
+          correctly for a fun congratulatory demonstration.
+        </p>
+        <hr className="my-4"/>
+        <p>
+          Questions? Comments? Feedback? Feel free to whisper @mistaeksweremade
+          on Twitch.
+        </p>
+      </div>
     );
   }
 
