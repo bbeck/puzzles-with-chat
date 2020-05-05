@@ -183,7 +183,7 @@ function Footer() {
         Construct words that are at least 4 letters long and use the center
         letter. Letters may be used more than once.
       </div>
-      <div>Provide an answer: <code>!answer country</code></div>
+      <div>Provide an answer: <code>!country</code></div>
       <div>Shuffle the letters: <code>!shuffle</code></div>
     </div>
   );
