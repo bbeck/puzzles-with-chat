@@ -49,14 +49,14 @@ redis-cli:
 	@docker-compose exec redis redis-cli
 
 %.tar: %/Dockerfile
-	@docker build --rm -t "twitch-plays-crosswords-$*" "$*"
-	@docker save -o "$*.tar" "twitch-plays-crosswords-$*"
-	@docker image rm "twitch-plays-crosswords-$*"
+	@docker build --rm -t "puzzles-with-chat-$*" "$*"
+	@docker save -o "$*.tar" "puzzles-with-chat-$*"
+	@docker image rm "puzzles-with-chat-$*"
 
 .PHONY: deploy
 deploy: api.tar bot.tar ui.tar
 	@scp $^ homelab:~/
 	@ssh homelab 'for name in $^; do docker load -i $${name}; done && rm $^'
-	@ssh homelab 'sudo systemctl restart docker-compose@twitch-plays-crosswords && docker image prune -f'
+	@ssh homelab 'sudo systemctl restart docker-compose@puzzles-with-chat && docker image prune -f'
 	@rm $^
 	@docker image prune -f
