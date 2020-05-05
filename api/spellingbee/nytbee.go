@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	"github.com/bbeck/twitch-plays-crosswords/api/web"
+	"github.com/bbeck/puzzles-with-chat/api/web"
 	"io"
 	"strings"
 	"time"

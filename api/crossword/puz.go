@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/bbeck/twitch-plays-crosswords/api/web"
+	"github.com/bbeck/puzzles-with-chat/api/web"
 	"golang.org/x/text/encoding/charmap"
 	"io"
 	"strings"

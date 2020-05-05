@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/bbeck/twitch-plays-crosswords/bot/crossword"
-	"github.com/bbeck/twitch-plays-crosswords/bot/spellingbee"
+	"github.com/bbeck/puzzles-with-chat/bot/crossword"
+	"github.com/bbeck/puzzles-with-chat/bot/spellingbee"
 	"io"
 	"log"
 	"os"

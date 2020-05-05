@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/bbeck/twitch-plays-crosswords/bot/web"
+	"github.com/bbeck/puzzles-with-chat/bot/web"
 	"log"
 	"net/http"
 	"regexp"

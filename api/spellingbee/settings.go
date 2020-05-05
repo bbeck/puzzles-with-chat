@@ -2,8 +2,8 @@ package spellingbee
 
 import (
 	"fmt"
-	"github.com/bbeck/twitch-plays-crosswords/api/db"
-	"github.com/bbeck/twitch-plays-crosswords/api/model"
+	"github.com/bbeck/puzzles-with-chat/api/db"
+	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/gomodule/redigo/redis"
 )
 

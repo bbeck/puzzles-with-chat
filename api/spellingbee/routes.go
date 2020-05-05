@@ -1,8 +1,8 @@
 package spellingbee
 
 import (
-	"github.com/bbeck/twitch-plays-crosswords/api/model"
-	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
+	"github.com/bbeck/puzzles-with-chat/api/model"
+	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"

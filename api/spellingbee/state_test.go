@@ -1,7 +1,7 @@
 package spellingbee
 
 import (
-	"github.com/bbeck/twitch-plays-crosswords/api/model"
+	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"

@@ -3,7 +3,7 @@ package crossword
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bbeck/twitch-plays-crosswords/api/web"
+	"github.com/bbeck/puzzles-with-chat/api/web"
 	"html"
 	"io"
 	"strconv"

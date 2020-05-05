@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/bbeck/twitch-plays-crosswords/api/crossword"
-	"github.com/bbeck/twitch-plays-crosswords/api/spellingbee"
+	"github.com/bbeck/puzzles-with-chat/api/crossword"
+	"github.com/bbeck/puzzles-with-chat/api/spellingbee"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/gomodule/redigo/redis"

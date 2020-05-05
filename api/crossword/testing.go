@@ -3,8 +3,8 @@ package crossword
 import (
 	"encoding/json"
 	"github.com/alicebob/miniredis"
-	"github.com/bbeck/twitch-plays-crosswords/api/model"
-	"github.com/bbeck/twitch-plays-crosswords/api/pubsub"
+	"github.com/bbeck/puzzles-with-chat/api/model"
+	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/assert"

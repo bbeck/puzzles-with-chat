@@ -1,4 +1,4 @@
-module github.com/bbeck/twitch-plays-crosswords/api
+module github.com/bbeck/puzzles-with-chat/api
 
 go 1.13
 

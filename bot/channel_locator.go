@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/bbeck/twitch-plays-crosswords/bot/sse"
+	"github.com/bbeck/puzzles-with-chat/bot/sse"
 )
 
 // ChannelLocator is a SSE event processor that runs in the background to locate
