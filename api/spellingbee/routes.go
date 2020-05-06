@@ -164,6 +164,15 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 			if status != model.StatusCreated && status != model.StatusSelected && status != model.StatusComplete {
 				state.ClearUnofficialAnswers()
 
+				// We may have just solved the puzzle -- if so then we should stop the
+				// timer before saving the state.
+				if state.Status == model.StatusComplete {
+					now := time.Now()
+					total := state.TotalSolveDuration.Nanoseconds() + now.Sub(*state.LastStartTime).Nanoseconds()
+					state.LastStartTime = nil
+					state.TotalSolveDuration = model.Duration{Duration: time.Duration(total)}
+				}
+
 				if err := SetState(conn, channel, state); err != nil {
 					log.Printf("unable to save state for channel %s: %+v", channel, err)
 					w.WriteHeader(http.StatusInternalServerError)
@@ -189,6 +198,15 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 				Kind:    "state",
 				Payload: *updatedState,
 			})
+
+			// Since we updated the state, we may have also just solved the puzzle.
+			// If we did then we should also send a complete message.
+			if updatedState.Status == model.StatusComplete {
+				registry.Publish(pubsub.Channel(channel), pubsub.Event{
+					Kind:    "complete",
+					Payload: nil,
+				})
+			}
 		}
 
 		w.WriteHeader(http.StatusOK)

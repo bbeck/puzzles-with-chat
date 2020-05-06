@@ -116,6 +116,13 @@ func (s *State) ClearUnofficialAnswers() {
 
 	// Since we've modified the words slice we should update the answer.
 	s.updateScore()
+
+	// Lastly determine if the puzzle is now solved.  We can directly look at
+	// the official answers from the puzzle because we know we are only
+	// interested in them because this method removes all unofficial answers.
+	if len(s.Words) == len(s.Puzzle.OfficialAnswers) {
+		s.Status = model.StatusComplete
+	}
 }
 
 // UpdateScore updates the score for the puzzle based on all of the answers

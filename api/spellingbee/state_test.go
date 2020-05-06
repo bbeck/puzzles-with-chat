@@ -660,3 +660,158 @@ func TestState_ClearUnofficialAnswers_Score(t *testing.T) {
 		})
 	}
 }
+
+func TestState_ClearUnofficialAnswers_Status(t *testing.T) {
+	tests := []struct {
+		name           string
+		filename       string
+		answers        []string     // The answers already given
+		expectedStatus model.Status // The expected status
+	}{
+		{
+			name:           "no answers",
+			filename:       "nytbee-20200408.html",
+			expectedStatus: model.StatusSelected,
+		},
+		{
+			name:     "no unofficial answers",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+			},
+			expectedStatus: model.StatusSelected,
+		},
+		{
+			name:     "one unofficial answer",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"CONCOCTOR",
+			},
+			expectedStatus: model.StatusSelected,
+		},
+		{
+			name:     "all official answers, no unofficial ones",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+				"CONTORT",
+				"CONTOUR",
+				"COOT",
+				"COTTON",
+				"COTTONY",
+				"COUNT",
+				"COUNTRY",
+				"COUNTY",
+				"COURT",
+				"CROUTON",
+				"CURT",
+				"CUTOUT",
+				"NUTTY",
+				"ONTO",
+				"OUTCRY",
+				"OUTRO",
+				"OUTRUN",
+				"ROOT",
+				"ROTO",
+				"ROTOR",
+				"ROUT",
+				"RUNOUT",
+				"RUNT",
+				"RUNTY",
+				"RUTTY",
+				"TONY",
+				"TOON",
+				"TOOT",
+				"TORN",
+				"TORO",
+				"TORT",
+				"TOUR",
+				"TOUT",
+				"TROT",
+				"TROUT",
+				"TROY",
+				"TRYOUT",
+				"TURN",
+				"TURNOUT",
+				"TUTOR",
+				"TUTU",
+				"TYCOON",
+				"TYRO",
+				"UNCUT",
+				"UNTO",
+				"YURT",
+			},
+			expectedStatus: model.StatusComplete,
+		},
+		{
+			name:     "all official answers, some unofficial answers",
+			filename: "nytbee-20200408.html",
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+				"CONCOCTOR",
+				"CONTORT",
+				"CONTO",
+				"CONTOUR",
+				"COOT",
+				"COTTON",
+				"COTTONY",
+				"COUNT",
+				"COUNTRY",
+				"COUNTY",
+				"COURT",
+				"CROUTON",
+				"CURT",
+				"CUTOUT",
+				"NUTTY",
+				"ONTO",
+				"OUTCRY",
+				"OUTRO",
+				"OUTRUN",
+				"ROOT",
+				"ROTO",
+				"ROTOR",
+				"ROUT",
+				"RUNOUT",
+				"RUNT",
+				"RUNTY",
+				"RUTTY",
+				"TONY",
+				"TOON",
+				"TOOT",
+				"TORN",
+				"TORO",
+				"TORT",
+				"TOUR",
+				"TOUT",
+				"TROT",
+				"TROUT",
+				"TROY",
+				"TRYOUT",
+				"TURN",
+				"TURNOUT",
+				"TUTOR",
+				"TUTU",
+				"TYCOON",
+				"TYRO",
+				"UNCUT",
+				"UNTO",
+				"YURT",
+			},
+			expectedStatus: model.StatusComplete,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := NewState(t, test.filename)
+			state.Words = test.answers
+
+			state.ClearUnofficialAnswers()
+
+			assert.Equal(t, test.expectedStatus, state.Status)
+		})
+	}
+}
