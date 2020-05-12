@@ -22,7 +22,7 @@ export function Timer(props) {
     if (!isNaN(start)) {
       total += new Date().getTime() / 1000 - start;
     }
-    return Math.round(total);
+    return total > 0 ? Math.round(total) : 0;
   };
 
   const [total, setTotal] = React.useState(
