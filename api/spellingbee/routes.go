@@ -1,6 +1,7 @@
 package spellingbee
 
 import (
+	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
@@ -12,11 +13,7 @@ import (
 	"time"
 )
 
-func RegisterRoutes(router chi.Router, pool *redis.Pool) {
-	RegisterRoutesWithRegistry(router, pool, new(pubsub.Registry))
-}
-
-func RegisterRoutesWithRegistry(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
+func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 	r.Route("/spellingbee/{channel}", func(r chi.Router) {
 		r.Put("/", UpdatePuzzle(pool, registry))
 		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
@@ -84,10 +81,7 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		// and will be discarding it immediately publishing.
 		state.Puzzle = state.Puzzle.WithoutAnswers()
 
-		registry.Publish(pubsub.Channel(channel), pubsub.Event{
-			Kind:    "state",
-			Payload: state,
-		})
+		registry.Publish(ChannelID(channel), StateEvent(state))
 
 		w.WriteHeader(http.StatusOK)
 	}
@@ -184,28 +178,19 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 		}
 
 		// Now broadcast the new settings to all of the clients in the channel.
-		registry.Publish(pubsub.Channel(channel), pubsub.Event{
-			Kind:    "settings",
-			Payload: settings,
-		})
+		registry.Publish(ChannelID(channel), SettingsEvent(settings))
 
 		if updatedState != nil {
 			// Broadcast the updated state to all of the clients, making sure to not
 			// include the answers.
 			updatedState.Puzzle = updatedState.Puzzle.WithoutAnswers()
 
-			registry.Publish(pubsub.Channel(channel), pubsub.Event{
-				Kind:    "state",
-				Payload: *updatedState,
-			})
+			registry.Publish(ChannelID(channel), StateEvent(*updatedState))
 
 			// Since we updated the state, we may have also just solved the puzzle.
 			// If we did then we should also send a complete message.
 			if updatedState.Status == model.StatusComplete {
-				registry.Publish(pubsub.Channel(channel), pubsub.Event{
-					Kind:    "complete",
-					Payload: nil,
-				})
+				registry.Publish(ChannelID(channel), CompleteEvent())
 			}
 		}
 
@@ -251,10 +236,7 @@ func ShuffleLetters(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFun
 		// and will be discarding it immediately publishing.
 		state.Puzzle = state.Puzzle.WithoutAnswers()
 
-		registry.Publish(pubsub.Channel(channel), pubsub.Event{
-			Kind:    "state",
-			Payload: state,
-		})
+		registry.Publish(ChannelID(channel), StateEvent(state))
 
 		w.WriteHeader(http.StatusOK)
 	}
@@ -317,10 +299,7 @@ func ToggleStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		// database and will be discarding it immediately publishing.
 		state.Puzzle = state.Puzzle.WithoutAnswers()
 
-		registry.Publish(pubsub.Channel(channel), pubsub.Event{
-			Kind:    "state",
-			Payload: state,
-		})
+		registry.Publish(ChannelID(channel), StateEvent(state))
 
 		w.WriteHeader(http.StatusOK)
 	}
@@ -397,17 +376,11 @@ func AddAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 		// and will be discarding it immediately publishing.
 		state.Puzzle = state.Puzzle.WithoutAnswers()
 
-		registry.Publish(pubsub.Channel(channel), pubsub.Event{
-			Kind:    "state",
-			Payload: state,
-		})
+		registry.Publish(ChannelID(channel), StateEvent(state))
 
 		// If we've just finished the solve then send a complete event as well.
 		if state.Status == model.StatusComplete {
-			registry.Publish(pubsub.Channel(channel), pubsub.Event{
-				Kind:    "complete",
-				Payload: nil,
-			})
+			registry.Publish(ChannelID(channel), CompleteEvent())
 		}
 
 		w.WriteHeader(http.StatusCreated)
@@ -441,10 +414,7 @@ func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		stream <- pubsub.Event{
-			Kind:    "settings",
-			Payload: settings,
-		}
+		stream <- SettingsEvent(settings)
 
 		// Send the current state of the solve if there is one, but make sure to
 		// mask the solution to the puzzle.
@@ -457,16 +427,13 @@ func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 		if state.Puzzle != nil {
 			state.Puzzle = state.Puzzle.WithoutAnswers()
 
-			stream <- pubsub.Event{
-				Kind:    "state",
-				Payload: state,
-			}
+			stream <- StateEvent(state)
 		}
 
 		// Now that we've seeded the stream with the initialization events,
 		// subscribe it to receive all future events for the channel.
-		id, err := registry.Subscribe(pubsub.Channel(channel), stream)
-		defer registry.Unsubscribe(pubsub.Channel(channel), id)
+		id, err := registry.Subscribe(ChannelID(channel), stream)
+		defer registry.Unsubscribe(id)
 		if err != nil {
 			log.Printf("unable to subscribe client to channel %s: %+v", channel, err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -474,5 +441,30 @@ func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 		}
 
 		pubsub.EmitEvents(r.Context(), w, stream)
+	}
+}
+
+func ChannelID(channel string) pubsub.Channel {
+	channel = fmt.Sprintf("%s:spellingbee", channel)
+	return pubsub.Channel(channel)
+}
+
+func SettingsEvent(settings Settings) pubsub.Event {
+	return pubsub.Event{
+		Kind:    "settings",
+		Payload: settings,
+	}
+}
+
+func StateEvent(state State) pubsub.Event {
+	return pubsub.Event{
+		Kind:    "state",
+		Payload: state,
+	}
+}
+
+func CompleteEvent() pubsub.Event {
+	return pubsub.Event{
+		Kind: "complete",
 	}
 }

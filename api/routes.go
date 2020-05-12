@@ -13,15 +13,15 @@ import (
 	"time"
 )
 
-func RegisterRoutes(r chi.Router, pool *redis.Pool) {
-	r.Get("/channels", GetChannels(pool))
+func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
+	r.Get("/channels", GetChannels(pool, registry))
 }
 
 // GetChannels establishes a SSE based stream with a client that contains the
 // list of active channels across all puzzle types.  Events will be periodically
 // sent to the stream containing the list of active channels, even if the list
 // doesn't change.
-func GetChannels(pool *redis.Pool) http.HandlerFunc {
+func GetChannels(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Construct the stream that all events for this particular client will be
 		// placed into.
@@ -31,6 +31,18 @@ func GetChannels(pool *redis.Pool) http.HandlerFunc {
 		// Setup a connection to redis so that we can read the current solves.
 		conn := pool.Get()
 		defer func() { _ = conn.Close() }()
+
+		// Setup a subscription in the registry to be able to see all state update
+		// events regardless of which channel or puzzle type it's for.  This will
+		// allow us to know when to look for an updated set of channels to send to
+		// anyone monitoring the list of active channels.
+		events := make(chan pubsub.Event, 10)
+		defer close(events)
+
+		id, err := registry.SubscribeMatching(func(channel pubsub.Channel, event pubsub.Event) bool {
+			return event.Kind == "state"
+		}, events)
+		defer registry.Unsubscribe(id)
 
 		// Get our initial set of channels so that we can send a response to the
 		// client immediately.
@@ -42,22 +54,20 @@ func GetChannels(pool *redis.Pool) http.HandlerFunc {
 		}
 
 		// Send the initial set of channels.
-		stream <- pubsub.Event{
-			Kind:    "channels",
-			Payload: channels,
-		}
+		stream <- ChannelsEvent(channels)
 
 		// Start a background goroutine for this client that sends updates to the
 		// list of channels periodically.
-		go func() {
+		go func(channels map[string][]model.Channel) {
 			for {
 				select {
 				case <-r.Context().Done():
 					// The client disconnected, the goroutine should exit.
 					return
 
-				case <-time.After(10 * time.Second):
-					channels, err := GetActiveChannels(conn)
+				case <-events:
+					// A channel has updated it's state.  Check if anything has changed.
+					current, err := GetActiveChannels(conn)
 					if err != nil {
 						log.Printf("unable to load active crossword channels: %+v", err)
 
@@ -66,16 +76,67 @@ func GetChannels(pool *redis.Pool) http.HandlerFunc {
 						continue
 					}
 
-					stream <- pubsub.Event{
-						Kind:    "channels",
-						Payload: channels,
+					if Changed(channels, current) {
+						channels = current
+						stream <- ChannelsEvent(channels)
 					}
+
+				case <-time.After(1 * time.Minute):
+					// If we haven't sent any channels to the user in awhile then do so
+					// now.  This handles the case where changes happen to the underlying
+					// database out of band (such as a TTL expiring an entry) from our
+					// application.
+					channels, err = GetActiveChannels(conn)
+					if err != nil {
+						log.Printf("unable to load active crossword channels: %+v", err)
+
+						// Don't exit the goroutine here since the client is still connected.
+						// We'll just try again in the future.
+						continue
+					}
+
+					stream <- ChannelsEvent(channels)
 				}
 			}
-		}()
+		}(channels)
 
 		pubsub.EmitEvents(r.Context(), w, stream)
 	}
+}
+
+// Changed compares two sets of active channels and determines if anything has
+// changed or not.
+func Changed(before, after map[string][]model.Channel) bool {
+	if len(before) != len(after) {
+		return true
+	}
+
+	same := func(as, bs []model.Channel) bool {
+		if len(as) != len(bs) {
+			return false
+		}
+
+		seen := make(map[string]model.Status)
+		for _, a := range as {
+			seen[a.Name] = a.Status
+		}
+
+		for _, b := range bs {
+			if seen[b.Name] != b.Status {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	for k := range after {
+		if !same(before[k], after[k]) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetActiveChannels loads from the database all channels that have states and
@@ -111,4 +172,11 @@ func ForceErrorDuringActiveChannelsLoad(t *testing.T, err error) {
 
 	testActiveChannelsLoadError = err
 	t.Cleanup(func() { testActiveChannelsLoadError = nil })
+}
+
+func ChannelsEvent(channels map[string][]model.Channel) pubsub.Event {
+	return pubsub.Event{
+		Kind:    "channels",
+		Payload: channels,
+	}
 }

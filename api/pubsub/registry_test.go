@@ -17,16 +17,6 @@ func TestRegistry_Subscribe_Error(t *testing.T) {
 			channel: "",
 			stream:  make(chan Event, 10),
 		},
-		{
-			name:    "nil stream",
-			channel: "channel",
-			stream:  nil,
-		},
-		{
-			name:    "unbuffered stream",
-			channel: "channel",
-			stream:  make(chan Event),
-		},
 	}
 
 	for _, test := range tests {
@@ -34,6 +24,39 @@ func TestRegistry_Subscribe_Error(t *testing.T) {
 			registry := new(Registry)
 
 			_, err := registry.Subscribe(test.channel, test.stream)
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestRegistry_SubscribeMatching_Error(t *testing.T) {
+	tests := []struct {
+		name   string
+		fn     func(Channel, Event) bool
+		stream chan Event
+	}{
+		{
+			name:   "nil function",
+			fn:     nil,
+			stream: make(chan Event, 10),
+		},
+		{
+			name:   "nil stream",
+			fn:     func(Channel, Event) bool { return true },
+			stream: nil,
+		},
+		{
+			name:   "unbuffered stream",
+			fn:     func(Channel, Event) bool { return true },
+			stream: make(chan Event),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := new(Registry)
+
+			_, err := registry.SubscribeMatching(test.fn, test.stream)
 			assert.Error(t, err)
 		})
 	}
@@ -49,15 +72,10 @@ func TestRegistry_Unsubscribe_ClientStopsReceivingEvents(t *testing.T) {
 	registry.Publish("channel", Event{})
 	assert.Equal(t, 1, len(receiveAll(stream)))
 
-	registry.Unsubscribe("channel", id)
+	registry.Unsubscribe(id)
 
 	registry.Publish("channel", Event{})
 	assert.Equal(t, 0, len(receiveAll(stream)))
-}
-
-func TestRegistry_Unsubscribe_EmptyRegistry(t *testing.T) {
-	registry := new(Registry)
-	registry.Unsubscribe("channel", "id")
 }
 
 func TestRegistry_Unsubscribe_NonExistingClientID(t *testing.T) {
@@ -66,7 +84,7 @@ func TestRegistry_Unsubscribe_NonExistingClientID(t *testing.T) {
 	_, err := registry.Subscribe("channel", make(chan Event, 1))
 	require.NoError(t, err)
 
-	registry.Unsubscribe("channel", "id")
+	registry.Unsubscribe("id")
 }
 
 func TestRegistry_Unsubscribe_MultipleTimes(t *testing.T) {
@@ -75,8 +93,8 @@ func TestRegistry_Unsubscribe_MultipleTimes(t *testing.T) {
 	id, err := registry.Subscribe("channel", make(chan Event, 1))
 	require.NoError(t, err)
 
-	registry.Unsubscribe("channel", id)
-	registry.Unsubscribe("channel", id)
+	registry.Unsubscribe(id)
+	registry.Unsubscribe(id)
 }
 
 func TestRegistry_Publish(t *testing.T) {

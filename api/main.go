@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/bbeck/puzzles-with-chat/api/crossword"
+	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/bbeck/puzzles-with-chat/api/spellingbee"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -16,6 +17,8 @@ func main() {
 	pool := NewRedisPool()
 	defer func() { _ = pool.Close() }()
 
+	registry := new(pubsub.Registry)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -23,10 +26,10 @@ func main() {
 
 	// Register handlers for our paths.
 	r.Route("/api", func(r chi.Router) {
-		RegisterRoutes(r, pool)
+		RegisterRoutes(r, pool, registry)
 
-		crossword.RegisterRoutes(r, pool)
-		spellingbee.RegisterRoutes(r, pool)
+		crossword.RegisterRoutes(r, pool, registry)
+		spellingbee.RegisterRoutes(r, pool, registry)
 	})
 
 	// Start the server.

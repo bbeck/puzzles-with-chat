@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"github.com/alicebob/miniredis"
@@ -25,14 +26,14 @@ import (
 func TestRoute_GetChannels(t *testing.T) {
 	// This acts as a small integration test ensuring that the active channels
 	// event stream receives the events as new channels start and finish solves.
-	router, pool, _ := NewTestRouter(t)
+	router, pool, registry := NewTestRouter(t)
 	conn := NewRedisConnection(t, pool)
 
 	// Connect to the stream when there's no active solves happening, we should
 	// receive an event that contains an empty list of channels.
 	_, stop := SSE("/channels", router)
 	events := stop()
-	assert.Equal(t, 1, len(events))
+	require.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
 
 	payload := ParsePayload(t, events[0].Payload)
@@ -46,7 +47,7 @@ func TestRoute_GetChannels(t *testing.T) {
 	// Now reconnect to the stream and we should receive one active channel.
 	_, stop = SSE("/channels", router)
 	events = stop()
-	assert.Equal(t, 1, len(events))
+	require.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
 
 	payload = ParsePayload(t, events[0].Payload)
@@ -62,7 +63,7 @@ func TestRoute_GetChannels(t *testing.T) {
 	// Now we expect there to be 2 channels in the stream.
 	_, stop = SSE("/channels", router)
 	events = stop()
-	assert.Equal(t, 1, len(events))
+	require.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
 	payload = ParsePayload(t, events[0].Payload)
 	assert.ElementsMatch(t, []model.Channel{
@@ -72,19 +73,36 @@ func TestRoute_GetChannels(t *testing.T) {
 		{Name: "channel2", Status: model.StatusSolving},
 	}, payload["spellingbee"])
 
-	// Lastly remove the second channel from the database.
+	// Next remove the second channel from the database.
 	_, err := conn.Do("DEL", spellingbee.StateKey("channel2"))
 	require.NoError(t, err)
 
 	// Now we expect there to be one channels in the stream.
-	_, stop = SSE("/channels", router)
-	events = stop()
-	assert.Equal(t, 1, len(events))
+	flush, stop := SSE("/channels", router)
+	events = flush()
+	require.Equal(t, 1, len(events))
 	assert.Equal(t, "channels", events[0].Kind)
 
 	payload = ParsePayload(t, events[0].Payload)
 	assert.ElementsMatch(t, []model.Channel{
 		{Name: "channel1", Status: model.StatusSolving},
+	}, payload["crossword"])
+	assert.Empty(t, payload["spellingbee"])
+
+	// Now update the state of the first channel in the database and send an event
+	// saying that it was updated.
+	state1 = crossword.State{Status: model.StatusComplete}
+	require.NoError(t, crossword.SetState(conn, "channel1", state1))
+	registry.Publish(crossword.ChannelID("channel1"), crossword.StateEvent(state1))
+
+	// Now we expect to have received another event in the stream.
+	events = stop()
+	require.Equal(t, 1, len(events))
+	assert.Equal(t, "channels", events[0].Kind)
+
+	payload = ParsePayload(t, events[0].Payload)
+	assert.ElementsMatch(t, []model.Channel{
+		{Name: "channel1", Status: model.StatusComplete},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
 }
@@ -119,6 +137,76 @@ func TestRoute_GetChannels_Error(t *testing.T) {
 	}
 }
 
+func TestChanged(t *testing.T) {
+	tests := []struct {
+		name     string
+		before   map[string][]model.Channel
+		after    map[string][]model.Channel
+		expected bool
+	}{
+		{
+			name:     "no categories",
+			before:   map[string][]model.Channel{},
+			after:    map[string][]model.Channel{},
+			expected: false,
+		},
+		{
+			name: "one category, no changes",
+			before: map[string][]model.Channel{
+				"crossword": {},
+			},
+			after: map[string][]model.Channel{
+				"crossword": {},
+			},
+		},
+		{
+			name:   "one category added",
+			before: map[string][]model.Channel{},
+			after: map[string][]model.Channel{
+				"crossword": {},
+			},
+			expected: true,
+		},
+		{
+			name: "one channel added",
+			before: map[string][]model.Channel{
+				"crossword": {},
+			},
+			after: map[string][]model.Channel{
+				"crossword": {{Name: "channel", Status: model.StatusSolving}},
+			},
+			expected: true,
+		},
+		{
+			name: "one channel removed",
+			before: map[string][]model.Channel{
+				"crossword": {{Name: "channel", Status: model.StatusSolving}},
+			},
+			after: map[string][]model.Channel{
+				"crossword": {},
+			},
+			expected: true,
+		},
+		{
+			name: "channel status changed",
+			before: map[string][]model.Channel{
+				"crossword": {{Name: "channel", Status: model.StatusSolving}},
+			},
+			after: map[string][]model.Channel{
+				"crossword": {{Name: "channel", Status: model.StatusComplete}},
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			changed := Changed(test.before, test.after)
+			assert.Equal(t, test.expected, changed)
+		})
+	}
+}
+
 // NewTestRouter will return a router configured with a redis pool and pubsub
 // registry and wired together along with all of the routes for a spelling bee
 // puzzle.
@@ -141,7 +229,7 @@ func NewTestRouter(t *testing.T) (chi.Router, *redis.Pool, *pubsub.Registry) {
 
 	// Setup the chi router and wire it up to the redis pool and pubsub registry.
 	router := chi.NewRouter()
-	RegisterRoutes(router, pool)
+	RegisterRoutes(router, pool, registry)
 
 	return router, pool, registry
 }
@@ -173,6 +261,9 @@ func GET(url string, router chi.Router) *httptest.ResponseRecorder {
 // can be called and it will return any unread events.
 func SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func() []pubsub.Event) {
 	recorder := CreateTestResponseRecorder()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	request := httptest.NewRequest(http.MethodGet, url, nil).WithContext(ctx)
 
 	flush = func() []pubsub.Event {
 		// Give the router a chance to write everything it needs to.
@@ -207,10 +298,10 @@ func SSE(url string, router chi.Router) (flush func() []pubsub.Event, stop func(
 		time.Sleep(10 * time.Millisecond)
 
 		recorder.Close()
+		cancel()
 		return flush()
 	}
 
-	request := httptest.NewRequest(http.MethodGet, url, nil)
 	go router.ServeHTTP(recorder, request)
 
 	return flush, stop

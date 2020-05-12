@@ -131,7 +131,7 @@ func NewTestRouter(t *testing.T) (chi.Router, *redis.Pool, *pubsub.Registry) {
 
 	// Setup the chi router and wire it up to the redis pool and pubsub registry.
 	router := chi.NewRouter()
-	RegisterRoutesWithRegistry(router, pool, registry)
+	RegisterRoutes(router, pool, registry)
 
 	return router, pool, registry
 }
@@ -155,10 +155,10 @@ func NewEventSubscription(t *testing.T, registry *pubsub.Registry, channel strin
 	t.Helper()
 
 	events := make(chan pubsub.Event, 10)
-	id, err := registry.Subscribe(pubsub.Channel(channel), events)
+	id, err := registry.Subscribe(ChannelID(channel), events)
 	require.NoError(t, err)
 
-	t.Cleanup(func() { registry.Unsubscribe(pubsub.Channel(channel), id) })
+	t.Cleanup(func() { registry.Unsubscribe(id) })
 	return events
 }
 
