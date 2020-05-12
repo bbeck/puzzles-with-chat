@@ -85,7 +85,7 @@ func (s *State) ApplyAnswer(answer string, allowUnofficial bool) error {
 	sort.Strings(s.Words)
 
 	// Update the score for this answer.
-	s.updateScore()
+	s.Score = s.Puzzle.ComputeScore(s.Words)
 
 	// Lastly determine if we've found all of the answers and the puzzle is now
 	// complete.
@@ -115,7 +115,7 @@ func (s *State) ClearUnofficialAnswers() {
 	s.Words = updatedWords
 
 	// Since we've modified the words slice we should update the answer.
-	s.updateScore()
+	s.Score = s.Puzzle.ComputeScore(s.Words)
 
 	// Lastly determine if the puzzle is now solved.  We can directly look at
 	// the official answers from the puzzle because we know we are only
@@ -123,42 +123,6 @@ func (s *State) ClearUnofficialAnswers() {
 	if len(s.Words) == len(s.Puzzle.OfficialAnswers) {
 		s.Status = model.StatusComplete
 	}
-}
-
-// UpdateScore updates the score for the puzzle based on all of the answers
-// that have been provided.
-func (s *State) updateScore() {
-	isPangram := func(word string) bool {
-		letters := map[string]struct{}{
-			s.Puzzle.CenterLetter: {},
-		}
-		for _, letter := range s.Puzzle.Letters {
-			letters[letter] = struct{}{}
-		}
-
-		for _, letter := range word {
-			delete(letters, string(letter))
-		}
-
-		return len(letters) == 0
-	}
-
-	var score int
-	for _, word := range s.Words {
-		if len(word) == 4 {
-			score += 1
-			continue
-		}
-
-		score += len(word)
-
-		// pangrams get a 7 point bonus
-		if isPangram(word) {
-			score += 7
-		}
-	}
-
-	s.Score = score
 }
 
 // StateKey returns the key that should be used in redis to store a particular

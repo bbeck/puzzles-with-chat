@@ -405,6 +405,28 @@ func TestParseNYTBeeResponse(t *testing.T) {
 			},
 		},
 		{
+			name:  "maximum score",
+			input: load(t, "nytbee-20200408.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, 183, puzzle.MaximumScore)
+			},
+		},
+		{
+			name:  "num official answers",
+			input: load(t, "nytbee-20200408.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, 48, puzzle.NumOfficialAnswers)
+			},
+		},
+		{
+			name:  "num unofficial answers",
+			input: load(t, "nytbee-20200408.html"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, 38, puzzle.NumUnofficialAnswers)
+			},
+		},
+
+		{
 			name:  "multiple options for center letter",
 			input: load(t, "nytbee-20200424-multiple-centers.html"),
 			verify: func(t *testing.T, puzzle *Puzzle) {

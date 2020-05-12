@@ -93,7 +93,17 @@ func ParseNYTBeeResponse(in io.Reader) (*Puzzle, error) {
 
 	unofficial := words("#not_official .answer-list ul li")
 
-	return InferPuzzle(official, unofficial, unofficialAnswersRequired)
+	puzzle, err := InferPuzzle(official, unofficial, unofficialAnswersRequired)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add calculated values to the created puzzle object.
+	puzzle.MaximumScore = puzzle.ComputeScore(puzzle.OfficialAnswers)
+	puzzle.NumOfficialAnswers = len(puzzle.OfficialAnswers)
+	puzzle.NumUnofficialAnswers = len(puzzle.UnofficialAnswers)
+
+	return puzzle, nil
 }
 
 // InferPuzzle looks at the list of words and determines the puzzle structure

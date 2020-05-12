@@ -23,6 +23,15 @@ type Puzzle struct {
 
 	// The list of unofficial answers from NYTBee.com.
 	UnofficialAnswers []string `json:"unofficial_answers,omitempty"`
+
+	// The total number of points possible in the puzzle (only official answers).
+	MaximumScore int `json:"max_score"`
+
+	// The total number of official answers.
+	NumOfficialAnswers int `json:"num_official_answers"`
+
+	// The total number of unofficial answers (not including the official ones).
+	NumUnofficialAnswers int `json:"num_unofficial_answers"`
 }
 
 // WithoutAnswers returns a copy of the puzzle that has the answers removed.
@@ -35,6 +44,46 @@ func (p *Puzzle) WithoutAnswers() *Puzzle {
 	puzzle.Letters = p.Letters
 	puzzle.OfficialAnswers = nil
 	puzzle.UnofficialAnswers = nil
+	puzzle.MaximumScore = p.MaximumScore
+	puzzle.NumOfficialAnswers = p.NumOfficialAnswers
+	puzzle.NumUnofficialAnswers = p.NumUnofficialAnswers
 
 	return &puzzle
+}
+
+// ComputeScore calculates the score for the provided words taken together. No
+// checking is done to make sure the words are valid answers, they're all
+// assumed to be correct.
+func (p *Puzzle) ComputeScore(words []string) int {
+	isPangram := func(word string) bool {
+		letters := map[string]struct{}{
+			p.CenterLetter: {},
+		}
+		for _, letter := range p.Letters {
+			letters[letter] = struct{}{}
+		}
+
+		for _, letter := range word {
+			delete(letters, string(letter))
+		}
+
+		return len(letters) == 0
+	}
+
+	var score int
+	for _, word := range words {
+		if len(word) == 4 {
+			score += 1
+			continue
+		}
+
+		score += len(word)
+
+		// pangrams get a 7 point bonus
+		if isPangram(word) {
+			score += 7
+		}
+	}
+
+	return score
 }

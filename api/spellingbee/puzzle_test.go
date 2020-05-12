@@ -138,6 +138,27 @@ func TestPuzzle_UnmarshalJSON(t *testing.T) {
 				assert.ElementsMatch(t, expected, puzzle.UnofficialAnswers)
 			},
 		},
+		{
+			name:  "maximum score",
+			input: load(t, "nytbee-20200408.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, 183, puzzle.MaximumScore)
+			},
+		},
+		{
+			name:  "num official answers",
+			input: load(t, "nytbee-20200408.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, 48, puzzle.NumOfficialAnswers)
+			},
+		},
+		{
+			name:  "num unofficial answers",
+			input: load(t, "nytbee-20200408.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, 38, puzzle.NumUnofficialAnswers)
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -154,48 +175,84 @@ func TestPuzzle_UnmarshalJSON(t *testing.T) {
 
 func TestPuzzle_WithoutAnswers(t *testing.T) {
 	tests := []struct {
-		name       string
-		center     string
-		letters    []string
-		official   []string
-		unofficial []string
+		name     string
+		filename string
 	}{
 		{
-			name:    "nil answers",
-			center:  "A",
-			letters: []string{"B", "C", "D", "E", "F", "G"},
+			name:     "nytbee-20200408",
+			filename: "nytbee-20200408.html",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			puzzle := LoadTestPuzzle(t, test.filename)
+			without := puzzle.WithoutAnswers()
+
+			assert.Equal(t, puzzle.CenterLetter, without.CenterLetter)
+			assert.Equal(t, puzzle.Letters, without.Letters)
+			assert.Equal(t, puzzle.MaximumScore, without.MaximumScore)
+			assert.Equal(t, puzzle.NumOfficialAnswers, without.NumOfficialAnswers)
+			assert.Equal(t, puzzle.NumUnofficialAnswers, without.NumUnofficialAnswers)
+			assert.Nil(t, without.OfficialAnswers)
+			assert.Nil(t, without.UnofficialAnswers)
+		})
+	}
+}
+
+func TestPuzzle_ComputeScore(t *testing.T) {
+	tests := []struct {
+		name     string
+		center   string
+		letters  []string
+		words    []string
+		expected int
+	}{
+		{
+			name:     "no words",
+			center:   "T",
+			letters:  []string{"C", "N", "O", "R", "U", "Y"},
+			words:    []string{},
+			expected: 0,
 		},
 		{
-			name:       "empty answers",
-			center:     "A",
-			letters:    []string{"B", "C", "D", "E", "F", "G"},
-			official:   []string{},
-			unofficial: []string{},
+			name:     "length 4",
+			center:   "T",
+			letters:  []string{"C", "N", "O", "R", "U", "Y"},
+			words:    []string{"RUNT"},
+			expected: 1,
 		},
 		{
-			name:       "non-empty answers",
-			center:     "A",
-			letters:    []string{"B", "C", "D", "E", "F", "G"},
-			official:   []string{"official"},
-			unofficial: []string{"unofficial"},
+			name:     "length 5",
+			center:   "T",
+			letters:  []string{"C", "N", "O", "R", "U", "Y"},
+			words:    []string{"COUNT"},
+			expected: 5,
+		},
+		{
+			name:     "pangram",
+			center:   "T",
+			letters:  []string{"C", "N", "O", "R", "U", "Y"},
+			words:    []string{"COUNTRY"},
+			expected: 14,
+		},
+		{
+			name:     "multiple words",
+			center:   "T",
+			letters:  []string{"C", "N", "O", "R", "U", "Y"},
+			words:    []string{"RUNT", "COUNT", "COUNTRY"},
+			expected: 20,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			puzzle := &Puzzle{
-				CenterLetter:      test.center,
-				Letters:           test.letters,
-				OfficialAnswers:   test.official,
-				UnofficialAnswers: test.unofficial,
+				CenterLetter: test.center,
+				Letters:      test.letters,
 			}
 
-			puzzle = puzzle.WithoutAnswers()
-
-			assert.Equal(t, test.center, puzzle.CenterLetter)
-			assert.Equal(t, test.letters, puzzle.Letters)
-			assert.Nil(t, puzzle.OfficialAnswers)
-			assert.Nil(t, puzzle.UnofficialAnswers)
+			assert.Equal(t, test.expected, puzzle.ComputeScore(test.words))
 		})
 	}
 }
