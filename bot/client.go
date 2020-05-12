@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // A Client represents a source of chat messages from one or more channels.
@@ -93,8 +94,8 @@ func (c *LocalClient) Connect() error {
 	}
 	defer func() { _ = listener.Close() }()
 
-	var done bool
-	for !done {
+	done := new(AtomicBool)
+	for !done.Get() {
 		conn, err := listener.Accept()
 		if err != nil {
 			return err
@@ -102,8 +103,9 @@ func (c *LocalClient) Connect() error {
 
 		go func(conn net.Conn) {
 			defer func() { _ = conn.Close() }()
-			done = c.REPL(conn, conn)
-			if done {
+			finished := c.REPL(conn, conn)
+			if finished {
+				done.Set(true)
 				_ = listener.Close()
 			}
 		}(conn)
@@ -162,6 +164,7 @@ func (c *LocalClient) REPL(r io.Reader, w io.Writer) bool {
 		
 		/channel <name> - Sets the channel that answers are submitted to.
 		/user <name>    - Sets the username that answers as submitted as.
+		/exit           - Signal that the local client should terminate.
     ============================================================================
 	`)
 	if err := write(fmt.Sprintf("\n%s\n\n", banner)); err != nil {
@@ -198,4 +201,21 @@ func (c *LocalClient) REPL(r io.Reader, w io.Writer) bool {
 
 		c.handler.HandleChannelMessage(channel, id(user), user, input)
 	}
+}
+
+type AtomicBool struct {
+	sync.Mutex
+	value bool
+}
+
+func (b *AtomicBool) Get() bool {
+	b.Lock()
+	defer b.Unlock()
+	return b.value
+}
+
+func (b *AtomicBool) Set(value bool) {
+	b.Lock()
+	defer b.Unlock()
+	b.value = value
 }
