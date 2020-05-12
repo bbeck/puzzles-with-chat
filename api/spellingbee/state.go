@@ -182,7 +182,7 @@ func GetState(conn redis.Conn, channel string) (State, error) {
 		return state, testStateLoadError
 	}
 
-	err := db.GetWithTTLRefresh(conn, StateKey(channel), &state, StateTTL)
+	err := db.Get(conn, StateKey(channel), &state)
 	return state, err
 }
 

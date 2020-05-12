@@ -30,34 +30,6 @@ func Get(c Connection, key string, data interface{}) error {
 	return json.Unmarshal(bs, &data)
 }
 
-// GetWithTTLRefresh will load and unmarshal a database entry for the provided
-// key into the provided object while also refreshing the TTL of the key in the
-// database.  If the entry isn't present in the database then nil will be
-// returned and the TTL wn't be updated.  If the TTL cannot be properly updated
-// or the entry cannot be unmarshalled from JSON then an error will be returned.
-//
-// Note, currently the get operation and the TTL update are not atomic
-// operations that happen in a transaction.  They are sequential updates which
-// means it is possible for the data to be loaded and unmarshalled but the TTL
-// not updated (and an error returned).
-func GetWithTTLRefresh(c Connection, key string, data interface{}, ttl time.Duration) error {
-	// We could create a transaction to read the key and update its expiration
-	// time atomically, but that's not really necessary.  The worst that will
-	// happen is that we race to update the expiration time and in either case
-	// last one wins which is what we want to happen.
-	err := Get(c, key, data)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.Do("EXPIRE", key, ttl.Seconds())
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // GetAll will load and unmarshal multiple database entries for the provided
 // slice of keys and return the values in a map indexed by key.  If a particular
 // key is not found then the value of kind, will be used in its place.  For
