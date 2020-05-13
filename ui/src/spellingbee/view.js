@@ -35,12 +35,18 @@ export function SpellingBeeView(props) {
   const status = state.status;
   const settings = props.settings;
 
+  let total_num_words = puzzle.num_official_answers;
+  if (settings.allow_unofficial_answers) {
+    total_num_words += puzzle.num_unofficial_answers;
+  }
+
   return (
     <div id="spellingbee" className={status === "selected" || status === "paused" ? "blur" : ""}>
       <div className="puzzle">
         <Header
           date={puzzle.published}
           score={state.score}
+          max_score={puzzle.max_score}
           last_start_time={state.last_start_time}
           total_solve_duration={state.total_solve_duration}
         />
@@ -51,6 +57,7 @@ export function SpellingBeeView(props) {
         font_size={settings.font_size}
         view={props.view}
         words={state.words}
+        total={total_num_words}
       />
     </div>
   );
@@ -64,10 +71,17 @@ function Header(props) {
     return year + "-" + month + "-" + day;
   };
 
+  let tag;
+  if (props.score === props.max_score) {
+    tag = (<span role="img" aria-label="queen bee">&nbsp;&#x1f41d;</span>);
+  } else if (props.score >= Math.round(props.max_score * 0.7)) {
+    tag = (<span role="img" aria-label="genius">&nbsp;&#127891;</span>);
+  }
+
   return (
     <div className="header">
       <div className="date">{formatDate(props.date)}</div>
-      <div className="score">{props.score} points</div>
+      <div className="score">{props.score} points {tag}</div>
       <Timer
         last_start_time={props.last_start_time}
         total_solve_duration={props.total_solve_duration}
@@ -163,7 +177,7 @@ function WordsList(props) {
 
   return (
     <div className="word-list" data-font-size={props.font_size}>
-      <div className="header">Found <b>{words.length}</b> words</div>
+      <div className="header">Found <b>{words.length}</b> out of {props.total} words</div>
       <div className="words">
         {
           words.map((word, i) => {
