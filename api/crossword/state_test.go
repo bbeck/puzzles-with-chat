@@ -1,6 +1,8 @@
 package crossword
 
 import (
+	"errors"
+	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -837,4 +839,179 @@ func TestParseAnswer_Error(t *testing.T) {
 			assert.Error(t, err)
 		})
 	}
+}
+
+func TestGetAllChannels(t *testing.T) {
+	type ChannelToCreate struct {
+		name     string
+		filename string
+		status   model.Status
+	}
+
+	tests := []struct {
+		name     string
+		channels []ChannelToCreate
+		expected []model.Channel
+	}{
+		{
+			name: "no channels",
+		},
+		{
+			name: "no selected puzzle",
+			channels: []ChannelToCreate{
+				{
+					name:   "channel",
+					status: model.StatusCreated,
+				},
+			},
+			expected: []model.Channel{
+				{
+					Name:   "channel",
+					Status: model.StatusCreated,
+				},
+			},
+		},
+		{
+			name: "channel with nyt puzzle",
+			channels: []ChannelToCreate{
+				{
+					name:     "channel",
+					filename: "xwordinfo-nyt-20181231.json",
+					status:   model.StatusSolving,
+				},
+			},
+			expected: []model.Channel{
+				{
+					Name:   "channel",
+					Status: model.StatusSolving,
+				},
+			},
+		},
+		{
+			name: "channel with wsj puzzle",
+			channels: []ChannelToCreate{
+				{
+					name:     "channel",
+					filename: "puzzle-wsj-20190102.json",
+					status:   model.StatusSolving,
+				},
+			},
+			expected: []model.Channel{
+				{
+					Name:   "channel",
+					Status: model.StatusSolving,
+				},
+			},
+		},
+		{
+			name: "channel with puz file puzzle",
+			channels: []ChannelToCreate{
+				{
+					name:     "channel",
+					filename: "puzzle-nyt-20080912-notes.json",
+					status:   model.StatusSolving,
+				},
+			},
+			expected: []model.Channel{
+				{
+					Name:   "channel",
+					Status: model.StatusSolving,
+				},
+			},
+		},
+		{
+			name: "multiple channels",
+			channels: []ChannelToCreate{
+				{
+					name:     "channel1",
+					filename: "xwordinfo-nyt-20181231.json",
+					status:   model.StatusSolving,
+				},
+				{
+					name:     "channel2",
+					filename: "puzzle-wsj-20190102.json",
+					status:   model.StatusSolving,
+				},
+			},
+			expected: []model.Channel{
+				{
+					Name:   "channel1",
+					Status: model.StatusSolving,
+				},
+				{
+					Name:   "channel2",
+					Status: model.StatusSolving,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			// Create a state for each channel
+			for _, create := range test.channels {
+				var state State
+				if create.filename != "" {
+					state = NewState(t, create.filename)
+				}
+
+				state.Status = create.status
+				require.NoError(t, SetState(conn, create.name, state))
+			}
+
+			channels, err := GetAllChannels(conn)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, test.expected, channels)
+		})
+	}
+}
+
+func TestGetAllChannels_Error(t *testing.T) {
+	tests := []struct {
+		name       string
+		connection ConnectionFunc
+	}{
+		{
+			name: "db.ScanKeys error",
+			connection: func(command string, args ...interface{}) (interface{}, error) {
+				switch command {
+				case "SCAN":
+					return nil, errors.New("forced error")
+				default:
+					return nil, fmt.Errorf("unrecognized command: %s", command)
+				}
+			},
+		},
+		{
+			name: "db.GetAll error",
+			connection: func(command string, args ...interface{}) (interface{}, error) {
+				switch command {
+				case "SCAN":
+					values := []interface{}{int64(0), []interface{}{"channel"}}
+					return values, nil
+				case "MGET":
+					return nil, errors.New("forced error")
+				default:
+					return nil, fmt.Errorf("unrecognized command: %s", command)
+				}
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := GetAllChannels(test.connection)
+			assert.Error(t, err)
+			assert.Equal(t, "forced error", err.Error())
+		})
+	}
+}
+
+type ConnectionFunc func(command string, args ...interface{}) (interface{}, error)
+
+func (cf ConnectionFunc) Do(command string, args ...interface{}) (interface{}, error) {
+	return cf(command, args...)
 }

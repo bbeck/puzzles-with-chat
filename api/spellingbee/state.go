@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/db"
 	"github.com/bbeck/puzzles-with-chat/api/model"
-	"github.com/gomodule/redigo/redis"
 	"sort"
 	"strings"
 	"time"
@@ -139,7 +138,7 @@ var StateTTL = 4 * time.Hour
 // can't be loaded then an error will be returned.  If there is no state, then
 // the zero value will be returned.  After a state is read, its expiration time
 // is automatically updated.
-func GetState(conn redis.Conn, channel string) (State, error) {
+func GetState(conn db.Connection, channel string) (State, error) {
 	var state State
 
 	if testStateLoadError != nil {
@@ -152,7 +151,7 @@ func GetState(conn redis.Conn, channel string) (State, error) {
 
 // SetState writes the state for a channel's spelling bee solve to redis.  If
 // the state can't be property written then an error will be returned.
-func SetState(conn redis.Conn, channel string, state State) error {
+func SetState(conn db.Connection, channel string, state State) error {
 	if testStateSaveError != nil {
 		return testStateSaveError
 	}
@@ -164,7 +163,7 @@ func SetState(conn redis.Conn, channel string, state State) error {
 // bee that contains state in the database.  If there are no active channels
 // then an empty slice is returned.  This method does not update the expiration
 // times of any state instance.
-func GetAllChannels(conn redis.Conn) ([]model.Channel, error) {
+func GetAllChannels(conn db.Connection) ([]model.Channel, error) {
 	keys, err := db.ScanKeys(conn, StateKey("*"))
 	if err != nil {
 		return nil, err
@@ -189,6 +188,10 @@ func GetAllChannels(conn redis.Conn) ([]model.Channel, error) {
 			Status: state.Status,
 		})
 	}
+
+	sort.Slice(channels, func(i, j int) bool {
+		return channels[i].Name < channels[j].Name
+	})
 
 	return channels, nil
 }
