@@ -594,6 +594,7 @@ func (f *PuzFile) Convert() (*Puzzle, error) {
 	}
 
 	var puzzle Puzzle
+	puzzle.Description = "Crossword loaded from .puz file"
 	puzzle.Rows = int(f.Header.Height)
 	puzzle.Cols = int(f.Header.Width)
 	puzzle.Title = decode(f.Title)

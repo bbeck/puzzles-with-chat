@@ -1,4 +1,5 @@
 {
+  "description": "Crossword loaded from .puz file",
   "rows": 15,
   "cols": 15,
   "title": "AV Club xword, 6 22 11",

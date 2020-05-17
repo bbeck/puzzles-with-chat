@@ -1,4 +1,5 @@
 {
+  "description": "Crossword loaded from .puz file",
   "rows": 21,
   "cols": 21,
   "title": "June 24, 2011 - Good News, Bad News",

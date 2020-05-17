@@ -6,6 +6,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bbeck/puzzles-with-chat/api/web"
 	"io"
+	"sort"
 	"strings"
 	"time"
 )
@@ -48,6 +49,7 @@ func LoadFromNYTBee(date string) (*Puzzle, error) {
 		return nil, fmt.Errorf("unable to parse nytbee.com response for date %s: %v", published, err)
 	}
 
+	puzzle.Description = fmt.Sprintf("New York Times puzzle from %s", published.Format("2006-01-02"))
 	puzzle.PublishedDate = published
 	return puzzle, nil
 }
@@ -207,6 +209,9 @@ func InferLetters(words []string) (string, []string, error) {
 	if len(letters) != 6 {
 		return "", nil, fmt.Errorf("unable to determine 6 non-center letters: %v", letters)
 	}
+
+	// Make sure the letters are always in the same order.
+	sort.Strings(letters)
 
 	return center, letters, nil
 }

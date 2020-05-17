@@ -13,6 +13,9 @@ import (
 // various bits of interesting metadata such as the publication that the
 // crossword is from, the date that it was published as well as the author(s).
 type Puzzle struct {
+	// A human readable description of the puzzle
+	Description string `json:"description"`
+
 	// The number of rows in the crossword grid.
 	Rows int `json:"rows"`
 
@@ -75,22 +78,23 @@ type Puzzle struct {
 // missing.  This makes it suitable to pass to a client that shouldn't know the
 // answers to the puzzle.
 func (p *Puzzle) WithoutSolution() *Puzzle {
-	var newPuzzle Puzzle
-	newPuzzle.Rows = p.Rows
-	newPuzzle.Cols = p.Cols
-	newPuzzle.Title = p.Title
-	newPuzzle.Publisher = p.Publisher
-	newPuzzle.PublishedDate = p.PublishedDate
-	newPuzzle.Author = p.Author
-	newPuzzle.Cells = nil
-	newPuzzle.CellBlocks = p.CellBlocks
-	newPuzzle.CellClueNumbers = p.CellClueNumbers
-	newPuzzle.CellCircles = p.CellCircles
-	newPuzzle.CluesAcross = p.CluesAcross
-	newPuzzle.CluesDown = p.CluesDown
-	newPuzzle.Notes = p.Notes
+	var puzzle Puzzle
+	puzzle.Description = p.Description
+	puzzle.Rows = p.Rows
+	puzzle.Cols = p.Cols
+	puzzle.Title = p.Title
+	puzzle.Publisher = p.Publisher
+	puzzle.PublishedDate = p.PublishedDate
+	puzzle.Author = p.Author
+	puzzle.Cells = nil
+	puzzle.CellBlocks = p.CellBlocks
+	puzzle.CellClueNumbers = p.CellClueNumbers
+	puzzle.CellCircles = p.CellCircles
+	puzzle.CluesAcross = p.CluesAcross
+	puzzle.CluesDown = p.CluesDown
+	puzzle.Notes = p.Notes
 
-	return &newPuzzle
+	return &puzzle
 }
 
 // GetAnswerCoordinates returns the min/max x/y coordinates for a clue.  If the

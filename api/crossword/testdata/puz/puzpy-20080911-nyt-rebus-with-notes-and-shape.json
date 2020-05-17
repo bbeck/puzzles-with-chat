@@ -1,4 +1,5 @@
 {
+  "description": "Crossword loaded from .puz file",
   "rows": 15,
   "cols": 15,
   "title": "NY Times, Thu, Sep 11, 2008  When this puzzle is done, connect the circled letters in alphabetical order, and then back to the start, to reveal something seen on the 32-Down 4-Down.",

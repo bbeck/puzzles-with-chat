@@ -17,6 +17,14 @@ func TestPuzzle_ConvertedJSON(t *testing.T) {
 		verify func(t *testing.T, puzzle *Puzzle)
 	}{
 		{
+			name:  "description",
+			input: load(t, "puzzle-wp-20051206.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := "Crossword loaded from .puz file"
+				assert.Equal(t, expected, puzzle.Description)
+			},
+		},
+		{
 			name:  "size",
 			input: load(t, "puzzle-wp-20051206.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {

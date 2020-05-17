@@ -24,11 +24,16 @@ func LoadFromWallStreetJournal(date string) (*Puzzle, error) {
 	// Download the .puz file from the herbach.dnsalias.com site.
 	url := fmt.Sprintf("http://herbach.dnsalias.com/wsj/wsj%02d%02d%02d.puz", published.Year()-2000, published.Month(), published.Day())
 	puzzle, err := LoadFromPuzFileURL(url)
-	if err == nil {
-		// Normally .puz files don't have puzzle dates recorded in them, but we
-		// happen to know the date for this puzzle, so fill it in.
-		puzzle.PublishedDate = published
+	if err != nil {
+		return nil, err
 	}
 
-	return puzzle, err
+	puzzle.Description = fmt.Sprintf("Wall Street Journal puzzle from %s", published.Format("2006-01-02"))
+
+	// Normally .puz files don't have puzzle dates recorded in them, but we
+	// happen to know the date for this puzzle, so fill it in.
+	puzzle.PublishedDate = published
+	puzzle.Publisher = "The Wall Street Journal"
+
+	return puzzle, nil
 }

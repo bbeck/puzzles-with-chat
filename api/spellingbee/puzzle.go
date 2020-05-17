@@ -7,6 +7,9 @@ import "time"
 // letters to make words that all use the center letter and have length 4 or
 // greater.  Letters may be reused.
 type Puzzle struct {
+	// A human readable description of the puzzle.
+	Description string `json:"description"`
+
 	// The date that the spelling bee puzzle was published.
 	PublishedDate time.Time `json:"published"`
 
@@ -39,6 +42,7 @@ type Puzzle struct {
 // know the answers to the puzzle.
 func (p *Puzzle) WithoutAnswers() *Puzzle {
 	var puzzle Puzzle
+	puzzle.Description = p.Description
 	puzzle.PublishedDate = p.PublishedDate
 	puzzle.CenterLetter = p.CenterLetter
 	puzzle.Letters = p.Letters

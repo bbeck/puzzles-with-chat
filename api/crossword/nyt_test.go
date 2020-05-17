@@ -121,6 +121,14 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		verify func(t *testing.T, puzzle *Puzzle)
 	}{
 		{
+			name:  "description",
+			input: load(t, "xwordinfo-nyt-20181231.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := "New York Times puzzle from 2018-12-31"
+				assert.Equal(t, expected, puzzle.Description)
+			},
+		},
+		{
 			name:  "size",
 			input: load(t, "xwordinfo-nyt-20181231.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {

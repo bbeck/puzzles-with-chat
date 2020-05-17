@@ -1,4 +1,5 @@
 {
+  "description": "Crossword loaded from .puz file",
   "rows": 21,
   "cols": 21,
   "title": "NY Times, Sun, Feb 03, 2008  JUST FOLLOW DIRECTIONS",

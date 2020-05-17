@@ -17,6 +17,14 @@ func TestPuzzle_UnmarshalJSON(t *testing.T) {
 		verify func(t *testing.T, puzzle *Puzzle)
 	}{
 		{
+			name:  "description",
+			input: load(t, "nytbee-20200408.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := "New York Times puzzle from 2020-04-08"
+				assert.Equal(t, expected, puzzle.Description)
+			},
+		},
+		{
 			name:  "published date",
 			input: load(t, "nytbee-20200408.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
@@ -189,6 +197,8 @@ func TestPuzzle_WithoutAnswers(t *testing.T) {
 			puzzle := LoadTestPuzzle(t, test.filename)
 			without := puzzle.WithoutAnswers()
 
+			assert.Equal(t, puzzle.Description, without.Description)
+			assert.Equal(t, puzzle.PublishedDate, without.PublishedDate)
 			assert.Equal(t, puzzle.CenterLetter, without.CenterLetter)
 			assert.Equal(t, puzzle.Letters, without.Letters)
 			assert.Equal(t, puzzle.MaximumScore, without.MaximumScore)

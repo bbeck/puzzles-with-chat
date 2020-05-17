@@ -163,6 +163,7 @@ func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 	}
 
 	var puzzle Puzzle
+	puzzle.Description = fmt.Sprintf("New York Times puzzle from %s", published.Format("2006-01-02"))
 	puzzle.Rows = raw.Size.Rows
 	puzzle.Cols = raw.Size.Cols
 	puzzle.Title = raw.Title

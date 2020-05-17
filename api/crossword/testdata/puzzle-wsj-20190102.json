@@ -1,9 +1,10 @@
 {
+  "description": "Wall Street Journal puzzle from 2019-01-02",
   "rows": 15,
   "cols": 15,
   "title": "Put a Lid on It!",
-  "publisher": null,
-  "published": null,
+  "publisher": "The Wall Street Journal",
+  "published": "2019-01-02T00:00:00Z",
   "author": "Joseph Kidd/Edited by Mike Shenk",
   "cells": [
     [
