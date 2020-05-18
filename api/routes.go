@@ -116,13 +116,13 @@ func Changed(before, after map[string][]model.Channel) bool {
 			return false
 		}
 
-		seen := make(map[string]model.Status)
+		seen := make(map[string]model.Channel)
 		for _, a := range as {
-			seen[a.Name] = a.Status
+			seen[a.Name] = a
 		}
 
 		for _, b := range bs {
-			if seen[b.Name] != b.Status {
+			if seen[b.Name] != b {
 				return false
 			}
 		}

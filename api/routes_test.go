@@ -196,14 +196,14 @@ func TestChanged(t *testing.T) {
 				"crossword": {},
 			},
 			after: map[string][]model.Channel{
-				"crossword": {{Name: "channel", Status: model.StatusSolving}},
+				"crossword": {{Name: "channel", Status: model.StatusSolving, Description: "description"}},
 			},
 			expected: true,
 		},
 		{
 			name: "one channel removed",
 			before: map[string][]model.Channel{
-				"crossword": {{Name: "channel", Status: model.StatusSolving}},
+				"crossword": {{Name: "channel", Status: model.StatusSolving, Description: "description"}},
 			},
 			after: map[string][]model.Channel{
 				"crossword": {},
@@ -213,10 +213,20 @@ func TestChanged(t *testing.T) {
 		{
 			name: "channel status changed",
 			before: map[string][]model.Channel{
-				"crossword": {{Name: "channel", Status: model.StatusSolving}},
+				"crossword": {{Name: "channel", Status: model.StatusSolving, Description: "description"}},
 			},
 			after: map[string][]model.Channel{
-				"crossword": {{Name: "channel", Status: model.StatusComplete}},
+				"crossword": {{Name: "channel", Status: model.StatusComplete, Description: "description"}},
+			},
+			expected: true,
+		},
+		{
+			name: "channel description changed",
+			before: map[string][]model.Channel{
+				"crossword": {{Name: "channel", Status: model.StatusSolving, Description: "description1"}},
+			},
+			after: map[string][]model.Channel{
+				"crossword": {{Name: "channel", Status: model.StatusSolving, Description: "description2"}},
 			},
 			expected: true,
 		},
