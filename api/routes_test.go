@@ -41,7 +41,8 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.Empty(t, payload["spellingbee"])
 
 	// Start a crossword.
-	state1 := crossword.State{Status: model.StatusSolving}
+	state1 := crossword.NewState(t, "xwordinfo-nyt-20181231.json")
+	state1.Status = model.StatusSolving
 	require.NoError(t, crossword.SetState(conn, "channel1", state1))
 
 	// Now reconnect to the stream and we should receive one active channel.
@@ -52,12 +53,17 @@ func TestRoute_GetChannels(t *testing.T) {
 
 	payload = ParsePayload(t, events[0].Payload)
 	assert.ElementsMatch(t, []model.Channel{
-		{Name: "channel1", Status: model.StatusSolving},
+		{
+			Name:        "channel1",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2018-12-31",
+		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
 
 	// Start a spelling bee on another channel.
-	state2 := spellingbee.State{Status: model.StatusSolving}
+	state2 := spellingbee.NewState(t, "nytbee-20180729.json")
+	state2.Status = model.StatusSolving
 	require.NoError(t, spellingbee.SetState(conn, "channel2", state2))
 
 	// Now we expect there to be 2 channels in the stream.
@@ -67,10 +73,18 @@ func TestRoute_GetChannels(t *testing.T) {
 	assert.Equal(t, "channels", events[0].Kind)
 	payload = ParsePayload(t, events[0].Payload)
 	assert.ElementsMatch(t, []model.Channel{
-		{Name: "channel1", Status: model.StatusSolving},
+		{
+			Name:        "channel1",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2018-12-31",
+		},
 	}, payload["crossword"])
 	assert.ElementsMatch(t, []model.Channel{
-		{Name: "channel2", Status: model.StatusSolving},
+		{
+			Name:        "channel2",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2018-07-29",
+		},
 	}, payload["spellingbee"])
 
 	// Next remove the second channel from the database.
@@ -85,13 +99,17 @@ func TestRoute_GetChannels(t *testing.T) {
 
 	payload = ParsePayload(t, events[0].Payload)
 	assert.ElementsMatch(t, []model.Channel{
-		{Name: "channel1", Status: model.StatusSolving},
+		{
+			Name:        "channel1",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2018-12-31",
+		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
 
 	// Now update the state of the first channel in the database and send an event
 	// saying that it was updated.
-	state1 = crossword.State{Status: model.StatusComplete}
+	state1 = crossword.NewState(t, "xwordinfo-nyt-20181227-rebus.json")
 	require.NoError(t, crossword.SetState(conn, "channel1", state1))
 	registry.Publish(crossword.ChannelID("channel1"), crossword.StateEvent(state1))
 
@@ -102,7 +120,11 @@ func TestRoute_GetChannels(t *testing.T) {
 
 	payload = ParsePayload(t, events[0].Payload)
 	assert.ElementsMatch(t, []model.Channel{
-		{Name: "channel1", Status: model.StatusComplete},
+		{
+			Name:        "channel1",
+			Status:      model.StatusSelected,
+			Description: "New York Times puzzle from 2018-12-27",
+		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
 }
@@ -124,7 +146,8 @@ func TestRoute_GetChannels_Error(t *testing.T) {
 			conn := NewRedisConnection(t, pool)
 
 			// Start a puzzle in the channel.
-			state := crossword.State{Status: model.StatusSolving}
+			state := crossword.NewState(t, "xwordinfo-nyt-20181231.json")
+			state.Status = model.StatusSolving
 			require.NoError(t, crossword.SetState(conn, "channel1", state))
 
 			ForceErrorDuringActiveChannelsLoad(t, test.loadActiveChannelsError)

@@ -183,9 +183,15 @@ func GetAllChannels(conn db.Connection) ([]model.Channel, error) {
 			return nil, fmt.Errorf("unable to convert value to State: %v", value)
 		}
 
+		var description string
+		if state.Puzzle != nil {
+			description = state.Puzzle.Description
+		}
+
 		channels = append(channels, model.Channel{
-			Name:   name,
-			Status: state.Status,
+			Name:        name,
+			Status:      state.Status,
+			Description: description,
 		})
 	}
 

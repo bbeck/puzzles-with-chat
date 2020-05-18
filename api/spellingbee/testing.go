@@ -1,15 +1,18 @@
 package spellingbee
 
 import (
+	"encoding/json"
 	"github.com/alicebob/miniredis"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
 	"github.com/gomodule/redigo/redis"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -38,8 +41,18 @@ var testStateSaveError error = nil
 // load will read a file from the testdata directory.
 func load(t *testing.T, filename string) io.ReadCloser {
 	t.Helper()
-	f, err := os.Open(filepath.Join("testdata", filename))
+
+	// First see if the file is in a testdata directory within the current
+	// directory.
+	if f, err := os.Open(filepath.Join("testdata", filename)); err == nil {
+		return f
+	}
+
+	// It wasn't present, we might be running from a parent directory.  Try
+	// spellingbee/testdata/{filename}.
+	f, err := os.Open(filepath.Join("spellingbee", "testdata", filename))
 	require.NoError(t, err)
+
 	return f
 }
 
@@ -50,7 +63,20 @@ func LoadTestPuzzle(t *testing.T, filename string) *Puzzle {
 	in := load(t, filename)
 	defer func() { _ = in.Close() }()
 
-	puzzle, err := ParseNYTBeeResponse(in)
+	var puzzle *Puzzle
+	var err error
+	switch {
+	case strings.HasPrefix(filename, "nytbee-") && strings.HasSuffix(filename, ".html"):
+		puzzle, err = ParseNYTBeeResponse(in)
+
+	case strings.HasPrefix(filename, "nytbee-") && strings.HasSuffix(filename, ".json"):
+		puzzle = new(Puzzle)
+		err = json.NewDecoder(in).Decode(puzzle)
+
+	default:
+		assert.Failf(t, "unrecognized filename prefix", "filename: %s", filename)
+	}
+
 	require.NoError(t, err)
 	return puzzle
 }

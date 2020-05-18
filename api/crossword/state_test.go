@@ -882,8 +882,9 @@ func TestGetAllChannels(t *testing.T) {
 			},
 			expected: []model.Channel{
 				{
-					Name:   "channel",
-					Status: model.StatusSolving,
+					Name:        "channel",
+					Status:      model.StatusSolving,
+					Description: "New York Times puzzle from 2018-12-31",
 				},
 			},
 		},
@@ -898,8 +899,9 @@ func TestGetAllChannels(t *testing.T) {
 			},
 			expected: []model.Channel{
 				{
-					Name:   "channel",
-					Status: model.StatusSolving,
+					Name:        "channel",
+					Status:      model.StatusSolving,
+					Description: "Wall Street Journal puzzle from 2019-01-02",
 				},
 			},
 		},
@@ -914,8 +916,9 @@ func TestGetAllChannels(t *testing.T) {
 			},
 			expected: []model.Channel{
 				{
-					Name:   "channel",
-					Status: model.StatusSolving,
+					Name:        "channel",
+					Status:      model.StatusSolving,
+					Description: "Crossword loaded from .puz file",
 				},
 			},
 		},
@@ -935,12 +938,14 @@ func TestGetAllChannels(t *testing.T) {
 			},
 			expected: []model.Channel{
 				{
-					Name:   "channel1",
-					Status: model.StatusSolving,
+					Name:        "channel1",
+					Status:      model.StatusSolving,
+					Description: "New York Times puzzle from 2018-12-31",
 				},
 				{
-					Name:   "channel2",
-					Status: model.StatusSolving,
+					Name:        "channel2",
+					Status:      model.StatusSolving,
+					Description: "Wall Street Journal puzzle from 2019-01-02",
 				},
 			},
 		},

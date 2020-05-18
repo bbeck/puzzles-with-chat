@@ -41,8 +41,18 @@ var testStateSaveError error = nil
 // load will read a file from the testdata directory.
 func load(t *testing.T, filename string) io.ReadCloser {
 	t.Helper()
-	f, err := os.Open(filepath.Join("testdata", filename))
+
+	// First see if the file is in a testdata directory within the current
+	// directory.
+	if f, err := os.Open(filepath.Join("testdata", filename)); err == nil {
+		return f
+	}
+
+	// It wasn't present, we might be running from a parent directory.  Try
+	// crossword/testdata/{filename}.
+	f, err := os.Open(filepath.Join("crossword", "testdata", filename))
 	require.NoError(t, err)
+
 	return f
 }
 

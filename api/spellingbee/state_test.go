@@ -853,14 +853,15 @@ func TestGetAllChannels(t *testing.T) {
 			channels: []ChannelToCreate{
 				{
 					name:     "channel",
-					filename: "nytbee-20200408.html",
+					filename: "nytbee-20200408.json",
 					status:   model.StatusSolving,
 				},
 			},
 			expected: []model.Channel{
 				{
-					Name:   "channel",
-					Status: model.StatusSolving,
+					Name:        "channel",
+					Status:      model.StatusSolving,
+					Description: "New York Times puzzle from 2020-04-08",
 				},
 			},
 		},
@@ -869,23 +870,25 @@ func TestGetAllChannels(t *testing.T) {
 			channels: []ChannelToCreate{
 				{
 					name:     "channel1",
-					filename: "nytbee-20180729.html",
+					filename: "nytbee-20180729.json",
 					status:   model.StatusPaused,
 				},
 				{
 					name:     "channel2",
-					filename: "nytbee-20200408.html",
+					filename: "nytbee-20200408.json",
 					status:   model.StatusSolving,
 				},
 			},
 			expected: []model.Channel{
 				{
-					Name:   "channel1",
-					Status: model.StatusPaused,
+					Name:        "channel1",
+					Status:      model.StatusPaused,
+					Description: "New York Times puzzle from 2018-07-29",
 				},
 				{
-					Name:   "channel2",
-					Status: model.StatusSolving,
+					Name:        "channel2",
+					Status:      model.StatusSolving,
+					Description: "New York Times puzzle from 2020-04-08",
 				},
 			},
 		},

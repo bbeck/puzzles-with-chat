@@ -1,8 +1,9 @@
 package model
 
-// Channel is a representation of a channel and the status of it in solving a
-// puzzle.  It can be marshalled to/from JSON.
+// Channel is a representation of a channel and the puzzle that is being solved.
+// It can be marshalled to/from JSON.
 type Channel struct {
-	Name   string `json:"name"`
-	Status Status `json:"status"`
+	Name        string `json:"name"`
+	Status      Status `json:"status"`
+	Description string `json:"description,omitempty"`
 }
