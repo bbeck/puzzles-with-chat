@@ -59,6 +59,12 @@ func GetChannels(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 		// Start a background goroutine for this client that sends updates to the
 		// list of channels periodically.
 		go func(channels map[string][]model.Channel) {
+			// Use a new connection to redis since this goroutine might live slightly
+			// longer than the GetChannels method call.  This ensures that we don't
+			// attempt to use a connection that's already been closed.
+			conn := pool.Get()
+			defer func() { _ = conn.Close() }()
+
 			for {
 				select {
 				case <-r.Context().Done():
