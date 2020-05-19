@@ -34,8 +34,8 @@ function Home() {
       const event = JSON.parse(message.data);
       switch (event.kind) {
         case "channels":
-          setCrosswordChannels(event.payload["crossword"].map(c => c.name));
-          setSpellingBeeChannels(event.payload["spellingbee"].map(c => c.name));
+          setCrosswordChannels(event.payload["crossword"]);
+          setSpellingBeeChannels(event.payload["spellingbee"]);
           break;
 
         case "ping":
@@ -101,9 +101,35 @@ function ActiveChannelList(props) {
   const puzzle = props.puzzle;
   const links = [];
   for (let i = 0; i < channels.length; i++) {
+    const channel = channels[i];
+
+    let status;
+    switch (channel.status) {
+      case "created":
+      case "selected":
+        status = "ABOUT TO START";
+        break;
+      case "paused":
+        status = "PAUSED";
+        break;
+      case "solving":
+        status = "SOLVING";
+        break;
+      case "complete":
+        status = "FINISHED";
+        break;
+      default:
+        status = "UNKNOWN";
+        break;
+    }
+
+    const description = channel.description
+      ? `${channel.description} (${status})`
+      : status;
+
     links.push(
-      <a className="list-group-item list-group-item-action" href={`/${channels[i]}/${puzzle}`} key={channels[i]}>
-        {channels[i]}
+      <a className="list-group-item list-group-item-action" href={`/${channel.name}/${puzzle}`} key={channel.name}>
+        {channel.name} - {description}
       </a>
     );
   }
