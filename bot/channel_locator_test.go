@@ -174,47 +174,33 @@ func TestChannelLocator_Run(t *testing.T) {
 }
 
 func NewChannelsEvent(kind string, crosswords []string, spellingbees []string) ChannelsEvent {
-	var payload struct {
-		Crosswords []struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-		} `json:"crossword"`
-		SpellingBees []struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-		} `json:"spellingbee"`
-	}
-
-	payload.Crosswords = make([]struct {
+	type Channel = struct {
 		Name   string `json:"name"`
 		Status string `json:"status"`
-	}, 0)
-	for _, name := range crosswords {
-		payload.Crosswords = append(payload.Crosswords, struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-		}{
-			Name:   name,
-			Status: "solving",
-		})
 	}
 
-	payload.SpellingBees = make([]struct {
-		Name   string `json:"name"`
-		Status string `json:"status"`
-	}, 0)
-	for _, name := range spellingbees {
-		payload.SpellingBees = append(payload.SpellingBees, struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-		}{
+	var event ChannelsEvent
+	event.Kind = kind
+
+	event.Payload.Crosswords = make([]Channel, len(crosswords))
+	for i, name := range crosswords {
+		event.Payload.Crosswords[i] = Channel{
 			Name:   name,
 			Status: "solving",
-		})
+		}
 	}
 
-	return ChannelsEvent{
-		Kind:    kind,
-		Payload: payload,
+	event.Payload.SpellingBees = make([]Channel, len(spellingbees))
+	for i, name := range spellingbees {
+		event.Payload.SpellingBees[i] = Channel{
+			Name:   name,
+			Status: "solving",
+		}
 	}
+	for i, payload := range event.Payload.Crosswords {
+		payload.Name = crosswords[i]
+		payload.Status = "solving"
+	}
+
+	return event
 }
