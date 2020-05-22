@@ -44,5 +44,4 @@ EXPOSE 5000
 COPY --from=development /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=development /api /api
 
-ENV GIN_MODE=release
 ENTRYPOINT ["/api"]

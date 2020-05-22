@@ -44,5 +44,4 @@ FROM scratch
 COPY --from=development /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=development /bot /bot
 
-ENV GIN_MODE=release
 ENTRYPOINT ["/bot"]
