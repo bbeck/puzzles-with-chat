@@ -126,47 +126,87 @@ function Footer() {
 
 function Grid(props) {
   const puzzle = props.puzzle;
-  const cells = props.cells;
+  const contents = props.cells;
   const view = props.view;
-  if (!puzzle) {
-    return (
-      <div>Puzzle grid goes here.</div>
-    );
-  }
 
-  const rows = [];
-  for (let y = 0; y < puzzle.rows; y++) {
-    const cols = [];
-    for (let x = 0; x < puzzle.cols; x++) {
-      const number = puzzle.cell_clue_numbers[y][x] || "";
-      const content = cells[y][x] || "";
-      const isBlock = puzzle.cell_blocks[y][x];
-      const isCircle = puzzle.cell_circles[y][x];
+  // Because we're rendering as a SVG we'll make the size of each cell fixed
+  // regardless of the width or height of the puzzle.  We'll then change the
+  // view box of the SVG to contain the complete puzzle adding padding where
+  // necessary and render it accordingly.
+
+  // The side length of each cell in pixels -- needed for calculations.  This
+  // value is arbitrary and shouldn't ever need to change.
+  const s = 100;
+
+  // Border thickness of each cell in pixels -- needed for calculations.  This
+  // value should not change without also changing the CSS rule that defines the
+  // stroke width on each cell.
+  const b = 2;
+
+  // Thickness of the border surrounding the puzzle in pixels.  Half of this
+  // value encroaches into the interior of the cells so it shouldn't be made
+  // bigger than the cell's border or else cell area is lost.
+  const B = 2 * b;
+
+  // Define the border rectangle.
+  const border = (
+    <rect x={-b / 2} y={-b / 2}
+          width={s * puzzle.cols + b} height={s * puzzle.rows + b}
+          className="border"
+    />
+  );
+
+  const cells = [];
+  for (let cy = 0; cy < puzzle.rows; cy++) {
+    for (let cx = 0; cx < puzzle.cols; cx++) {
+      const number = puzzle.cell_clue_numbers[cy][cx] || "";
+      const content = contents[cy][cx] || "";
+      const isBlock = puzzle.cell_blocks[cy][cx];
+      const isCircle = puzzle.cell_circles[cy][cx];
       const isFilled = view === "progress" && content !== "";
+      const className = isBlock ? "cell block" : isFilled ? "cell filled" : isCircle ? "cell shaded" : "cell";
 
-      cols.push(
-        <td key={y*puzzle.cols + x}>
-          <div className={isBlock ? "cell block" : isFilled ? "cell filled" : isCircle ? "cell shaded" : "cell"}>
-            <div className="number">{number}</div>
-            <div className="content" data-length={content.length || null}>{view !== "progress" ? content : ""}</div>
-          </div>
-        </td>
+      const x = cx * s;
+      const y = cy * s;
+      cells.push(
+        <g key={cy * puzzle.cols + cx}>
+          <rect x={x} y={y} width={s} height={s} className={className}/>
+          <text x={x} y={y} className="number">{number}</text>
+          <text x={x} y={y} className="content" data-length={content.length}>
+            {view !== "progress" ? content : ""}
+          </text>
+        </g>
       );
     }
-
-    rows.push(
-      <tr key={y}>
-        {cols}
-      </tr>
-    );
   }
+
+  let minX = -b / 2 - B/2;
+  let minY = -b / 2 - B/2;
+  let width = s * puzzle.cols + b + B;
+  let height = s * puzzle.rows + b + B;
+
+  if (puzzle.rows < puzzle.cols) {
+    // There are extra cells horizontally, to compensate we need padding on the
+    // top and bottom sides.
+    const dy = width - height;
+    minY -= dy / 2;
+    height += dy;
+  }
+
+  if (puzzle.rows > puzzle.cols) {
+    // There are extra cells vertically, to compensate we need padding on the
+    // left and right sides.
+    const dx = height - width;
+    minX -= dx / 2;
+    width += dx;
+  }
+
   return (
     <div className="grid">
-      <table>
-        <tbody>
-          {rows}
-        </tbody>
-      </table>
+      <svg viewBox={`${minX} ${minY} ${width} ${height}`}>
+        {cells}
+        {border}  {/* Add this after the cells so it's drawn on top. */}
+      </svg>
     </div>
   );
 }
