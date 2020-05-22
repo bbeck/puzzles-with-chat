@@ -25,6 +25,9 @@ export function CrosswordApp(props) {
     new EventStream(`/api/crossword/${props.channel}/events`)
   );
 
+  // The error message we're currently displaying.
+  const [error, setError] = React.useState(null);
+
   React.useEffect(() => {
     stream.setHandler(message => {
       const event = JSON.parse(message.data);
@@ -37,6 +40,13 @@ export function CrosswordApp(props) {
           // If we get a state update while watching the fireworks animation,
           // then finish the show and start the new puzzle.
           setShowFireworks(false);
+
+          // If we were displaying an error before due to not being able to
+          // select a puzzle then clear that now as well.  This is necessary
+          // because another client may have selected a puzzle.
+          setError(null);
+
+          // Update the state.
           setState(event.payload);
 
           if (event.payload.status === "selected") {
@@ -60,6 +70,7 @@ export function CrosswordApp(props) {
               }
             }
           }
+
           break;
 
         case "show_clue":
@@ -89,9 +100,6 @@ export function CrosswordApp(props) {
       }
     });
   }, [setSettings, stream, setState, setShowFireworks]);
-
-  // The error message we're currently displaying.
-  const [error, setError] = React.useState(null);
 
   // Toggle the status.
   const toggleStatus = () => {
