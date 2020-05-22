@@ -55,6 +55,14 @@ export class Fireworks extends React.Component {
   update() {
     const canvas = this.canvasRef.current;
 
+    // Update the canvas size if the screen dimensions have changed.
+    if (Fireworks.screen.w !== window.innerWidth || Fireworks.screen.h !== window.innerHeight) {
+      Fireworks.screen.w = window.innerWidth;
+      Fireworks.screen.h = window.innerHeight;
+      canvas.width = Fireworks.screen.w;
+      canvas.height = Fireworks.screen.h;
+    }
+
     const context = canvas.getContext("2d");
     context.fillStyle = "rgba(0, 0, 0, 0.05)";
     context.fillRect(0, 0, Fireworks.screen.w, Fireworks.screen.h);
