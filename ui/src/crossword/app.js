@@ -38,6 +38,28 @@ export function CrosswordApp(props) {
           // then finish the show and start the new puzzle.
           setShowFireworks(false);
           setState(event.payload);
+
+          if (event.payload.status === "selected") {
+            // We just started a new puzzle -- scroll the clues back to the top
+            // of the list.  We'll use the same hack that we use in the
+            // show_clue handler below, namely to reach into the DOM and grab
+            // the clue element based on what we know the element's ID should
+            // be.
+            for (let n = 1; n < event.payload.puzzle.cols; n++) {
+              const clue = document.getElementById(`${n}a`);
+              if (clue !== null) {
+                clue.scrollIntoView();
+                break;
+              }
+            }
+            for (let n = 1; n < event.payload.puzzle.rows; n++) {
+              const clue = document.getElementById(`${n}d`);
+              if (clue !== null) {
+                clue.scrollIntoView();
+                break;
+              }
+            }
+          }
           break;
 
         case "show_clue":
