@@ -38,6 +38,7 @@ export function CrosswordView(props) {
           <a href="https://en.wikipedia.org/wiki/Cryptic_crossword">rules</a> for
           clues than regular crosswords):
           <ul>
+            <li><a href="https://www.xwordinfo.com/SelectVariety">XWord Info</a> (other types of .puz files available as well)</li>
             <li><a href="https://www.fleetingimage.com/wij/xyzzy/cryptic-links.html">Cryptic Pointers</a></li>
             <li><a href="http://world.std.com/~wij/puzzles/cru/">Cru Cryptics</a></li>
           </ul>
