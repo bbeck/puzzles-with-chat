@@ -47,6 +47,11 @@
   flex-wrap: wrap;
   overflow: auto;
 }
+#spellingbee .banner {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
 
 
 /*
@@ -58,6 +63,13 @@
   height: 650px;
   padding: 5px 0 0 5px;
   width: 1000px;
+}
+#spellingbee .banner {
+  position: fixed;
+  left: 0px;
+  top: 270px;
+  width: 650px;
+  height: 156px;
 }
 #spellingbee .puzzle {
   height: 650px;
@@ -135,4 +147,47 @@
   font-weight: bold;
   text-anchor: middle;
   pointer-events: none;
+}
+#spellingbee .banner {
+  background-color: transparent;
+  color: rgba(220, 53, 69, 1);
+  font-size: 100px;
+  font-weight: bold;
+  opacity: 0;
+}
+
+
+/*
+  Styling for the banner animation.
+ */
+.animate {
+  animation-delay: 0s;
+  animation-duration: 3s;
+  animation-name: banner;
+  animation-timing-function: ease-in-out;
+}
+@keyframes banner {
+  0% {
+    background-image: radial-gradient(black, transparent, transparent);
+    opacity: 100%;
+    transform: scale(0);
+  }
+  1% {
+    text-shadow: 5px 5px 100px darkred;
+  }
+  50% {
+    opacity: 100%;
+    text-shadow: 5px 5px 5px darkred;
+    transform: scale(1);
+  }
+  99% {
+    background-image: radial-gradient(black, transparent, transparent);
+    text-shadow: 5px 5px 100px darkred;
+    transform: scale(0);
+  }
+  100% {
+    background-image: none;
+    opacity: 0;
+    transform: scale(0);
+  }
 }

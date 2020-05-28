@@ -4,10 +4,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import {Timer} from "common/view";
 import "spellingbee/view.css";
 
-export function SpellingBeeView(props) {
-  const state = props.state;
-  const puzzle = state && state.puzzle;
-  if (!state || !puzzle) {
+export function SpellingBeeView({view, state, settings}) {
+  if (!state.puzzle) {
     return (
       <div className="jumbotron">
         <h1>Welcome to Spelling Bee!</h1>
@@ -32,21 +30,26 @@ export function SpellingBeeView(props) {
     );
   }
 
+  const puzzle = state.puzzle;
   const status = state.status;
-  const settings = props.settings;
 
   let total_num_words = puzzle.num_official_answers;
   if (settings.allow_unofficial_answers) {
     total_num_words += puzzle.num_unofficial_answers;
   }
 
+  const isGenius = state.score >= Math.round(puzzle.max_score * 0.7);
+  const isQueenBee = state.score === puzzle.max_score;
+
   return (
     <div id="spellingbee" className={status === "selected" || status === "paused" ? "blur" : ""}>
+      <Banner status={status} isGenius={isGenius} isQueenBee={isQueenBee}/>
       <div className="puzzle">
         <Header
           date={puzzle.published}
           score={state.score}
-          max_score={puzzle.max_score}
+          isGenius={isGenius}
+          isQueenBee={isQueenBee}
           last_start_time={state.last_start_time}
           total_solve_duration={state.total_solve_duration}
         />
@@ -55,11 +58,29 @@ export function SpellingBeeView(props) {
       </div>
       <WordsList
         font_size={settings.font_size}
-        view={props.view}
+        view={view}
         words={state.words}
         total={total_num_words}
       />
     </div>
+  );
+}
+
+function Banner({status, isGenius, isQueenBee}) {
+  let contents;
+  if (isGenius && !isQueenBee) {
+    contents = (
+      <>
+        GENIUS!<span role="img" aria-label="genius">&nbsp;&#127891;</span>
+      </>
+    );
+  }
+
+  const className = (status !== "complete" && isGenius)
+    ? "banner animate"
+    : "banner";
+  return (
+    <div className={className}>{contents}</div>
   );
 }
 
@@ -72,9 +93,9 @@ function Header(props) {
   };
 
   let tag;
-  if (props.score === props.max_score) {
+  if (props.isQueenBee) {
     tag = (<span role="img" aria-label="queen bee">&nbsp;&#x1f41d;</span>);
-  } else if (props.score >= Math.round(props.max_score * 0.7)) {
+  } else if (props.isGenius) {
     tag = (<span role="img" aria-label="genius">&nbsp;&#127891;</span>);
   }
 
