@@ -147,10 +147,17 @@ func TestPuzzle_UnmarshalJSON(t *testing.T) {
 			},
 		},
 		{
-			name:  "maximum score",
+			name:  "maximum official score",
 			input: load(t, "nytbee-20200408.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
-				assert.Equal(t, 183, puzzle.MaximumScore)
+				assert.Equal(t, 183, puzzle.MaximumOfficialScore)
+			},
+		},
+		{
+			name:  "maximum unofficial score",
+			input: load(t, "nytbee-20200408.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, 384, puzzle.MaximumUnofficialScore)
 			},
 		},
 		{
@@ -201,7 +208,8 @@ func TestPuzzle_WithoutAnswers(t *testing.T) {
 			assert.Equal(t, puzzle.PublishedDate, without.PublishedDate)
 			assert.Equal(t, puzzle.CenterLetter, without.CenterLetter)
 			assert.Equal(t, puzzle.Letters, without.Letters)
-			assert.Equal(t, puzzle.MaximumScore, without.MaximumScore)
+			assert.Equal(t, puzzle.MaximumOfficialScore, without.MaximumOfficialScore)
+			assert.Equal(t, puzzle.MaximumUnofficialScore, without.MaximumUnofficialScore)
 			assert.Equal(t, puzzle.NumOfficialAnswers, without.NumOfficialAnswers)
 			assert.Equal(t, puzzle.NumUnofficialAnswers, without.NumUnofficialAnswers)
 			assert.Nil(t, without.OfficialAnswers)

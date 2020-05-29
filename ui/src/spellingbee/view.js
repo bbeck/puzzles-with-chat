@@ -38,8 +38,11 @@ export function SpellingBeeView({view, state, settings}) {
     total_num_words += puzzle.num_unofficial_answers;
   }
 
-  const isGenius = state.score >= Math.round(puzzle.max_score * 0.7);
-  const isQueenBee = state.score === puzzle.max_score;
+  const max_score = !settings.allow_unofficial_answers
+    ? puzzle.max_official_score
+    : puzzle.max_unofficial_score;
+  const isGenius = state.score >= Math.round(max_score * 0.7);
+  const isQueenBee = state.score === max_score;
 
   return (
     <div id="spellingbee" className={status === "selected" || status === "paused" ? "blur" : ""}>
@@ -71,7 +74,7 @@ function Banner({status, isGenius, isQueenBee}) {
   if (isGenius && !isQueenBee) {
     contents = (
       <>
-        GENIUS!<span role="img" aria-label="genius">&nbsp;&#127891;</span>
+        GENIUS!<span role="img" aria-label="genius">&nbsp;&#x1f393;</span>
       </>
     );
   }
@@ -96,7 +99,7 @@ function Header(props) {
   if (props.isQueenBee) {
     tag = (<span role="img" aria-label="queen bee">&nbsp;&#x1f41d;</span>);
   } else if (props.isGenius) {
-    tag = (<span role="img" aria-label="genius">&nbsp;&#127891;</span>);
+    tag = (<span role="img" aria-label="genius">&nbsp;&#x1f393;</span>);
   }
 
   return (

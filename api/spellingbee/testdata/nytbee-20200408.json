@@ -3,7 +3,8 @@
   "published": "2020-04-08T00:00:00Z",
   "center": "T",
   "letters": ["C", "O", "N", "R", "U", "Y"],
-  "max_score": 183,
+  "max_official_score": 183,
+  "max_unofficial_score": 384,
   "num_official_answers": 48,
   "num_unofficial_answers": 38,
   "official_answers": [

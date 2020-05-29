@@ -101,7 +101,8 @@ func ParseNYTBeeResponse(in io.Reader) (*Puzzle, error) {
 	}
 
 	// Add calculated values to the created puzzle object.
-	puzzle.MaximumScore = puzzle.ComputeScore(puzzle.OfficialAnswers)
+	puzzle.MaximumOfficialScore = puzzle.ComputeScore(puzzle.OfficialAnswers)
+	puzzle.MaximumUnofficialScore = puzzle.MaximumOfficialScore + puzzle.ComputeScore(puzzle.UnofficialAnswers)
 	puzzle.NumOfficialAnswers = len(puzzle.OfficialAnswers)
 	puzzle.NumUnofficialAnswers = len(puzzle.UnofficialAnswers)
 

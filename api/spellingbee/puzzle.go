@@ -28,7 +28,11 @@ type Puzzle struct {
 	UnofficialAnswers []string `json:"unofficial_answers,omitempty"`
 
 	// The total number of points possible in the puzzle (only official answers).
-	MaximumScore int `json:"max_score"`
+	MaximumOfficialScore int `json:"max_official_score"`
+
+	// The total number of points possible in the puzzle (including unofficial
+	// answers).
+	MaximumUnofficialScore int `json:"max_unofficial_score"`
 
 	// The total number of official answers.
 	NumOfficialAnswers int `json:"num_official_answers"`
@@ -48,7 +52,8 @@ func (p *Puzzle) WithoutAnswers() *Puzzle {
 	puzzle.Letters = p.Letters
 	puzzle.OfficialAnswers = nil
 	puzzle.UnofficialAnswers = nil
-	puzzle.MaximumScore = p.MaximumScore
+	puzzle.MaximumOfficialScore = p.MaximumOfficialScore
+	puzzle.MaximumUnofficialScore = p.MaximumUnofficialScore
 	puzzle.NumOfficialAnswers = p.NumOfficialAnswers
 	puzzle.NumUnofficialAnswers = p.NumUnofficialAnswers
 

@@ -3,7 +3,8 @@
   "published": "2018-07-29T00:00:00Z",
   "center": "L",
   "letters": ["A", "C", "F", "I", "N", "Y"],
-  "max_score": 297,
+  "max_official_score": 297,
+  "max_unofficial_score": 297,
   "num_official_answers": 55,
   "num_unofficial_answers": 0,
   "official_answers": [
