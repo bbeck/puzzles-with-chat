@@ -61,6 +61,13 @@ type Puzzle struct {
 	// coordinate of the cell and then by the column coordinate.
 	CellCircles [][]bool `json:"cell_circles"`
 
+	// Whether or not a cell should be shaded for all of the cells in the
+	// crossword as a 2D list.  Cells that should be shaded appear as true and
+	// those that shouldn't be shaded will appear as false.  Like cells the 2D
+	// list is first indexed by the row coordinate of the cell and then by the
+	// column coordinate.
+	CellShades [][]bool `json:"cell_shades"`
+
 	// The clues for the across answers indexed by the clue number.
 	CluesAcross map[int]string `json:"clues_across"`
 
@@ -90,6 +97,7 @@ func (p *Puzzle) WithoutSolution() *Puzzle {
 	puzzle.CellBlocks = p.CellBlocks
 	puzzle.CellClueNumbers = p.CellClueNumbers
 	puzzle.CellCircles = p.CellCircles
+	puzzle.CellShades = p.CellShades
 	puzzle.CluesAcross = p.CluesAcross
 	puzzle.CluesDown = p.CluesDown
 	puzzle.Notes = p.Notes

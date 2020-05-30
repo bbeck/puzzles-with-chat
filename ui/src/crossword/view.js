@@ -164,14 +164,26 @@ function Grid(props) {
       const content = contents[cy][cx] || "";
       const isBlock = puzzle.cell_blocks[cy][cx];
       const isCircle = puzzle.cell_circles[cy][cx];
+      const isShaded = puzzle.cell_shades[cy][cx];
       const isFilled = view === "progress" && content !== "";
-      const className = isBlock ? "cell block" : isFilled ? "cell filled" : isCircle ? "cell shaded" : "cell";
-
+      const className = isBlock ? "cell block" : isFilled ? "cell filled" : isShaded ? "cell shaded" : "cell";
       const x = cx * s;
       const y = cy * s;
+
+      let circle;
+      if (isCircle && number === "") {
+        // Draw a full circle since there's no number that will be blocking it.
+        circle = (<circle cx={x+s/2} cy={y+s/2} r={s/2-1}/>);
+      } else if(isCircle && number !== "") {
+        // Draw an arc that's 3/4ths of a circle that doesn't overwrite the
+        // number in the cell.
+        circle = (<path d={`M ${x+1} ${y+s/2+1} a ${s/2-1} ${s/2-1} 0 1 0 ${s/2-2} ${-s/2}`} />);
+      }
+
       cells.push(
         <g key={cy * puzzle.cols + cx}>
           <rect x={x} y={y} width={s} height={s} className={className}/>
+          {circle}
           <text x={x} y={y} className="number">{number}</text>
           <text x={x} y={y} className="content" data-length={content.length}>
             {view !== "progress" ? content : ""}

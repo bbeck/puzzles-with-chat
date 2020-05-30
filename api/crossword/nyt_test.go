@@ -264,7 +264,55 @@ func TestParseXWordInfoResponse(t *testing.T) {
 		},
 		{
 			name:  "cell circles",
-			input: load(t, "xwordinfo-nyt-20181216-circles.json"),
+			input: load(t, "xwordinfo-nyt-20001031-circles.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := [][]bool{
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, true, true, true, false, false, false, false, false, false},
+					{false, false, false, false, false, true, false, false, false, true, false, false, false, false, false},
+					{false, false, false, false, false, false, true, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, true, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, true, false, false, false, false, false, false},
+					{false, false, false, false, false, true, false, false, false, true, false, false, false, false, false},
+					{false, false, false, false, false, false, true, true, true, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+				}
+				assert.Equal(t, expected, puzzle.CellCircles)
+			},
+		},
+		{
+			name:  "cell shades (none)",
+			input: load(t, "xwordinfo-nyt-20181231.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := [][]bool{
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
+				}
+				assert.Equal(t, expected, puzzle.CellShades)
+			},
+		},
+		{
+			name:  "cell shades",
+			input: load(t, "xwordinfo-nyt-20181216-shades.json"),
 			verify: func(t *testing.T, puzzle *Puzzle) {
 				expected := [][]bool{
 					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
@@ -289,7 +337,7 @@ func TestParseXWordInfoResponse(t *testing.T) {
 					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
 					{false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false},
 				}
-				assert.Equal(t, expected, puzzle.CellCircles)
+				assert.Equal(t, expected, puzzle.CellShades)
 			},
 		},
 		{

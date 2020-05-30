@@ -63,10 +63,11 @@ type XWordInfoPuzzle struct {
 		Rows int `json:"rows"`
 		Cols int `json:"cols"`
 	} `json:"size"`
-	Grid     []string `json:"grid"`
-	GridNums []int    `json:"gridnums"`
-	Circles  []int    `json:"circles"`
-	Clues    struct {
+	Grid         []string `json:"grid"`
+	GridNums     []int    `json:"gridnums"`
+	Circles      []int    `json:"circles"`
+	ShadeCircles string   `json:"shadecircles"`
+	Clues        struct {
 		Across []string `json:"across"`
 		Down   []string `json:"down"`
 	} `json:"clues"`
@@ -127,8 +128,11 @@ func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 	}
 
 	var circles [][]bool
+	var shades [][]bool
 	for row := 0; row < raw.Size.Rows; row++ {
 		circles = append(circles, make([]bool, raw.Size.Cols))
+		shades = append(shades, make([]bool, raw.Size.Cols))
+
 		for col := 0; col < raw.Size.Cols; col++ {
 			index := row*raw.Size.Cols + col
 
@@ -137,7 +141,13 @@ func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 			// of the loop because we want to take advantage of the initialization of
 			// the circles array that the loop does for us.
 			if len(raw.Circles) > 0 {
-				circles[row][col] = raw.Circles[index] == 1
+				// Whether or not the cell should be circled or shaded is indicated by
+				// the ShadeCircles property of the response.
+				if raw.ShadeCircles == "true" {
+					shades[row][col] = raw.Circles[index] == 1
+				} else {
+					circles[row][col] = raw.Circles[index] == 1
+				}
 			}
 		}
 	}
@@ -174,6 +184,7 @@ func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 	puzzle.CellBlocks = blocks
 	puzzle.CellClueNumbers = numbers
 	puzzle.CellCircles = circles
+	puzzle.CellShades = shades
 	puzzle.CluesAcross = across
 	puzzle.CluesDown = down
 

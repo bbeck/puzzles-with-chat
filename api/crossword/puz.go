@@ -711,6 +711,12 @@ func (f *PuzFile) Convert() (*Puzzle, error) {
 		}
 	}
 
+	// Shaded cells aren't supported by .puz files so initialize the 2D array to
+	// all false values.
+	for y := 0; y < puzzle.Rows; y++ {
+		puzzle.CellShades = append(puzzle.CellShades, make([]bool, puzzle.Cols))
+	}
+
 	// Check if an error occurred anywhere.
 	if errs != nil {
 		var err = errors.New("an error occurred while converting")

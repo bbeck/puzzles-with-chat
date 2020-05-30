@@ -139,6 +139,12 @@
 #crossword .puzzle .grid .cell.filled {
   fill: lightgreen;
 }
+#crossword .puzzle .grid circle,
+#crossword .puzzle .grid path {
+  fill: none;
+  stroke: dimgray;
+  stroke-width: 2px; /* This needs to remain in sync with view.js. */
+}
 #crossword .puzzle .grid .number {
   dominant-baseline: hanging;
   font-size: 30px;
