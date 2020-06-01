@@ -169,14 +169,14 @@
 @keyframes banner {
   0% {
     background-image: radial-gradient(black, transparent, transparent);
-    opacity: 100%;
+    opacity: 1;
     transform: scale(0);
   }
   1% {
     text-shadow: 5px 5px 100px darkred;
   }
   50% {
-    opacity: 100%;
+    opacity: 1;
     text-shadow: 5px 5px 5px darkred;
     transform: scale(1);
   }
