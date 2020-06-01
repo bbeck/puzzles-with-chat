@@ -20,21 +20,26 @@ func TestProcessEvent(t *testing.T) {
 		expected map[ID][]string
 	}{
 		{
-			name:     "no puzzles",
-			event:    NewChannelsEvent("channels", nil, nil),
-			expected: make(map[ID][]string),
+			name:  "no puzzles",
+			event: NewChannelsEvent("channels", nil, nil),
+			expected: map[ID][]string{
+				"crossword":   nil,
+				"spellingbee": nil,
+			},
 		},
 		{
 			name:  "crossword puzzle only",
 			event: NewChannelsEvent("channels", []string{"channel"}, nil),
 			expected: map[ID][]string{
-				"crossword": {"channel"},
+				"crossword":   {"channel"},
+				"spellingbee": nil,
 			},
 		},
 		{
 			name:  "spellingbee puzzle only",
 			event: NewChannelsEvent("channels", nil, []string{"channel"}),
 			expected: map[ID][]string{
+				"crossword":   nil,
 				"spellingbee": {"channel"},
 			},
 		},
@@ -106,6 +111,7 @@ func TestChannelLocator_Run(t *testing.T) {
 	tests := []struct {
 		name             string
 		event            []byte
+		expectedUpdate   bool
 		expectedChannels map[ID][]string
 		expectedError    bool
 	}{
@@ -114,11 +120,21 @@ func TestChannelLocator_Run(t *testing.T) {
 			event: marshal(t, NewChannelsEvent("ping", nil, nil)),
 		},
 		{
-			name:  "channels event",
-			event: marshal(t, NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"})),
+			name:           "channels event",
+			event:          marshal(t, NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"})),
+			expectedUpdate: true,
 			expectedChannels: map[ID][]string{
 				"crossword":   {"channel1"},
 				"spellingbee": {"channel2"},
+			},
+		},
+		{
+			name:           "empty channels event",
+			event:          marshal(t, NewChannelsEvent("channels", nil, nil)),
+			expectedUpdate: true,
+			expectedChannels: map[ID][]string{
+				"crossword":   nil,
+				"spellingbee": nil,
 			},
 		},
 		{
@@ -146,8 +162,10 @@ func TestChannelLocator_Run(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
+			var onUpdateCalled bool
 			var channels map[ID][]string
 			onUpdate := func(update map[ID][]string) {
+				onUpdateCalled = true
 				channels = update
 				cancel()
 			}
@@ -163,6 +181,7 @@ func TestChannelLocator_Run(t *testing.T) {
 			locator := NewChannelLocator(parsed.Host)
 			locator.Run(ctx, onUpdate, onError)
 
+			assert.Equal(t, test.expectedUpdate, onUpdateCalled)
 			assert.Equal(t, test.expectedChannels, channels)
 			if !test.expectedError {
 				assert.NoError(t, err)

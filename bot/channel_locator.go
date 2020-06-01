@@ -70,7 +70,10 @@ func ProcessEvent(bs []byte) (map[ID][]string, error) {
 
 	switch event.Kind {
 	case "channels":
-		channels := make(map[ID][]string)
+		channels := map[ID][]string{
+			"crossword":   nil,
+			"spellingbee": nil,
+		}
 		for _, channel := range event.Payload.Crosswords {
 			channels["crossword"] = append(channels["crossword"], channel.Name)
 		}
