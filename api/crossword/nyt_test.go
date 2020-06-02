@@ -537,13 +537,13 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 			input: `{}`,
 		},
 		{
-			name:  "malformed published json",
-			input: `{"grid":["a","b","c","d"], "json":"hello world"}`,
+			name:  "malformed published date",
+			input: `{"grid":["a","b","c","d"], "date":"hello world"}`,
 		},
 		{
 			name: "malformed across clue",
 			input: `{
-								"json": "01/01/2019",
+								"date": "01/01/2019",
 								"grid": ["a","b","c","d"],
 								"clues": {
 									"across": [
@@ -560,7 +560,7 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 		{
 			name: "malformed down clue",
 			input: `{
-								"json": "01/01/2019",
+								"date": "01/01/2019",
 								"grid": ["a","b","c","d"],
 								"clues": {
 									"across": [
