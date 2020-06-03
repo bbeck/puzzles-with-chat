@@ -19,6 +19,12 @@ var testPuzzle *Puzzle = nil
 // error to be returned instead of a network call.
 var testPuzzleLoadError error = nil
 
+// A cached error to use instead of reading state from the database.
+var testSettingsLoadError error = nil
+
+// A cached error to use instead of writing settings to the database.
+var testSettingsSaveError error = nil
+
 // load will read a file from the testdata directory.
 func load(t *testing.T, filename string) io.ReadCloser {
 	t.Helper()
@@ -74,4 +80,22 @@ func ForceErrorDuringPuzzleLoad(t *testing.T, err error) {
 
 	testPuzzleLoadError = err
 	t.Cleanup(func() { testPuzzleLoadError = nil })
+}
+
+// ForceErrorDuringSettingsLoad sets up an error to be returned when an attempt
+// is made to load settings.
+func ForceErrorDuringSettingsLoad(t *testing.T, err error) {
+	t.Helper()
+
+	testSettingsLoadError = err
+	t.Cleanup(func() { testSettingsLoadError = nil })
+}
+
+// ForceErrorDuringSettingsSave sets up an error to be returned when an attempt
+// is made to save settings.
+func ForceErrorDuringSettingsSave(t *testing.T, err error) {
+	t.Helper()
+
+	testSettingsSaveError = err
+	t.Cleanup(func() { testSettingsSaveError = nil })
 }
