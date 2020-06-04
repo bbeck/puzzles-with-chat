@@ -1,6 +1,7 @@
 package acrostic
 
 import (
+	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // A cached puzzle to use instead of fetching a puzzle.  This is used by test
@@ -98,4 +100,24 @@ func ForceErrorDuringSettingsSave(t *testing.T, err error) {
 
 	testSettingsSaveError = err
 	t.Cleanup(func() { testSettingsSaveError = nil })
+}
+
+// NewState creates a new acrostic puzzle state that has been properly
+// initialized with the puzzle corresponding to the provided filename.
+func NewState(t *testing.T, filename string) State {
+	puzzle := LoadTestPuzzle(t, filename)
+
+	cells := make([][]string, puzzle.Rows)
+	for col := 0; col < puzzle.Rows; col++ {
+		cells[col] = make([]string, puzzle.Cols)
+	}
+
+	now := time.Now()
+	return State{
+		Status:        model.StatusSelected,
+		Puzzle:        puzzle,
+		Cells:         cells,
+		CluesFilled:   make(map[string]bool),
+		LastStartTime: &now,
+	}
 }

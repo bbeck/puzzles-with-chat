@@ -1,6 +1,9 @@
 package acrostic
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Puzzle represents an acrostic puzzle.  The puzzle is comprised of a
 // grid which has dimensions (rows x cols) and demonstrates which cells of the
@@ -74,4 +77,22 @@ func (p *Puzzle) WithoutSolution() *Puzzle {
 	puzzle.Clues = p.Clues
 
 	return &puzzle
+}
+
+// GetCellCoordinates returns the x, y coordinates for a numbered cell.  If the
+// cell doesn't exist then an error is returned.
+func (p *Puzzle) GetCellCoordinates(num int) (int, int, error) {
+	if num < 1 {
+		return 0, 0, fmt.Errorf("cell number %d is out of bounds", num)
+	}
+
+	for y := num / p.Cols; y < p.Rows; y++ {
+		for x := 0; x < p.Cols; x++ {
+			if p.CellNumbers[y][x] == num {
+				return x, y, nil
+			}
+		}
+	}
+
+	return 0, 0, fmt.Errorf("cell number %d is out of bounds", num)
 }
