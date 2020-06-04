@@ -193,9 +193,9 @@ func NewEventSubscription(t *testing.T, registry *pubsub.Registry, channel strin
 func NewState(t *testing.T, filename string) State {
 	puzzle := LoadTestPuzzle(t, filename)
 
-	cells := make([][]string, puzzle.Cols)
-	for col := 0; col < puzzle.Cols; col++ {
-		cells[col] = make([]string, puzzle.Rows)
+	cells := make([][]string, puzzle.Rows)
+	for col := 0; col < puzzle.Rows; col++ {
+		cells[col] = make([]string, puzzle.Cols)
 	}
 
 	now := time.Now()
