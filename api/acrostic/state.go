@@ -120,3 +120,116 @@ func (s *State) ApplyClueAnswer(clue string, answer string, onlyCorrect bool) er
 
 	return nil
 }
+
+// ApplyCellAnswer applies an answer to the cells to the state.  If the starting
+// cell number specified outside the bounds of the puzzle or the answer doesn't
+// fit within the bounds of the puzzle then an error will be returned.  If the
+// onlyCorrect parameter is true then only correct values will be permitted and
+// an error is returned if any part of the answer is incorrect or would remove a
+// correct cell.
+func (s *State) ApplyCellAnswer(start int, answer string, onlyCorrect bool) error {
+	if start <= 0 {
+		return fmt.Errorf("invalid starting index: %d", start)
+	}
+
+	// Ignore spaces within the answer and ensure the answer is all uppercase.
+	answer = strings.ReplaceAll(answer, " ", "")
+	answer = strings.ToUpper(answer)
+
+	// Ensure that we have a non-empty answer.
+	if len(answer) == 0 {
+		return fmt.Errorf("empty answer")
+	}
+
+	// Compute the coordinates of each letter of the answer.  We do this ahead of
+	// time and not in a loop while setting cell values because we may discover
+	// an error in identifying a cell's coordinate.
+	xs := make([]int, len(answer))
+	ys := make([]int, len(answer))
+	for i := 0; i < len(answer); i++ {
+		x, y, err := s.Puzzle.GetCellCoordinates(start + i)
+		if err != nil {
+			return err
+		}
+
+		xs[i] = x
+		ys[i] = y
+	}
+
+	// Check to see if the answer is correct when required.
+	if onlyCorrect {
+		for i := 0; i < len(answer); i++ {
+			x := xs[i]
+			y := ys[i]
+
+			existing := s.Cells[y][x]
+			expected := s.Puzzle.Cells[y][x]
+			desired := string(answer[i])
+
+			// We can't change a correct value to an incorrect or empty one.
+			if existing != "" && desired != existing {
+				return fmt.Errorf("unable to apply answer %s starting at index %d, changes correct value", answer, start)
+			}
+
+			// We can't write an incorrect value into a cell
+			if desired != "." && desired != expected {
+				return fmt.Errorf("unable to apply answer %s starting at index %d, incorrect", answer, start)
+			}
+		}
+	}
+
+	// Apply the answer.
+	for i := 0; i < len(answer); i++ {
+		if answer[i] != '.' {
+			s.Cells[ys[i]][xs[i]] = string(answer[i])
+		} else {
+			s.Cells[ys[i]][xs[i]] = ""
+		}
+	}
+
+	// Update which clues have been filled.
+	if err := s.UpdateFilledClues(); err != nil {
+		return err
+	}
+
+	// Also determine if the puzzle is finished with all correct answers and
+	// update the Status if so.
+	complete := true
+	for y := 0; y < s.Puzzle.Rows; y++ {
+		for x := 0; x < s.Puzzle.Cols; x++ {
+			if s.Cells[y][x] != s.Puzzle.Cells[y][x] {
+				complete = false
+			}
+		}
+	}
+	if complete {
+		s.Status = model.StatusComplete
+	}
+
+	return nil
+}
+
+// UpdateFilledClues looks at each clue in the puzzle and determines if a
+// complete answer has been provided for the clue, if so then the corresponding
+// entry in CluesFilled will be set to true.  This method doesn't check that the
+// provided answer is correct, just that one is present.
+func (s *State) UpdateFilledClues() error {
+	for clue, nums := range s.Puzzle.ClueNumbers {
+		complete := true
+		for _, num := range nums {
+			x, y, err := s.Puzzle.GetCellCoordinates(num)
+			if err != nil {
+				return err
+			}
+
+			if s.Cells[y][x] == "" {
+				complete = false
+				break
+			}
+		}
+
+		s.CluesFilled[clue] = complete
+	}
+
+	return nil
+}
