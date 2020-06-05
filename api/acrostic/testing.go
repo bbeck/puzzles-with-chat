@@ -27,6 +27,12 @@ var testSettingsLoadError error = nil
 // A cached error to use instead of writing settings to the database.
 var testSettingsSaveError error = nil
 
+// A cached error to use instead of writing state to the database.
+var testStateLoadError error = nil
+
+// A cached error to use instead of writing state to the database.
+var testStateSaveError error = nil
+
 // load will read a file from the testdata directory.
 func load(t *testing.T, filename string) io.ReadCloser {
 	t.Helper()
@@ -100,6 +106,24 @@ func ForceErrorDuringSettingsSave(t *testing.T, err error) {
 
 	testSettingsSaveError = err
 	t.Cleanup(func() { testSettingsSaveError = nil })
+}
+
+// ForceErrorDuringStateLoad sets up an error to be returned when an attempt
+// is made to load state.
+func ForceErrorDuringStateLoad(t *testing.T, err error) {
+	t.Helper()
+
+	testStateLoadError = err
+	t.Cleanup(func() { testStateLoadError = nil })
+}
+
+// ForceErrorDuringStateSave sets up an error to be returned when an attempt
+// is made to save state.
+func ForceErrorDuringStateSave(t *testing.T, err error) {
+	t.Helper()
+
+	testStateSaveError = err
+	t.Cleanup(func() { testStateSaveError = nil })
 }
 
 // NewState creates a new acrostic puzzle state that has been properly

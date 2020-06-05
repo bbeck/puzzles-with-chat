@@ -2,6 +2,7 @@ package acrostic
 
 import (
 	"fmt"
+	"github.com/bbeck/puzzles-with-chat/api/db"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"strings"
 	"time"
@@ -250,4 +251,39 @@ func (s *State) ClearIncorrectCells() error {
 	// Now that we may have modified one or more cells we need to determine which
 	// clues are answered and which aren't.
 	return s.UpdateFilledClues()
+}
+
+// StateKey returns the key that should be used in redis to store a particular
+// crossword solve's state.
+func StateKey(name string) string {
+	return fmt.Sprintf("%s:acrostic:state", name)
+}
+
+// StateTTL determines how long a particular crossword's solve state should
+// remain in redis in the absence of any activity.
+var StateTTL = 4 * time.Hour
+
+// GetState loads the state for a crossword solve from redis.  If the state
+// can't be loaded then an error will be returned.  If there is no state, then
+// the zero value will be returned.  After a state is read, its expiration time
+// is automatically updated.
+func GetState(conn db.Connection, channel string) (State, error) {
+	var state State
+
+	if testStateLoadError != nil {
+		return state, testStateLoadError
+	}
+
+	err := db.Get(conn, StateKey(channel), &state)
+	return state, err
+}
+
+// SetState writes the state for a channel's crossword solve to redis.  If the
+// state can't be property written then an error will be returned.
+func SetState(conn db.Connection, channel string, state State) error {
+	if testStateSaveError != nil {
+		return testStateSaveError
+	}
+
+	return db.SetWithTTL(conn, StateKey(channel), state, StateTTL)
 }
