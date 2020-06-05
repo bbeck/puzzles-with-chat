@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/bbeck/puzzles-with-chat/api/acrostic"
 	"github.com/bbeck/puzzles-with-chat/api/crossword"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/bbeck/puzzles-with-chat/api/spellingbee"
@@ -28,6 +29,7 @@ func main() {
 	r.Route("/api", func(r chi.Router) {
 		RegisterRoutes(r, pool, registry)
 
+		acrostic.RegisterRoutes(r, pool, registry)
 		crossword.RegisterRoutes(r, pool, registry)
 		spellingbee.RegisterRoutes(r, pool, registry)
 	})
