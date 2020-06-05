@@ -233,3 +233,21 @@ func (s *State) UpdateFilledClues() error {
 
 	return nil
 }
+
+// ClearIncorrectCells will look at each filled in cell of the acrostic and
+// clear it if it is filled in with an incorrect answer.  The CluesFilled
+// field will also be updated to indicate any clues that are now unanswered due
+// to cleared cells.
+func (s *State) ClearIncorrectCells() error {
+	for y := 0; y < s.Puzzle.Rows; y++ {
+		for x := 0; x < s.Puzzle.Cols; x++ {
+			if s.Cells[y][x] != "" && s.Cells[y][x] != s.Puzzle.Cells[y][x] {
+				s.Cells[y][x] = ""
+			}
+		}
+	}
+
+	// Now that we may have modified one or more cells we need to determine which
+	// clues are answered and which aren't.
+	return s.UpdateFilledClues()
+}

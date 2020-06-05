@@ -1092,3 +1092,74 @@ func TestState_ApplyCellAnswer_Error(t *testing.T) {
 		})
 	}
 }
+
+func TestState_ClearIncorrectCells(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		setup    map[string]string
+		verify   func(*testing.T, State)
+	}{
+		{
+			name:     "correct answer",
+			filename: "xwordinfo-nyt-20200524.json",
+			setup: map[string]string{
+				"A": "WHALES",
+			},
+			verify: func(t *testing.T, state State) {
+				assert.Equal(t, "W", state.Cells[1][10])
+				assert.Equal(t, "H", state.Cells[5][9])
+				assert.Equal(t, "A", state.Cells[2][4])
+				assert.Equal(t, "L", state.Cells[7][14])
+				assert.Equal(t, "E", state.Cells[0][18])
+				assert.Equal(t, "S", state.Cells[2][24])
+				assert.True(t, state.CluesFilled["A"])
+			},
+		},
+		{
+			name:     "partially incorrect answer",
+			filename: "xwordinfo-nyt-20200524.json",
+			setup: map[string]string{
+				"A": "WHARFS",
+			},
+			verify: func(t *testing.T, state State) {
+				assert.Equal(t, "W", state.Cells[1][10])
+				assert.Equal(t, "H", state.Cells[5][9])
+				assert.Equal(t, "A", state.Cells[2][4])
+				assert.Equal(t, "", state.Cells[7][14])
+				assert.Equal(t, "", state.Cells[0][18])
+				assert.Equal(t, "S", state.Cells[2][24])
+				assert.False(t, state.CluesFilled["A"])
+			},
+		},
+		{
+			name:     "completely incorrect answer",
+			filename: "xwordinfo-nyt-20200524.json",
+			setup: map[string]string{
+				"A": "XXXXXX",
+			},
+			verify: func(t *testing.T, state State) {
+				assert.Equal(t, "", state.Cells[1][10])
+				assert.Equal(t, "", state.Cells[5][9])
+				assert.Equal(t, "", state.Cells[2][4])
+				assert.Equal(t, "", state.Cells[7][14])
+				assert.Equal(t, "", state.Cells[0][18])
+				assert.Equal(t, "", state.Cells[2][24])
+				assert.False(t, state.CluesFilled["A"])
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := NewState(t, test.filename)
+			for clue, answer := range test.setup {
+				require.NoError(t, state.ApplyClueAnswer(clue, answer, false))
+			}
+
+			err := state.ClearIncorrectCells()
+			assert.NoError(t, err)
+			test.verify(t, state)
+		})
+	}
+}
