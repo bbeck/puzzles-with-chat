@@ -9,11 +9,13 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"net/http"
+	"time"
 )
 
 func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 	r.Route("/acrostic/{channel}", func(r chi.Router) {
 		r.Put("/", UpdatePuzzle(pool, registry))
+		r.Put("/status", ToggleStatus(pool, registry))
 	})
 }
 
@@ -77,6 +79,69 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		// sure to not include the answers.  It's okay to overwrite the puzzle
 		// attribute because we just wrote this state instance to the database
 		// and will be discarding it immediately publishing.
+		state.Puzzle = state.Puzzle.WithoutSolution()
+
+		registry.Publish(ChannelID(channel), StateEvent(state))
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// ToggleStatus changes the status of the current acrostic solve to a new
+// status.  This effectively toggles between the solving and paused statuses as
+// long as the solve is in a state that can be paused or resumed.
+func ToggleStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		state, err := GetState(conn, channel)
+		if err != nil {
+			log.Printf("unable to load state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		now := time.Now()
+
+		switch state.Status {
+		case model.StatusCreated:
+			log.Printf("unable to toggle status for channel %s, no puzzle selected", channel)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+
+		case model.StatusSelected:
+			state.Status = model.StatusSolving
+			state.LastStartTime = &now
+
+		case model.StatusPaused:
+			state.Status = model.StatusSolving
+			state.LastStartTime = &now
+
+		case model.StatusSolving:
+			state.Status = model.StatusPaused
+			total := state.TotalSolveDuration.Nanoseconds() + now.Sub(*state.LastStartTime).Nanoseconds()
+			state.LastStartTime = nil
+			state.TotalSolveDuration = model.Duration{Duration: time.Duration(total)}
+
+		case model.StatusComplete:
+			log.Printf("unable to toggle status for channel %s, puzzle is already solved", channel)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if err := SetState(conn, channel, state); err != nil {
+			log.Printf("unable to save state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Broadcast to all of the clients that the puzzle status has been changed,
+		// making sure to not include the answers.  It's okay to overwrite the
+		// puzzle attribute because we just wrote this state instance to the
+		// database and will be discarding it immediately publishing.
 		state.Puzzle = state.Puzzle.WithoutSolution()
 
 		registry.Publish(ChannelID(channel), StateEvent(state))

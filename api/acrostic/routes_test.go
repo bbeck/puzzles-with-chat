@@ -113,6 +113,105 @@ func TestRoute_UpdatePuzzle_LoadSaveError(t *testing.T) {
 	}
 }
 
+func TestRoute_ToggleStatus(t *testing.T) {
+	// This acts as a small integration test toggling the status of an acrostic
+	// being solved.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Set a state that has a puzzle selected but not yet started.
+	state := NewState(t, "xwordinfo-nyt-20200524.json")
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Toggle the status, it should transition to solving.
+	response := Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.Equal(t, model.StatusSolving, state.Status)
+		assert.NotNil(t, state.LastStartTime)
+	})
+
+	// Toggle the status again, it should transition to paused. Make sure we
+	// sleep for at least a nanosecond first so that the solve was unpaused for
+	// a non-zero duration.
+	time.Sleep(1 * time.Nanosecond)
+	response = Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.Equal(t, model.StatusPaused, state.Status)
+		assert.Nil(t, state.LastStartTime)
+		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
+	})
+
+	// Toggle the status again, it should transition back to solving.
+	response = Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.Equal(t, model.StatusSolving, state.Status)
+		assert.NotNil(t, state.LastStartTime)
+		assert.True(t, state.TotalSolveDuration.Seconds() > 0.)
+	})
+
+	// Force the puzzle to be complete.
+	state.Status = model.StatusComplete
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Try to toggle the status one more time.  Now that the puzzle is complete
+	// it should return an HTTP error.
+	response = Channel.PUT("/status", ``, router)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+	state, err := GetState(conn, Channel.name)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusComplete, state.Status)
+}
+
+func TestRoute_ToggleStatus_Error(t *testing.T) {
+	tests := []struct {
+		name           string
+		initialStatus  model.Status
+		loadStateError error
+		saveStateError error
+	}{
+		{
+			name:          "status created",
+			initialStatus: model.StatusCreated,
+		},
+		{
+			name:           "error loading state",
+			initialStatus:  model.StatusSelected,
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			initialStatus:  model.StatusSelected,
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20200524.json")
+			state.Status = test.initialStatus
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			if test.loadStateError != nil {
+				ForceErrorDuringStateLoad(t, test.loadStateError)
+			}
+
+			if test.saveStateError != nil {
+				ForceErrorDuringStateSave(t, test.saveStateError)
+			}
+
+			response := Channel.PUT("/status", "", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 // VerifyState performs common verifications for state objects in both event
 // and database forms and then calls a custom verify function for test specific
 // verifications.
