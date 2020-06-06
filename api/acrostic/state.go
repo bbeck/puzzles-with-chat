@@ -39,6 +39,7 @@ type State struct {
 // then only correct values will be permitted and an error is returned if any
 // part of the answer is incorrect or would remove a correct cell.
 func (s *State) ApplyClueAnswer(clue string, answer string, onlyCorrect bool) error {
+	clue = strings.ToUpper(clue)
 	nums, ok := s.Puzzle.ClueNumbers[clue]
 	if !ok {
 		return fmt.Errorf("invalid clue identifier: %s", clue)

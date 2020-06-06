@@ -119,6 +119,20 @@ func TestState_ApplyClueAnswer_Cells(t *testing.T) {
 				assert.Equal(t, "S", state.Cells[2][24])
 			},
 		},
+		{
+			name:     "lowercase clue",
+			filename: "xwordinfo-nyt-20200524.json",
+			clue:     "a",
+			answer:   "WHALES",
+			verify: func(t *testing.T, state State) {
+				assert.Equal(t, "W", state.Cells[1][10])
+				assert.Equal(t, "H", state.Cells[5][9])
+				assert.Equal(t, "A", state.Cells[2][4])
+				assert.Equal(t, "L", state.Cells[7][14])
+				assert.Equal(t, "E", state.Cells[0][18])
+				assert.Equal(t, "S", state.Cells[2][24])
+			},
+		},
 	}
 
 	for _, test := range tests {
