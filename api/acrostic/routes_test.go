@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -212,6 +213,253 @@ func TestRoute_ToggleStatus_Error(t *testing.T) {
 	}
 }
 
+func TestRoute_UpdateAnswer_AllowIncorrectAnswers(t *testing.T) {
+	// This acts as a small integration test of applying answers to an acrostic
+	// being solved.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	state := NewState(t, "xwordinfo-nyt-20200524.json")
+	state.Status = model.StatusSolving
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Apply a correct clue answer.
+	response := Channel.PUT("/answer/A", `"WHALES"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.True(t, state.CluesFilled["A"])
+		assert.Equal(t, "W", state.Cells[1][10])
+		assert.Equal(t, "H", state.Cells[5][9])
+		assert.Equal(t, "A", state.Cells[2][4])
+		assert.Equal(t, "L", state.Cells[7][14])
+		assert.Equal(t, "E", state.Cells[0][18])
+		assert.Equal(t, "S", state.Cells[2][24])
+	})
+
+	// Apply a correct cells answer.
+	response = Channel.PUT("/answer/1", `"PEOPLE"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.Equal(t, "P", state.Cells[0][0])
+		assert.Equal(t, "E", state.Cells[0][1])
+		assert.Equal(t, "O", state.Cells[0][2])
+		assert.Equal(t, "P", state.Cells[0][3])
+		assert.Equal(t, "L", state.Cells[0][4])
+		assert.Equal(t, "E", state.Cells[0][5])
+	})
+
+	// Apply an incorrect clue answer.
+	response = Channel.PUT("/answer/B", `"METALLICA"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.True(t, state.CluesFilled["B"])
+		assert.Equal(t, "M", state.Cells[6][15])
+		assert.Equal(t, "E", state.Cells[2][18])
+		assert.Equal(t, "T", state.Cells[7][23])
+		assert.Equal(t, "A", state.Cells[1][9])
+		assert.Equal(t, "L", state.Cells[4][25])
+		assert.Equal(t, "L", state.Cells[0][12])
+		assert.Equal(t, "I", state.Cells[7][7])
+		assert.Equal(t, "C", state.Cells[5][23])
+		assert.Equal(t, "A", state.Cells[1][26])
+	})
+
+	// Apply an incorrect cells answer.
+	response = Channel.PUT("/answer/7", `"SCREAM"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.Equal(t, "S", state.Cells[0][7])
+		assert.Equal(t, "C", state.Cells[0][8])
+		assert.Equal(t, "R", state.Cells[0][9])
+		assert.Equal(t, "E", state.Cells[0][10])
+		assert.Equal(t, "A", state.Cells[0][11])
+		assert.Equal(t, "M", state.Cells[0][12])
+	})
+
+	// Pause the solve.
+	response = Channel.PUT("/status", ``, router)
+	require.Equal(t, http.StatusOK, response.Code)
+
+	// Try to apply an answer.
+	response = Channel.PUT("/answer/C", `"GYPSY"`, router)
+	assert.Equal(t, http.StatusConflict, response.Code)
+}
+
+func TestRoute_UpdateAnswer_OnlyAllowCorrectAnswers(t *testing.T) {
+	// This acts as a small integration test toggling the status of an acrostic
+	// being solved.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Change the settings to only allow correct answers.
+	settings := Settings{OnlyAllowCorrectAnswers: true}
+	require.NoError(t, SetSettings(conn, Channel.name, settings))
+
+	state := NewState(t, "xwordinfo-nyt-20200524.json")
+	state.Status = model.StatusSolving
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Apply a correct clue answer.
+	response := Channel.PUT("/answer/A", `"WHALES"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.True(t, state.CluesFilled["A"])
+		assert.Equal(t, "W", state.Cells[1][10])
+		assert.Equal(t, "H", state.Cells[5][9])
+		assert.Equal(t, "A", state.Cells[2][4])
+		assert.Equal(t, "L", state.Cells[7][14])
+		assert.Equal(t, "E", state.Cells[0][18])
+		assert.Equal(t, "S", state.Cells[2][24])
+	})
+
+	// Apply a correct cells answer.
+	response = Channel.PUT("/answer/1", `"PEOPLE"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.Equal(t, "P", state.Cells[0][0])
+		assert.Equal(t, "E", state.Cells[0][1])
+		assert.Equal(t, "O", state.Cells[0][2])
+		assert.Equal(t, "P", state.Cells[0][3])
+		assert.Equal(t, "L", state.Cells[0][4])
+		assert.Equal(t, "E", state.Cells[0][5])
+	})
+
+	// Apply an incorrect clue answer.
+	response = Channel.PUT("/answer/B", `"METALLICA"`, router)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+
+	// Apply an incorrect cells answer.
+	response = Channel.PUT("/answer/7", `"SCREAM"`, router)
+	assert.Equal(t, http.StatusBadRequest, response.Code)
+}
+
+func TestRoute_UpdateAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
+	// This acts as a small integration test ensuring that the timer stops
+	// counting once the acrostic has been solved.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Setup a state that has the entire puzzle solved except for the last answer.
+	state := NewState(t, "xwordinfo-nyt-20200524.json")
+	state.Status = model.StatusSolving
+	state.ApplyClueAnswer("A", "WHALES", false)
+	state.ApplyClueAnswer("B", "AEROSMITH", false)
+	state.ApplyClueAnswer("C", "GYPSY", false)
+	state.ApplyClueAnswer("D", "NASHVILLE", false)
+	state.ApplyClueAnswer("E", "ALLEMANDE", false)
+	state.ApplyClueAnswer("F", "LORGNETTE", false)
+	state.ApplyClueAnswer("G", "LEITMOTIF", false)
+	state.ApplyClueAnswer("H", "SHARPED", false)
+	state.ApplyClueAnswer("I", "SEATTLE", false)
+	state.ApplyClueAnswer("J", "TEHRAN", false)
+	state.ApplyClueAnswer("K", "ACCORDION", false)
+	state.ApplyClueAnswer("L", "REPEAT", false)
+	state.ApplyClueAnswer("M", "SYMPHONY", false)
+	state.ApplyClueAnswer("N", "OMAHA", false)
+	state.ApplyClueAnswer("O", "FLAWLESS", false)
+	state.ApplyClueAnswer("P", "THAILAND", false)
+	state.ApplyClueAnswer("Q", "HALFSTEP", false)
+	state.ApplyClueAnswer("R", "ENTRACTE", false)
+	state.ApplyClueAnswer("S", "OCTAVES", false)
+	state.ApplyClueAnswer("T", "PROKOFIEV", false)
+	state.ApplyClueAnswer("U", "EARDRUM", false)
+	state.ApplyClueAnswer("V", "RHAPSODIC", false)
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Apply the last answer, but wait a bit first to ensure that a non-zero
+	// amount of time has passed in the solve.
+	time.Sleep(10 * time.Millisecond)
+
+	response := Channel.PUT("/answer/W", `"ASSASSINS"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		require.Equal(t, model.StatusComplete, state.Status)
+		assert.Nil(t, state.LastStartTime)
+		assert.True(t, state.TotalSolveDuration.Seconds() > 0)
+	})
+}
+
+func TestRoute_UpdateAnswer_Error(t *testing.T) {
+	tests := []struct {
+		name     string
+		json     string
+		expected int
+	}{
+		{
+			name:     "empty answer",
+			json:     `""`,
+			expected: http.StatusBadRequest,
+		},
+		{
+			name:     "too long answer",
+			json:     `"` + RandomString(1023) + `"`,
+			expected: http.StatusRequestEntityTooLarge,
+		},
+		{
+			name:     "malformed json",
+			json:     `"`,
+			expected: http.StatusBadRequest,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20200524.json")
+			state.Status = model.StatusSolving
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			response := Channel.PUT("/answer/A", test.json, router)
+			assert.Equal(t, test.expected, response.Code)
+		})
+	}
+}
+
+func TestRoute_UpdateAnswer_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name              string
+		loadSettingsError error
+		loadStateError    error
+		saveStateError    error
+	}{
+		{
+			name:              "error loading settings",
+			loadSettingsError: errors.New("forced error"),
+		},
+		{
+			name:           "error loading state",
+			loadStateError: errors.New("forced error"),
+		},
+		{
+			name:           "error saving state",
+			saveStateError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20200524.json")
+			state.Status = model.StatusSolving
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.loadSettingsError)
+			ForceErrorDuringStateLoad(t, test.loadStateError)
+			ForceErrorDuringStateSave(t, test.saveStateError)
+
+			response := Channel.PUT("/answer/A", `"WHALES"`, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 // VerifyState performs common verifications for state objects in both event
 // and database forms and then calls a custom verify function for test specific
 // verifications.
@@ -314,6 +562,17 @@ func (c ChannelClient) SSE(url string, router chi.Router) (flush func() []pubsub
 	go router.ServeHTTP(recorder, request)
 
 	return flush, stop
+}
+
+func RandomString(n int) string {
+	var alphabet = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	bs := make([]rune, n)
+	for i := range bs {
+		bs[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+
+	return string(bs)
 }
 
 // Create a http.ResponseWriter that synchronizes whenever reads or writes

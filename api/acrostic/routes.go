@@ -9,6 +9,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -16,6 +17,7 @@ func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 	r.Route("/acrostic/{channel}", func(r chi.Router) {
 		r.Put("/", UpdatePuzzle(pool, registry))
 		r.Put("/status", ToggleStatus(pool, registry))
+		r.Put("/answer/{clue}", UpdateAnswer(pool, registry))
 	})
 }
 
@@ -150,6 +152,99 @@ func ToggleStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 	}
 }
 
+// UpdateAnswer applies an answer to either a given clue or given set of cells
+// in the current acrostic solve.
+func UpdateAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+		clue := chi.URLParam(r, "clue")
+
+		if r.ContentLength > 1024 {
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		var answer string
+		if err := render.DecodeJSON(r.Body, &answer); err != nil {
+			log.Printf("unable to read request body: %+v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if len(answer) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		state, err := GetState(conn, channel)
+		if err != nil {
+			log.Printf("unable to load state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		if state.Status != model.StatusSolving {
+			w.WriteHeader(http.StatusConflict)
+			return
+		}
+
+		settings, err := GetSettings(conn, channel)
+		if err != nil {
+			log.Printf("unable to load settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Determine if the user specified a clue letter or cell numbers.
+		if start, err := strconv.Atoi(clue); err == nil {
+			if err := state.ApplyCellAnswer(start, answer, settings.OnlyAllowCorrectAnswers); err != nil {
+				log.Printf("unable to apply answer %s for cell %d for channel %s: %+v", answer, start, channel, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		} else {
+			if err := state.ApplyClueAnswer(clue, answer, settings.OnlyAllowCorrectAnswers); err != nil {
+				log.Printf("unable to apply answer %s for clue %s for channel %s: %+v", answer, clue, channel, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+		}
+
+		// If we just solved the puzzle then we should stop the timer.
+		if state.Status == model.StatusComplete {
+			now := time.Now()
+			total := state.TotalSolveDuration.Nanoseconds() + now.Sub(*state.LastStartTime).Nanoseconds()
+			state.LastStartTime = nil
+			state.TotalSolveDuration = model.Duration{Duration: time.Duration(total)}
+		}
+
+		// Save the updated state.
+		if err := SetState(conn, channel, state); err != nil {
+			log.Printf("unable to save state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Broadcast to all of the clients that the puzzle has been selected, making
+		// sure to not include the answers.  It's okay to overwrite the puzzle
+		// attribute because we just wrote this state instance to the database
+		// and will be discarding it immediately publishing.
+		state.Puzzle = state.Puzzle.WithoutSolution()
+
+		registry.Publish(ChannelID(channel), StateEvent(state))
+
+		// If we've just finished the solve then send a complete event as well.
+		if state.Status == model.StatusComplete {
+			registry.Publish(ChannelID(channel), CompleteEvent())
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 func ChannelID(channel string) pubsub.Channel {
 	channel = fmt.Sprintf("%s:acrostic", channel)
 	return pubsub.Channel(channel)
@@ -159,5 +254,11 @@ func StateEvent(state State) pubsub.Event {
 	return pubsub.Event{
 		Kind:    "state",
 		Payload: state,
+	}
+}
+
+func CompleteEvent() pubsub.Event {
+	return pubsub.Event{
+		Kind: "complete",
 	}
 }
