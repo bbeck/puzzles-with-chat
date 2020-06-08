@@ -1,0 +1,96 @@
+/*
+  Layout of all of the elements of the puzzle.  This defines all of the flex
+  boxes and their flex specific layout settings.
+ */
+#acrostic {
+  display: flex;
+  justify-content: flex-start;
+}
+#acrostic .puzzle {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+#acrostic .puzzle .header {
+  display: flex;
+  justify-content: space-between;
+}
+
+/*
+  Sizing of all of the elements on the page.  In general we should attempt to
+  dimension as few things as possible in order to have a fluid layout, however
+  because we are trying to make the content take up the exact size regardless
+  of which puzzle we're displaying we will need to specify some hardcoded
+  dimensions.
+*/
+#acrostic {
+  height: 650px;
+  padding: 5px 0 0 5px;
+  width: 1000px;
+}
+#acrostic .puzzle .header,
+#acrostic .puzzle .grid,
+#acrostic .puzzle .footer {
+  width: 995px;  /* not 1000 to compensate for the border on the left. */
+}
+
+
+/*
+  Styling of all of the elements on the page.  This defines how things should
+  look, but not how containers should organize their children or how large
+  the containers should be.  It does define things like borders, margins,
+  padding and font sizes though.
+*/
+#acrostic.blur {
+  filter: blur(5px);
+}
+#acrostic .puzzle .header,
+#acrostic .puzzle .footer {
+  font-family: sans-serif;
+  font-size: 80%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+#acrostic .puzzle .header .published,
+#acrostic .puzzle .header .timer {
+  margin: 0 2px;
+  overflow: hidden;
+}
+#acrostic .puzzle .grid .border {
+  fill: none;
+  stroke: black;
+  stroke-width: 4px; /* This needs to remain in sync with view.js. */
+}
+#acrostic .puzzle .grid .cell {
+  fill: white;
+  stroke: gray;
+  stroke-width: 2px; /* This needs to remain in sync with view.js. */
+}
+#acrostic .puzzle .grid .cell.block {
+  fill: black;
+}
+#acrostic .puzzle .grid .cell.filled {
+  fill: lightgreen;
+}
+#acrostic .puzzle .grid .number {
+  dominant-baseline: hanging;
+  font-size: 30px;
+  text-anchor: start;
+  transform: translate(5px, 5px);
+  pointer-events: none;
+  user-select: none;
+}
+#acrostic .puzzle .grid .letter {
+  dominant-baseline: hanging;
+  font-size: 30px;
+  text-anchor: end;
+  transform: translate(-5px, 5px);
+  pointer-events: none;
+  user-select: none;
+}
+#acrostic .puzzle .grid .content {
+  font-size: 75px;
+  text-anchor: middle;
+  transform: translate(50px, 90px);
+  pointer-events: none;
+}
