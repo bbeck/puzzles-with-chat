@@ -75,6 +75,7 @@ func (p *Puzzle) WithoutSolution() *Puzzle {
 	puzzle.CellNumbers = p.CellNumbers
 	puzzle.CellClueLetters = p.CellClueLetters
 	puzzle.Clues = p.Clues
+	puzzle.ClueNumbers = p.ClueNumbers
 
 	return &puzzle
 }
