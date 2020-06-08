@@ -592,6 +592,95 @@ func TestRoute_UpdateSettings_LoadSaveError(t *testing.T) {
 	}
 }
 
+func TestRoute_GetEvents(t *testing.T) {
+	// This acts as a small integration test ensuring that the event stream
+	// receives the events put into a registry.
+	router, pool, _ := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+
+	// Connect to the stream when there's no puzzle selected, we should receive
+	// just the channel's settings.
+	_, stop := Channel.SSE("/events", router)
+	events := stop()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "settings", events[0].Kind)
+
+	// Select a puzzle.
+	state := NewState(t, "xwordinfo-nyt-20200524.json")
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Now reconnect to the stream and we should receive both the settings and the
+	// channel's current state.
+	flush, stop := Channel.SSE("/events", router)
+	events = flush()
+	assert.Equal(t, 2, len(events))
+	assert.Equal(t, "settings", events[0].Kind)
+	assert.Equal(t, "state", events[1].Kind)
+
+	// Toggle the status to solving, this should cause the state to be sent again.
+	response := Channel.PUT("/status", ``, router)
+	require.Equal(t, http.StatusOK, response.Code)
+
+	events = flush()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "state", events[0].Kind)
+
+	// Now specify an answer, this should cause the state to be sent again.
+	response = Channel.PUT("/answer/A", `"WHALES"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	events = flush()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "state", events[0].Kind)
+
+	// Now change a setting, this should cause the settings to be sent again.
+	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	events = flush()
+	assert.Equal(t, 1, len(events))
+	assert.Equal(t, "settings", events[0].Kind)
+
+	// Disconnect, there shouldn't be any events anymore.
+	events = stop()
+	assert.Equal(t, 0, len(events))
+}
+
+func TestRoute_GetEvents_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name                   string
+		forceSettingsLoadError error
+		forceStateLoadError    error
+	}{
+		{
+			name:                   "error loading settings",
+			forceSettingsLoadError: errors.New("forced error"),
+		},
+		{
+			name:                "error loading state",
+			forceStateLoadError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20200524.json")
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.forceSettingsLoadError)
+			ForceErrorDuringStateLoad(t, test.forceStateLoadError)
+
+			// This won't start a background goroutine to send events because the
+			// request will fail before reaching that part of the code.
+			response := Channel.GET("/events", router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 // VerifyState performs common verifications for state objects in both event
 // and database forms and then calls a custom verify function for test specific
 // verifications.

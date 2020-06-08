@@ -16,6 +16,7 @@ import (
 func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 	r.Route("/acrostic/{channel}", func(r chi.Router) {
 		r.Put("/", UpdatePuzzle(pool, registry))
+		r.Get("/events", GetEvents(pool, registry))
 		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
 		r.Put("/status", ToggleStatus(pool, registry))
 		r.Put("/answer/{clue}", UpdateAnswer(pool, registry))
@@ -87,6 +88,62 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		registry.Publish(ChannelID(channel), StateEvent(state))
 
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// GetEvents establishes an event stream with a client.  An event stream is
+// server side event stream (SSE) with a client's browser that allows one way
+// communication from the server to the client.  Clients that call into this
+// handler will keep an open connection open to the server waiting to receive
+// events as JSON objects.  The server can send events to all clients of a
+// channel using the pubsub.Registry's Publish method.
+func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+
+		// Construct the stream that all events for this particular client will be
+		// placed into.
+		stream := make(chan pubsub.Event, 10)
+		defer close(stream)
+
+		// Setup a connection to redis so that we can read settings and the current
+		// state of the solve.
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		// Always send the settings if there are any.
+		settings, err := GetSettings(conn, channel)
+		if err != nil {
+			log.Printf("unable to read settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		stream <- SettingsEvent(settings)
+
+		// Send the current state of the solve if there is one, but make sure to
+		// mask the solution to the puzzle.
+		state, err := GetState(conn, channel)
+		if err != nil {
+			log.Printf("unable to read state for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if state.Puzzle != nil {
+			state.Puzzle = state.Puzzle.WithoutSolution()
+			stream <- StateEvent(state)
+		}
+
+		// Now that we've seeded the stream with the initialization events,
+		// subscribe it to receive all future events for the channel.
+		id, err := registry.Subscribe(ChannelID(channel), stream)
+		defer registry.Unsubscribe(id)
+		if err != nil {
+			log.Printf("unable to subscribe client to channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		pubsub.EmitEvents(r.Context(), w, stream)
 	}
 }
 
