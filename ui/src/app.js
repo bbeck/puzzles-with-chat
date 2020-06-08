@@ -25,6 +25,7 @@ export default function App() {
 }
 
 function Home() {
+  const [acrosticChannels, setAcrosticChannels] = React.useState(null);
   const [crosswordChannels, setCrosswordChannels] = React.useState(null);
   const [spellingBeeChannels, setSpellingBeeChannels] = React.useState(null);
 
@@ -34,6 +35,7 @@ function Home() {
       const event = JSON.parse(message.data);
       switch (event.kind) {
         case "channels":
+          setAcrosticChannels(event.payload["acrostic"]);
           setCrosswordChannels(event.payload["crossword"]);
           setSpellingBeeChannels(event.payload["spellingbee"]);
           break;
@@ -76,6 +78,9 @@ function Home() {
 
         <h6>Channels with active spelling bees:</h6>
         <ActiveChannelList channels={spellingBeeChannels} puzzle="spellingbee"/>
+
+        <h6>Channels with active acrostics:</h6>
+        <ActiveChannelList channels={acrosticChannels} puzzle="acrostic"/>
 
         <hr className="my-4"/>
 
