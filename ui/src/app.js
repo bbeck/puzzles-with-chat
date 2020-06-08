@@ -2,6 +2,7 @@ import React from "react";
 import {Router} from "@reach/router";
 import {EventStream} from "common/event-stream";
 import {Nav} from "common/nav";
+import {AcrosticApp} from "acrostic/app";
 import {CrosswordApp} from "crossword/app";
 import {SpellingBeeApp} from "spellingbee/app";
 
@@ -10,6 +11,9 @@ export default function App() {
     <Router>
       <Home path="/"/>
       <ChannelHome path="/:channel/"/>
+
+      <AcrosticApp path="/:channel/acrostic/"/>
+      <AcrosticApp path="/:channel/acrostic/:view"/>
 
       <CrosswordApp path="/:channel/crossword/"/>
       <CrosswordApp path="/:channel/crossword/:view"/>
@@ -73,14 +77,14 @@ function Home() {
           click through to the streamer you were looking for.
         </p>
 
+        <h6>Channels with active acrostics:</h6>
+        <ActiveChannelList channels={acrosticChannels} puzzle="acrostic"/>
+
         <h6>Channels with active crosswords:</h6>
         <ActiveChannelList channels={crosswordChannels} puzzle="crossword"/>
 
         <h6>Channels with active spelling bees:</h6>
         <ActiveChannelList channels={spellingBeeChannels} puzzle="spellingbee"/>
-
-        <h6>Channels with active acrostics:</h6>
-        <ActiveChannelList channels={acrosticChannels} puzzle="acrostic"/>
 
         <hr className="my-4"/>
 
@@ -174,6 +178,18 @@ function ChannelHome(props) {
           to use a less restrictive dictionary.
         </p>
         <a className="btn btn-primary btn-lg" href={`${channel}/spellingbee`} role="button">
+          Start Solving
+        </a>
+        <hr className="my-4"/>
+        <h2>Solve an acrostic</h2>
+        <p>
+          Cooperatively solve an acrostic puzzle from the New York Times.
+          Correctly answer clues to fill in parts of a hidden quote, or if you
+          prefer fill in parts of the hidden quote to answer clues!  Create your
+          own rules by deciding whether or not to allow incorrect answers in the
+          puzzle grid.
+        </p>
+        <a className="btn btn-primary btn-lg" href={`${channel}/acrostic`} role="button">
           Start Solving
         </a>
       </div>

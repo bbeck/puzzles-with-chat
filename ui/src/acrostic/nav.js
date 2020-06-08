@@ -1,10 +1,8 @@
 import React from "react";
-import formatISO from "date-fns/formatISO";
-import {DateChooser, Switch} from "common/nav";
-import {isNYTBeeDateAllowed, nytBeeFirstPuzzleDate} from "spellingbee/allowed-dates";
+import {Switch} from "common/nav";
 
 export function ViewsDropdown(props) {
-  const base = `${document.location.origin}/${props.channel}/spellingbee`;
+  const base = `${document.location.origin}/${props.channel}/acrostic`;
   const copyToClipboard = (id) => {
     const input = document.getElementById(id);
     if (input !== null) {
@@ -87,7 +85,7 @@ export function SettingsDropdown(props) {
         return;
       }
 
-      fetch(`/api/spellingbee/${props.channel}/setting/${name}`,
+      fetch(`/api/acrostic/${props.channel}/setting/${name}`,
         {
           method: "PUT",
           body: JSON.stringify(value),
@@ -103,32 +101,29 @@ export function SettingsDropdown(props) {
       <div id="settings-dropdown-menu" className="dropdown-menu dropdown-menu-right" aria-labelledby="settings-dropdown">
         <form>
           <div className="dropdown-item">
-            <div className="lead">Allow unofficial answers</div>
+            <div className="lead">Only correct answers</div>
             <div>
               <small className="text-muted">
-                This setting enables answers to be accepted that are valid words
-                but not found in the dictionary the New York Times used for this
-                puzzle.
-
-                NOTE: Some words have been excluded from the New York Times
-                dictionary because they're considered offensive.
+                This setting enables the behavior that only correct answers or
+                correct partial answers will be accepted. With this enabled a
+                cell in the puzzle can never contain an incorrect value.
               </small>
             </div>
-            <Switch checked={settings.allow_unofficial_answers} onClick={update("allow_unofficial_answers", !settings.allow_unofficial_answers)}/>
+            <Switch checked={settings.only_allow_correct_answers} onClick={update("only_allow_correct_answers", !settings.only_allow_correct_answers)}/>
           </div>
           <div className="dropdown-divider"/>
           <div className="dropdown-item">
-            <div className="lead">Font size</div>
+            <div className="lead">Clue font size</div>
             <div>
               <small className="text-muted">
-                This setting allows the size of the font used to render the
-                found words to be adjusted.
+                This setting allows the size of the font used to render clues to
+                be adjusted.
               </small>
             </div>
             <div className="btn-group" role="group">
-              <button type="button" className={settings.font_size === "normal" ? "btn btn-success" : "btn btn-dark"} onClick={update("font_size", "normal")}>Normal</button>
-              <button type="button" className={settings.font_size === "large" ? "btn btn-success" : "btn btn-dark"} onClick={update("font_size", "large")}>Large</button>
-              <button type="button" className={settings.font_size === "xlarge" ? "btn btn-success" : "btn btn-dark"} onClick={update("font_size", "xlarge")}>Extra Large</button>
+              <button type="button" className={settings.clue_font_size === "normal" ? "btn btn-success" : "btn btn-dark"} onClick={update("clue_font_size", "normal")}>Normal</button>
+              <button type="button" className={settings.clue_font_size === "large" ? "btn btn-success" : "btn btn-dark"} onClick={update("clue_font_size", "large")}>Large</button>
+              <button type="button" className={settings.clue_font_size === "xlarge" ? "btn btn-success" : "btn btn-dark"} onClick={update("clue_font_size", "xlarge")}>Extra Large</button>
             </div>
           </div>
         </form>
@@ -138,42 +133,6 @@ export function SettingsDropdown(props) {
 }
 
 export function PuzzleDropdown(props) {
-  // Select a puzzle for the channel.  If the puzzle fails to load properly
-  // then a simple error message will be displayed until a page reload or a
-  // successful puzzle load.
-  const setPuzzle = (payload) => {
-    return fetch(`/api/spellingbee/${props.channel}`,
-      {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("Unable to load puzzle.")
-        }
-
-        props.setErrorMessage(null);
-      })
-      .then(() => {
-        // Hide the dropdown menu after a selection is successfully made.
-        const menu = document.getElementById("puzzle-dropdown-menu");
-        if (menu) {
-          menu.classList.remove("show");
-        }
-      })
-      .catch(error => props.setErrorMessage(error.message));
-  };
-
-  // Select a NYTBee puzzle for a specific date.
-  const onNYTBeeDateSelected = (date) => {
-    if (!date) {
-      return;
-    }
-
-    date = formatISO(date, {representation: "date"});
-    return setPuzzle({"nytbee": date});
-  };
-
   return (
     <li className="nav-item dropdown">
       <button type="button" className="btn btn-dark dropdown-toggle" data-toggle="dropdown">
@@ -182,19 +141,12 @@ export function PuzzleDropdown(props) {
       <div id="puzzle-dropdown-menu" className="dropdown-menu dropdown-menu-right" aria-labelledby="puzzle-dropdown">
         <form>
           <div className="dropdown-item">
-            <div className="lead">New York Times (via NYTBee)</div>
+            <div className="lead">New York Times</div>
             <div>
               <small className="text-muted">
                 Select a date to solve that day's puzzle from the archives of
                 the New York Times.
               </small>
-            </div>
-            <div className="input-group">
-              <DateChooser
-                onClick={onNYTBeeDateSelected}
-                filterDate={isNYTBeeDateAllowed}
-                minDate={nytBeeFirstPuzzleDate}
-              />
             </div>
           </div>
         </form>

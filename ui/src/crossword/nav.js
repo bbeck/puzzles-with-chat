@@ -7,7 +7,6 @@ import {
   nytFirstPuzzleDate,
   wsjFirstPuzzleDate
 } from "crossword/allowed-dates";
-import "crossword/nav.css";
 
 export function ViewsDropdown(props) {
   const base = `${document.location.origin}/${props.channel}/crossword`;

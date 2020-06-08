@@ -41,10 +41,13 @@ function BrandDropdown(props) {
   // template is a URL with a {puzzle} token in it indicating where the puzzle
   // type belongs in the url.
   const template = document.location.href
+    .replace("/acrostic/", "/{puzzle}/")
+    .replace("/acrostic", "/{puzzle}")
     .replace("/crossword/", "/{puzzle}/")
     .replace("/crossword", "/{puzzle}")
     .replace("/spellingbee/", "/{puzzle}/")
     .replace("/spellingbee", "/{puzzle}");
+
 
   return (
     <div className="nav-item dropdown">
@@ -52,6 +55,7 @@ function BrandDropdown(props) {
         {props.puzzle} With Chat
       </div>
       <div className="dropdown-menu">
+        <a className="dropdown-item lead" href={template.replace("{puzzle}", "acrostic")}>Acrostics</a>
         <a className="dropdown-item lead" href={template.replace("{puzzle}", "crossword")}>Crosswords</a>
         <a className="dropdown-item lead" href={template.replace("{puzzle}", "spellingbee")}>Spelling Bee</a>
       </div>
