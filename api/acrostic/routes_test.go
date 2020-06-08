@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
@@ -460,6 +461,137 @@ func TestRoute_UpdateAnswer_LoadSaveError(t *testing.T) {
 	}
 }
 
+func TestRoute_UpdateSetting(t *testing.T) {
+	// This acts as a small integration test updating each setting in turn and
+	// making sure the proper value is written to the database and that clients
+	// receive events notifying them of the setting change.
+	router, pool, registry := NewTestRouter(t)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Update each setting, one at a time.
+	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifySettings(t, pool, events, func(s Settings) {
+		assert.True(t, s.OnlyAllowCorrectAnswers)
+	})
+
+	response = Channel.PUT("/setting/clue_font_size", `"xlarge"`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifySettings(t, pool, events, func(s Settings) {
+		assert.Equal(t, model.FontSizeXLarge, s.ClueFontSize)
+	})
+}
+
+func TestRoute_UpdateSetting_ClearsIncorrectCells(t *testing.T) {
+	// This acts as a small integration test toggling the OnlyAllowCorrectAnswers
+	// setting and ensuring that it clears any incorrect answer cells.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Set a state that has an incorrect answer filled in for 1a.
+	state := NewState(t, "xwordinfo-nyt-20200524.json")
+	state.Status = model.StatusSolving
+	state.Cells[0][0] = "P"
+	state.Cells[0][1] = "U"
+	state.Cells[0][2] = "R"
+	state.Cells[0][3] = "P"
+	state.Cells[0][4] = "L"
+	state.Cells[0][5] = "E"
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Set the OnlyAllowCorrectAnswers setting to true
+	response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		state.Cells[0][0] = "P"
+		state.Cells[0][1] = ""
+		state.Cells[0][2] = ""
+		state.Cells[0][3] = "P"
+		state.Cells[0][4] = "L"
+		state.Cells[0][5] = "E"
+	})
+}
+
+func TestRoute_UpdateSetting_JSONError(t *testing.T) {
+	tests := []struct {
+		name    string
+		setting string
+		json    string
+	}{
+		{
+			name:    "only_allow_correct_answers",
+			setting: "only_allow_correct_answers",
+			json:    `{`,
+		},
+		{
+			name:    "clue_font_size",
+			setting: "clue_font_size",
+			json:    `{`,
+		},
+		{
+			name:    "invalid setting name",
+			setting: "foo_bar_baz",
+			json:    `false`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, _, _ := NewTestRouter(t)
+
+			response := Channel.PUT(fmt.Sprintf("/setting/%s", test.setting), test.json, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
+func TestRoute_UpdateSettings_LoadSaveError(t *testing.T) {
+	tests := []struct {
+		name                   string
+		forceSettingsLoadError error
+		forceSettingsSaveError error
+		forceStateLoadError    error
+		forceStateSaveError    error
+	}{
+		{
+			name:                   "error loading settings",
+			forceSettingsLoadError: errors.New("forced error"),
+		},
+		{
+			name:                   "error saving settings",
+			forceSettingsSaveError: errors.New("forced error"),
+		},
+		{
+			name:                "error loading state",
+			forceStateLoadError: errors.New("forced error"),
+		},
+		{
+			name:                "error saving state",
+			forceStateSaveError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, pool, _ := NewTestRouter(t)
+			conn := NewRedisConnection(t, pool)
+
+			state := NewState(t, "xwordinfo-nyt-20200524.json")
+			state.Status = model.StatusSolving
+			require.NoError(t, SetState(conn, Channel.name, state))
+
+			ForceErrorDuringSettingsLoad(t, test.forceSettingsLoadError)
+			ForceErrorDuringSettingsSave(t, test.forceSettingsSaveError)
+			ForceErrorDuringStateLoad(t, test.forceStateLoadError)
+			ForceErrorDuringStateSave(t, test.forceStateSaveError)
+
+			response := Channel.PUT("/setting/only_allow_correct_answers", `true`, router)
+			assert.NotEqual(t, http.StatusOK, response.Code)
+		})
+	}
+}
+
 // VerifyState performs common verifications for state objects in both event
 // and database forms and then calls a custom verify function for test specific
 // verifications.
@@ -488,6 +620,31 @@ func VerifyState(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn 
 	require.NoError(t, err)
 	assert.NotNil(t, state.Puzzle.Cells) // Database should always have the solution
 	fn(state)
+}
+
+// VerifySettings performs test specific verifications on the settings objects
+// in both event and database forms.
+func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(s Settings)) {
+	t.Helper()
+
+	// First check that we've received an event with the correct value
+	select {
+	case event := <-events:
+		// Ignore any non-settings events.
+		if event.Kind != "settings" {
+			return
+		}
+		fn(event.Payload.(Settings))
+
+	default:
+		assert.Fail(t, "no settings event available")
+	}
+
+	// Next check that the database has a valid settings object
+	conn := NewRedisConnection(t, pool)
+	settings, err := GetSettings(conn, Channel.name)
+	require.NoError(t, err)
+	fn(settings)
 }
 
 // ChannelClient is a client that makes requests against the URL of a particular

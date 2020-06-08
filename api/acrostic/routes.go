@@ -16,6 +16,7 @@ import (
 func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 	r.Route("/acrostic/{channel}", func(r chi.Router) {
 		r.Put("/", UpdatePuzzle(pool, registry))
+		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
 		r.Put("/status", ToggleStatus(pool, registry))
 		r.Put("/answer/{clue}", UpdateAnswer(pool, registry))
 	})
@@ -84,6 +85,106 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		state.Puzzle = state.Puzzle.WithoutSolution()
 
 		registry.Publish(ChannelID(channel), StateEvent(state))
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// UpdateSetting changes a specified acrostic setting to a new value.
+func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+		setting := chi.URLParam(r, "setting")
+
+		conn := pool.Get()
+		defer func() { _ = conn.Close() }()
+
+		// Load the existing settings for the channel so that we can apply the
+		// updates to them.
+		settings, err := GetSettings(conn, channel)
+		if err != nil {
+			log.Printf("unable to read acrostic settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Apply the update to the settings in memory.
+		var shouldClearIncorrectCells bool
+		switch setting {
+		case "only_allow_correct_answers":
+			var value bool
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse acrostic only correct answers setting json %v: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			settings.OnlyAllowCorrectAnswers = value
+			shouldClearIncorrectCells = value
+
+		case "clue_font_size":
+			var value model.FontSize
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse acrostic clue font size setting json %s: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			settings.ClueFontSize = value
+
+		default:
+			log.Printf("unrecognized acrostic setting name %s", setting)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// Save the settings back to the database.
+		if err = SetSettings(conn, channel, settings); err != nil {
+			log.Printf("unable to save acrostic settings for channel %s: %+v", channel, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Load the state and clear any incorrect cells if we changed a setting that
+		// requires this.  We do this after the setting is applied so that if there
+		// was an error earlier we don't modify the solve's state.
+		var updatedState *State
+		if shouldClearIncorrectCells {
+			state, err := GetState(conn, channel)
+			if err != nil {
+				log.Printf("unable to load state for channel %s: %+v", channel, err)
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			// There's no need to update cells if the puzzle hasn't been selected or
+			// started or is already complete.
+			status := state.Status
+			if status != model.StatusCreated && status != model.StatusSelected && status != model.StatusComplete {
+				if err := state.ClearIncorrectCells(); err != nil {
+					log.Printf("unable to clear incorrect cells for channel: %s: %+v", channel, err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				if err := SetState(conn, channel, state); err != nil {
+					log.Printf("unable to save state for channel %s: %+v", channel, err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+
+				updatedState = &state
+			}
+		}
+
+		// Now broadcast the new settings to all of the clients in the channel.
+		registry.Publish(ChannelID(channel), SettingsEvent(settings))
+
+		if updatedState != nil {
+			// Broadcast the updated state to all of the clients, making sure to not
+			// include the answers.
+			updatedState.Puzzle = updatedState.Puzzle.WithoutSolution()
+
+			registry.Publish(ChannelID(channel), StateEvent(*updatedState))
+		}
 
 		w.WriteHeader(http.StatusOK)
 	}
@@ -260,5 +361,12 @@ func StateEvent(state State) pubsub.Event {
 func CompleteEvent() pubsub.Event {
 	return pubsub.Event{
 		Kind: "complete",
+	}
+}
+
+func SettingsEvent(settings Settings) pubsub.Event {
+	return pubsub.Event{
+		Kind:    "settings",
+		Payload: settings,
 	}
 }
