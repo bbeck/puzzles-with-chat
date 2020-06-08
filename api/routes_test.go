@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/alicebob/miniredis"
+	"github.com/bbeck/puzzles-with-chat/api/acrostic"
 	"github.com/bbeck/puzzles-with-chat/api/crossword"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
@@ -87,11 +88,44 @@ func TestRoute_GetChannels(t *testing.T) {
 		},
 	}, payload["spellingbee"])
 
+	// Start an acrostic on a third channel.
+	state3 := acrostic.NewState(t, "xwordinfo-nyt-20200524.json")
+	state3.Status = model.StatusSolving
+	require.NoError(t, acrostic.SetState(conn, "channel3", state3))
+
+	// Now we expect there to be 3 channels in the stream.
+	_, stop = SSE("/channels", router)
+	events = stop()
+	require.Equal(t, 1, len(events))
+	assert.Equal(t, "channels", events[0].Kind)
+	payload = ParsePayload(t, events[0].Payload)
+	assert.ElementsMatch(t, []model.Channel{
+		{
+			Name:        "channel1",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2018-12-31",
+		},
+	}, payload["crossword"])
+	assert.ElementsMatch(t, []model.Channel{
+		{
+			Name:        "channel2",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2018-07-29",
+		},
+	}, payload["spellingbee"])
+	assert.ElementsMatch(t, []model.Channel{
+		{
+			Name:        "channel3",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2020-05-24",
+		},
+	}, payload["acrostic"])
+
 	// Next remove the second channel from the database.
 	_, err := conn.Do("DEL", spellingbee.StateKey("channel2"))
 	require.NoError(t, err)
 
-	// Now we expect there to be one channels in the stream.
+	// Now we expect there to be two channels in the stream.
 	flush, stop := SSE("/channels", router)
 	events = flush()
 	require.Equal(t, 1, len(events))
@@ -106,6 +140,34 @@ func TestRoute_GetChannels(t *testing.T) {
 		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
+	assert.ElementsMatch(t, []model.Channel{
+		{
+			Name:        "channel3",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2020-05-24",
+		},
+	}, payload["acrostic"])
+
+	// Next remove the third channel from the database.
+	_, err = conn.Do("DEL", acrostic.StateKey("channel3"))
+	require.NoError(t, err)
+
+	// Now we expect there to be one channel in the stream.
+	flush, stop = SSE("/channels", router)
+	events = flush()
+	require.Equal(t, 1, len(events))
+	assert.Equal(t, "channels", events[0].Kind)
+
+	payload = ParsePayload(t, events[0].Payload)
+	assert.ElementsMatch(t, []model.Channel{
+		{
+			Name:        "channel1",
+			Status:      model.StatusSolving,
+			Description: "New York Times puzzle from 2018-12-31",
+		},
+	}, payload["crossword"])
+	assert.Empty(t, payload["spellingbee"])
+	assert.Empty(t, payload["acrostic"])
 
 	// Now update the state of the first channel in the database and send an event
 	// saying that it was updated.
@@ -127,6 +189,7 @@ func TestRoute_GetChannels(t *testing.T) {
 		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
+	assert.Empty(t, payload["acrostic"])
 }
 
 func TestRoute_GetChannels_Error(t *testing.T) {

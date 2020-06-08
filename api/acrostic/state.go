@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/db"
 	"github.com/bbeck/puzzles-with-chat/api/model"
+	"sort"
 	"strings"
 	"time"
 )
@@ -252,6 +253,49 @@ func (s *State) ClearIncorrectCells() error {
 	// Now that we may have modified one or more cells we need to determine which
 	// clues are answered and which aren't.
 	return s.UpdateFilledClues()
+}
+
+// GetAllChannels returns a slice of model.Channel instances for each acrostic
+// that contains state in the database.  If there are no active channels then an
+// empty slice is returned.  This method does not update the expiration times
+// of any state instance.
+func GetAllChannels(conn db.Connection) ([]model.Channel, error) {
+	keys, err := db.ScanKeys(conn, StateKey("*"))
+	if err != nil {
+		return nil, err
+	}
+
+	values, err := db.GetAll(conn, keys, State{})
+	if err != nil {
+		return nil, err
+	}
+
+	channels := make([]model.Channel, 0)
+	for key, value := range values {
+		name := strings.Replace(key, StateKey(""), "", 1)
+
+		state, ok := value.(State)
+		if !ok {
+			return nil, fmt.Errorf("unable to convert value to State: %v", value)
+		}
+
+		var description string
+		if state.Puzzle != nil {
+			description = state.Puzzle.Description
+		}
+
+		channels = append(channels, model.Channel{
+			Name:        name,
+			Status:      state.Status,
+			Description: description,
+		})
+	}
+
+	sort.Slice(channels, func(i, j int) bool {
+		return channels[i].Name < channels[j].Name
+	})
+
+	return channels, nil
 }
 
 // StateKey returns the key that should be used in redis to store a particular

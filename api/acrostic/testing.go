@@ -47,12 +47,17 @@ func load(t *testing.T, filename string) io.ReadCloser {
 		return f
 	}
 
-	// It wasn't present, we might be running from a parent directory.  Try
-	// crossword/testdata/{filename}.
-	f, err := os.Open(filepath.Join("crossword", "testdata", filename))
-	require.NoError(t, err)
+	// It wasn't present, we might be running from a parent directory.  Try each
+	// puzzle type's test directory, one at at ime.
+	types := []string{"acrostic", "crossword", "spellingbee"}
+	for _, t := range types {
+		if f, err := os.Open(filepath.Join(t, "testdata", filename)); err == nil {
+			return f
+		}
+	}
 
-	return f
+	t.Errorf("unable to locate test input with filename: %s", filename)
+	return nil
 }
 
 // LoadTestPuzzle loads a puzzle from the testdata directory.

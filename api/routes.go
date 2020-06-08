@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/bbeck/puzzles-with-chat/api/acrostic"
 	"github.com/bbeck/puzzles-with-chat/api/crossword"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
@@ -153,6 +154,11 @@ func GetActiveChannels(conn redis.Conn) (map[string][]model.Channel, error) {
 		return nil, testActiveChannelsLoadError
 	}
 
+	acrostics, err := acrostic.GetAllChannels(conn)
+	if err != nil {
+		return nil, err
+	}
+
 	crosswords, err := crossword.GetAllChannels(conn)
 	if err != nil {
 		return nil, err
@@ -164,6 +170,7 @@ func GetActiveChannels(conn redis.Conn) (map[string][]model.Channel, error) {
 	}
 
 	return map[string][]model.Channel{
+		"acrostic":    acrostics,
 		"crossword":   crosswords,
 		"spellingbee": spellingbees,
 	}, nil
