@@ -11,10 +11,19 @@
   flex-direction: column;
   justify-content: flex-start;
 }
-#acrostic .puzzle .header {
+#acrostic .puzzle .header,
+#acrostic .puzzle .footer {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
 }
+#acrostic .puzzle .clues {
+  display: flex;
+}
+#acrostic .puzzle .clues .clue-row {
+  display: flex;
+}
+
 
 /*
   Sizing of all of the elements on the page.  In general we should attempt to
@@ -33,7 +42,15 @@
 #acrostic .puzzle .footer {
   width: 995px;  /* not 1000 to compensate for the border on the left. */
 }
-
+#acrostic .puzzle .clues .clue-column {
+  flex-basis: 333px;
+}
+#acrostic .puzzle .clues .clue-row .clue-letter {
+  padding-right: 5px;
+}
+#acrostic .puzzle .clues .clue-row .clue-boxes {
+  height: 35px;
+}
 
 /*
   Styling of all of the elements on the page.  This defines how things should
@@ -47,11 +64,13 @@
 #acrostic .puzzle .header,
 #acrostic .puzzle .footer {
   font-family: sans-serif;
-  font-size: 80%;
+  font-size: 90%;
   overflow: hidden;
   white-space: nowrap;
 }
-#acrostic .puzzle .header .published,
+#acrostic .puzzle .header .description {
+  font-weight: bold;
+}
 #acrostic .puzzle .header .timer {
   margin: 0 2px;
   overflow: hidden;
@@ -93,4 +112,59 @@
   text-anchor: middle;
   transform: translate(50px, 90px);
   pointer-events: none;
+}
+#acrostic .puzzle .clues {
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+#acrostic .puzzle .clues .clue-column:first-child {
+  padding: 5px 10px 0 0;
+}
+#acrostic .puzzle .clues .clue-column {
+  overflow-x: hidden;
+  overflow-y: scroll;
+  padding: 5px 5px 0 5px;
+}
+#acrostic .puzzle .clues .clue-column:last-child {
+  padding: 5px 0 0 10px;
+}
+#acrostic .puzzle .clues {
+  font-family: sans-serif;
+}
+#acrostic .puzzle .clues[data-font-size="normal"] {
+  font-size: 85%;
+}
+#acrostic .puzzle .clues[data-font-size="large"] {
+  font-size: 100%;
+}
+#acrostic .puzzle .clues[data-font-size="xlarge"] {
+  font-size: 120%;
+}
+#acrostic .puzzle .clues .clue-row .clue-letter {
+  font-weight: bold;
+}
+#acrostic .puzzle .clues .clue-row .clue-boxes rect {
+  fill: none;
+}
+#acrostic .puzzle .clues .clue-row .clue-boxes .filled {
+  fill: lightgreen;
+  stroke: none;
+}
+#acrostic .puzzle .clues .clue-row .clue-boxes .letter {
+  font-size: 50px;
+  text-anchor: middle;
+  transform: translate(50px, 50px);
+  pointer-events: none;
+}
+#acrostic .puzzle .clues .clue-row .clue-boxes .number {
+  font-size: 25px;
+  text-anchor: middle;
+  transform: translate(50px, 90px);
+  pointer-events: none;
+  user-select: none;
+}
+#acrostic .puzzle .clues .clue-row .clue-boxes line {
+  stroke: black;
+  stroke-width: 3px;
+  transform: translateY(60px);
 }
