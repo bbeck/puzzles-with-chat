@@ -140,6 +140,9 @@
 #acrostic .puzzle .clues[data-font-size="xlarge"] {
   font-size: 120%;
 }
+#acrostic .puzzle .clues .clue-row.filled {
+  color: gray;
+}
 #acrostic .puzzle .clues .clue-row .clue-letter {
   font-weight: bold;
 }

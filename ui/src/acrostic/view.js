@@ -45,6 +45,7 @@ export function AcrosticView({state, settings, view}) {
         <Clues
           puzzle={puzzle}
           cells={state.cells}
+          filled={state.clues_filled}
           font_size={settings.clue_font_size}
           view={view}
         />
@@ -145,7 +146,7 @@ function Grid({puzzle, cells, view}) {
   );
 }
 
-function Clues({puzzle, cells, font_size, view}) {
+function Clues({puzzle, cells, filled, font_size, view}) {
   // First, produce a mapping of cell number to the contents of that cell.  To
   // do this we have to go through the cells 2d array and lookup the cell number
   // for each position.
@@ -164,8 +165,10 @@ function Clues({puzzle, cells, font_size, view}) {
   // Next, generate each clue row.
   const rows = [];
   for (const clue of Object.keys(puzzle.clues).sort()) {
+    const className = filled[clue] ? "clue-row filled" : "clue-row";
+
     rows.push(
-      <div className="clue-row" key={clue}>
+      <div className={className} key={clue}>
         <div className="clue-letter">{clue}.</div>
         <div>
           <div className="clue" dangerouslySetInnerHTML={{__html: puzzle.clues[clue]}}/>
