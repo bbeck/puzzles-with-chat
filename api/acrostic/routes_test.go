@@ -9,6 +9,7 @@ import (
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -681,6 +683,91 @@ func TestRoute_GetEvents_LoadSaveError(t *testing.T) {
 	}
 }
 
+func TestRoute_GetNewYorkTimesAvailableDates(t *testing.T) {
+	// This acts as a small integration test ensuring that the available dates
+	// are correctly returned.
+	router, _, _ := NewTestRouter(t)
+
+	ForceAvailableDatesToBeLoaded(t, "xwordinfo-select-acrostic-20200610.html")
+
+	response := GET("/acrostic/dates/nytimes", router)
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	var dates []string
+	require.NoError(t, render.DecodeJSON(response.Result().Body, &dates))
+
+	// Ensure that we received the proper number of dates.
+	assert.Equal(t, 543, len(dates))
+
+	// And that they're sorted.
+	require.True(t, sort.StringsAreSorted(dates))
+
+	// Ensure that several expected dates are present.  We'll choose the very
+	// first available date, the last one (when the test file was captured) as
+	// well as the first puzzle of each year.
+	expected := []string{
+		"1999-09-12",
+		"2000-01-02",
+		"2001-01-14",
+		"2002-01-13",
+		"2003-01-12",
+		"2004-01-11",
+		"2005-01-09",
+		"2006-01-08",
+		"2007-01-07",
+		"2008-01-06",
+		"2009-01-04",
+		"2010-01-03",
+		"2011-01-02",
+		"2012-01-01",
+		"2013-01-13",
+		"2014-01-12",
+		"2015-01-11",
+		"2016-01-10",
+		"2017-01-08",
+		"2018-01-07",
+		"2019-01-06",
+		"2020-01-05",
+		"2020-06-07",
+	}
+	for _, date := range expected {
+		index := sort.SearchStrings(dates, date)
+		require.True(t, index != len(dates))
+		assert.Equal(t, date, dates[index])
+	}
+
+	// Since the dates have been successfully loaded, trying to load them again
+	// should use the cached copy.  Force an error to happen if we were to try to
+	// load them from the source again.
+	ForceErrorDuringAvailableDatesLoad(t, errors.New("forced error"))
+
+	response = GET("/acrostic/dates/nytimes", router)
+	assert.Equal(t, http.StatusOK, response.Code)
+}
+
+func TestRoute_GetNewYorkTimesAvailableDates_Error(t *testing.T) {
+	tests := []struct {
+		name                string
+		forceDatesLoadError error
+	}{
+		{
+			name:                "error loading available dates",
+			forceDatesLoadError: errors.New("forced error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, _, _ := NewTestRouter(t)
+
+			ForceErrorDuringAvailableDatesLoad(t, test.forceDatesLoadError)
+
+			response := GET("/acrostic/dates/nytimes", router)
+			assert.Equal(t, http.StatusInternalServerError, response.Code)
+		})
+	}
+}
+
 // VerifyState performs common verifications for state objects in both event
 // and database forms and then calls a custom verify function for test specific
 // verifications.
@@ -736,6 +823,14 @@ func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, 
 	fn(settings)
 }
 
+// GET performs a HTTP GET request to the provided router.
+func GET(url string, router chi.Router) *httptest.ResponseRecorder {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, url, nil)
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
 // ChannelClient is a client that makes requests against the URL of a particular
 // user's channel.
 type ChannelClient struct {
@@ -744,10 +839,7 @@ type ChannelClient struct {
 
 func (c ChannelClient) GET(url string, router chi.Router) *httptest.ResponseRecorder {
 	url = path.Join("/acrostic", c.name, url)
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, url, nil)
-	router.ServeHTTP(recorder, request)
-	return recorder
+	return GET(url, router)
 }
 
 func (c ChannelClient) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {

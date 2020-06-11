@@ -37,6 +37,16 @@ var testStateLoadError error = nil
 // A cached error to use instead of writing state to the database.
 var testStateSaveError error = nil
 
+// A cached set of available dates to use instead of fetching the set of dates.
+// This is used by test cases to ensure that no network calls are made when
+// loading available dates.
+var testAvailableDates []time.Time = nil
+
+// A cached error to use instead of fetching the set of available dates.  A
+// cached set of dates takes precedence over a cached error.  This is used by
+// test cases to force an error to be returned instead of making a network call.
+var testAvailableDatesLoadError error = nil
+
 // load will read a file from the testdata directory.
 func load(t *testing.T, filename string) io.ReadCloser {
 	t.Helper()
@@ -71,7 +81,7 @@ func LoadTestPuzzle(t *testing.T, filename string) *Puzzle {
 	var err error
 	switch {
 	case strings.HasPrefix(filename, "xwordinfo-"):
-		puzzle, err = ParseXWordInfoResponse(in)
+		puzzle, err = ParseXWordInfoPuzzleResponse(in)
 
 	default:
 		assert.Failf(t, "unrecognized filename prefix", "filename: %s", filename)
@@ -133,6 +143,46 @@ func ForceErrorDuringStateSave(t *testing.T, err error) {
 
 	testStateSaveError = err
 	t.Cleanup(func() { testStateSaveError = nil })
+}
+
+// LoadTestAvailableDates loads a set of available dates from the testdata
+// directory.
+func LoadTestAvailableDates(t *testing.T, filename string) []time.Time {
+	t.Helper()
+
+	in := load(t, filename)
+	defer func() { _ = in.Close() }()
+
+	var dates []time.Time
+	var err error
+	switch {
+	case strings.HasPrefix(filename, "xwordinfo-"):
+		dates, err = ParseXWordInfoAvailableDatesResponse(in)
+
+	default:
+		assert.Failf(t, "unrecognized filename prefix", "filename: %s", filename)
+	}
+
+	require.NoError(t, err)
+	return dates
+}
+
+// ForceAvailableDatesToBeLoaded sets up a cached version of a available dates
+// using a file from the testdata directory.
+func ForceAvailableDatesToBeLoaded(t *testing.T, filename string) {
+	t.Helper()
+
+	testAvailableDates = LoadTestAvailableDates(t, filename)
+	t.Cleanup(func() { testAvailableDates = nil })
+}
+
+// ForceErrorDuringAvailableDatesLoad sets up an error to be returned when an
+// attempt is made to load a set of available dates.
+func ForceErrorDuringAvailableDatesLoad(t *testing.T, err error) {
+	t.Helper()
+
+	testAvailableDatesLoadError = err
+	t.Cleanup(func() { testAvailableDatesLoadError = nil })
 }
 
 // NewTestRouter will return a router configured with a redis pool and pubsub

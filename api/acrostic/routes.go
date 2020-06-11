@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,8 @@ func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 		r.Put("/status", ToggleStatus(pool, registry))
 		r.Put("/answer/{clue}", UpdateAnswer(pool, registry))
 	})
+
+	r.Get("/acrostic/dates/nytimes", GetNewYorkTimesAvailableDates())
 }
 
 // UpdatePuzzle changes the acrostic puzzle that's currently being solved for a
@@ -400,6 +403,51 @@ func UpdateAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		}
 
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// GetNewYorkTimesAvailableDates returns the available acrostic dates from the
+// archives of The New York Times.
+//
+// In order to minimize load on the API the response is cached for several
+// is cached for several hours.
+func GetNewYorkTimesAvailableDates() http.HandlerFunc {
+	// The format to use when returning dates to the caller.
+	const ISO8601 string = "2006-01-02"
+
+	// In order to not call into the xwordinfo.com site too often we cache
+	// previous results of available dates and only refresh the cache
+	// periodically.
+	var lock sync.Mutex
+	var cache []string
+	var expiration time.Time
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		lock.Lock()
+		defer lock.Unlock()
+
+		if cache == nil || expiration.Before(time.Now()) {
+			// We either don't have a cache or it's expired.  Load a fresh copy of the
+			// dates.
+			dates, err := LoadAvailableNewYorkTimesDates()
+			if err != nil {
+				log.Printf("unable to load available new york times dates: %+v", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			// Convert the dates to the appropriate string format.
+			var formatted []string
+			for _, date := range dates {
+				formatted = append(formatted, date.Format(ISO8601))
+			}
+
+			// Update the cache with our new data.
+			cache = formatted
+			expiration = time.Now().Add(4 * time.Hour)
+		}
+
+		render.JSON(w, r, cache)
 	}
 }
 

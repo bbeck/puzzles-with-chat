@@ -2,9 +2,12 @@ package acrostic
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/bbeck/puzzles-with-chat/api/web"
 	"io"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -35,12 +38,45 @@ func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
 		return nil, err
 	}
 
-	puzzle, err := ParseXWordInfoResponse(response.Body)
+	puzzle, err := ParseXWordInfoPuzzleResponse(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse xwordinfo.com response for date %s: %v", date, err)
 	}
 
 	return puzzle, nil
+}
+
+// LoadAvailableNewYorkTimesDates determines all of the historical dates that
+// have acrostic puzzles.
+//
+// This method uses the https://www.xwordinfo.com/SelectAcrostic page and parses
+// the HTML on the page to determine the available puzzle dates.
+//
+// If the dates cannot be determined then an error is returned.
+func LoadAvailableNewYorkTimesDates() ([]time.Time, error) {
+	if testAvailableDates != nil {
+		return testAvailableDates, nil
+	}
+
+	if testAvailableDatesLoadError != nil {
+		return nil, testAvailableDatesLoadError
+	}
+
+	url := "https://www.xwordinfo.com/SelectAcrostic"
+	response, err := web.Get(url)
+	if response != nil {
+		defer func() { _ = response.Body.Close() }()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	dates, err := ParseXWordInfoAvailableDatesResponse(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse xwordinfo.com response for available dates: %v", err)
+	}
+
+	return dates, nil
 }
 
 // XWordInfoPuzzle is a representation of the response from the xwordinfo.com
@@ -60,9 +96,9 @@ type XWordInfoPuzzle struct {
 	Rows         int      `json:"rows"`
 }
 
-// ParseXWordInfoResponse converts a JSON response from xwordinfo.com into a
+// ParseXWordInfoPuzzleResponse converts a JSON response from xwordinfo.com into a
 // puzzle object.
-func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
+func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 	var raw XWordInfoPuzzle
 	if err := json.NewDecoder(in).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("unable to parse JSON response: %v", err)
@@ -174,4 +210,43 @@ func ParseInts(s string) ([]int, error) {
 	}
 
 	return ints, nil
+}
+
+// ParseXWordInfoAvailableDatesResponse converts an HTML response from the
+// select acrostic page on xwordinfo.com into a list of available dates.
+func ParseXWordInfoAvailableDatesResponse(in io.Reader) ([]time.Time, error) {
+	doc, err := goquery.NewDocumentFromReader(in)
+	if err != nil {
+		return nil, err
+	}
+
+	var dates []time.Time
+	doc.Find("a.dtlink").Each(func(i int, s *goquery.Selection) {
+		if err != nil {
+			return
+		}
+
+		href, ok := s.Attr("href")
+		if !ok {
+			err = fmt.Errorf("unable to determine href for selection: %v", s)
+			return
+		}
+
+		d := strings.TrimPrefix(href, "/Acrostic?date=")
+
+		var date time.Time
+		if date, err = time.Parse("1/2/2006", d); err == nil {
+			dates = append(dates, date)
+		}
+	})
+
+	sort.Slice(dates, func(i, j int) bool {
+		return dates[i].Before(dates[j])
+	})
+
+	if len(dates) == 0 && err == nil {
+		err = errors.New("no dates found")
+	}
+
+	return dates, err
 }
