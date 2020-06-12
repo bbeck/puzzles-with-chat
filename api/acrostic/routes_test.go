@@ -117,6 +117,37 @@ func TestRoute_UpdatePuzzle_LoadSaveError(t *testing.T) {
 	}
 }
 
+func TestRoute_ShowClue(t *testing.T) {
+	// This acts as a small integration test requesting clues to be shown and
+	// making sure events are properly emitted.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	state := NewState(t, "xwordinfo-nyt-20200524.json")
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Request showing a clue.
+	response := Channel.GET("/show/A", router)
+	require.Equal(t, http.StatusOK, response.Code)
+	VerifyShowClue(t, events, func(clue string) {
+		assert.Equal(t, "A", clue)
+	})
+
+	// Request showing a malformed clue.
+	response = Channel.GET("/show/1", router)
+	require.Equal(t, http.StatusBadRequest, response.Code)
+
+	// Request showing a properly formed, but non-existent clue.  This doesn't
+	// fail because it doesn't mutate the state of the puzzle in any way.
+	response = Channel.GET("/show/X", router)
+	require.Equal(t, http.StatusOK, response.Code)
+	VerifyShowClue(t, events, func(clue string) {
+		assert.Equal(t, "X", clue)
+	})
+}
+
 func TestRoute_ToggleStatus(t *testing.T) {
 	// This acts as a small integration test toggling the status of an acrostic
 	// being solved.
@@ -821,6 +852,23 @@ func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, 
 	settings, err := GetSettings(conn, Channel.name)
 	require.NoError(t, err)
 	fn(settings)
+}
+
+// VerifyShowClue performs common verifications for show clue events.
+func VerifyShowClue(t *testing.T, events <-chan pubsub.Event, fn func(clue string)) {
+	t.Helper()
+
+	// First check that we've received an event with the correct value
+	select {
+	case event := <-events:
+		if event.Kind != "show_clue" {
+			return
+		}
+		fn(event.Payload.(string))
+
+	default:
+		assert.Fail(t, "no show_clue event available")
+	}
 }
 
 // GET performs a HTTP GET request to the provided router.

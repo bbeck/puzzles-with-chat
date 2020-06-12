@@ -9,6 +9,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 		r.Put("/", UpdatePuzzle(pool, registry))
 		r.Get("/events", GetEvents(pool, registry))
 		r.Put("/setting/{setting}", UpdateSetting(pool, registry))
+		r.Get("/show/{clue}", ShowClue(registry))
 		r.Put("/status", ToggleStatus(pool, registry))
 		r.Put("/answer/{clue}", UpdateAnswer(pool, registry))
 	})
@@ -250,6 +252,26 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 	}
 }
 
+// ShowClue sends an event to all clients of a channel requesting that they
+// update their view to make the specified clue visible.  If the specified clue
+// isn't structured as a proper clue letter than an error will be returned.
+func ShowClue(registry *pubsub.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		channel := chi.URLParam(r, "channel")
+		clue := chi.URLParam(r, "clue")
+
+		index := sort.SearchStrings(ClueLetters, clue)
+		if index == len(ClueLetters) || ClueLetters[index] != clue {
+			log.Printf("invalid clue: %s", clue)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		registry.Publish(ChannelID(channel), ShowClueEvent(clue))
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 // ToggleStatus changes the status of the current acrostic solve to a new
 // status.  This effectively toggles between the solving and paused statuses as
 // long as the solve is in a state that can be paused or resumed.
@@ -473,5 +495,12 @@ func SettingsEvent(settings Settings) pubsub.Event {
 	return pubsub.Event{
 		Kind:    "settings",
 		Payload: settings,
+	}
+}
+
+func ShowClueEvent(clue string) pubsub.Event {
+	return pubsub.Event{
+		Kind:    "show_clue",
+		Payload: clue,
 	}
 }
