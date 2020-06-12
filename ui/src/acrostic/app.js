@@ -34,6 +34,20 @@ export function AcrosticApp(props) {
           setSettings(event.payload);
           break;
 
+        case "show_clue":
+          // This is a bit of a hack since we just reach into the DOM to grab
+          // the clue element, but this is just presentation logic and not
+          // state, so trying to pull a reference to the clue element from deep
+          // within the component hierarchy is quite complicated and much uglier
+          // than this hack.
+          const clue = document.getElementById(event.payload);
+          if (clue !== null) {
+            clue.scrollIntoView();
+            clue.classList.add("shown");
+            setTimeout(() => clue.classList.remove("shown"), 2500);
+          }
+          break;
+
         case "state":
           // If we get a state update while watching the fireworks animation,
           // then finish the show and start the new puzzle.
@@ -46,6 +60,16 @@ export function AcrosticApp(props) {
 
           // Update the state.
           setState(event.payload);
+
+          if (event.payload.status === "selected") {
+            // We just started a new puzzle -- scroll the clues back to the top
+            // of the list.  There's 3 columns worth of clues though, so we have
+            // to scroll each back to the top.
+            const clues = document.querySelectorAll("#acrostic .clue-column .clue-row:first-child");
+            for (const clue of clues) {
+              clue.scrollIntoView();
+            }
+          }
 
           break;
 

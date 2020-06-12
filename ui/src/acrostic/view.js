@@ -168,7 +168,7 @@ function Clues({puzzle, cells, filled, font_size, view}) {
     const className = filled[clue] ? "clue-row filled" : "clue-row";
 
     rows.push(
-      <div className={className} key={clue}>
+      <div id={clue} className={className} key={clue}>
         <div className="clue-letter">{clue}.</div>
         <div>
           <div className="clue" dangerouslySetInnerHTML={{__html: puzzle.clues[clue]}}/>
