@@ -302,6 +302,74 @@ func TestParseXWordInfoPuzzleResponse(t *testing.T) {
 				assert.Equal(t, expected, puzzle.ClueNumbers)
 			},
 		},
+		{
+			name:  "cells (partial last row)",
+			input: load(t, "xwordinfo-nyt-20200607-partial-last-row.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := [][]string{
+					{"T", "H", "E", "R", "E", "", "I", "S", "", "A", "", "L", "A", "W", "", "W", "H", "I", "C", "H", "", "D", "E", "C", "R", "E", "E"},
+					{"S", "", "T", "H", "A", "T", "", "T", "W", "O", "", "O", "B", "J", "E", "C", "T", "S", "", "M", "A", "Y", "", "N", "O", "T", ""},
+					{"O", "C", "C", "U", "P", "Y", "", "T", "H", "E", "", "S", "A", "M", "E", "", "P", "L", "A", "C", "E", "", "A", "T", "", "T", "H"},
+					{"E", "", "S", "A", "M", "E", "", "T", "I", "M", "E", "", "T", "W", "O", "", "P", "E", "O", "P", "L", "E", "", "C", "A", "N", "N"},
+					{"O", "T", "", "S", "E", "E", "", "T", "H", "I", "N", "G", "S", "", "F", "R", "O", "M", "", "T", "H", "E", "", "S", "A", "M", "E"},
+					{"", "P", "O", "I", "N", "T", "", "O", "F", "", "V", "I", "E", "W", "", "A", "N", "D", "", "T", "H", "E", "", "S", "L", "I", "G"},
+					{"H", "T", "E", "S", "T", "", "D", "I", "F", "F", "E", "R", "E", "N", "C", "E", "", "I", "N", "", "A", "N", "G", "L", "E", "", "C"},
+					{"H", "A", "N", "G", "E", "S", "", "T", "H", "E", "", "T", "H", "I", "N", "G", "", "S", "E", "E", "N", "", "", "", "", "", ""},
+				}
+				assert.Equal(t, expected, puzzle.Cells)
+			},
+		},
+		{
+			name:  "blocks (partial last row)",
+			input: load(t, "xwordinfo-nyt-20200607-partial-last-row.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := [][]bool{
+					{false, false, false, false, false, true, false, false, true, false, true, false, false, false, true, false, false, false, false, false, true, false, false, false, false, false, false},
+					{false, true, false, false, false, false, true, false, false, false, true, false, false, false, false, false, false, false, true, false, false, false, true, false, false, false, true},
+					{false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, true, false, false, false, false, false, true, false, false, true, false, false},
+					{false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false},
+					{false, false, true, false, false, false, true, false, false, false, false, false, false, true, false, false, false, false, true, false, false, false, true, false, false, false, false},
+					{true, false, false, false, false, false, true, false, false, true, false, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, false},
+					{false, false, false, false, false, true, false, false, false, false, false, false, false, false, false, false, true, false, false, true, false, false, false, false, false, true, false},
+					{false, false, false, false, false, false, true, false, false, false, true, false, false, false, false, false, true, false, false, false, false, true, true, true, true, true, true},
+				}
+				assert.Equal(t, expected, puzzle.CellBlocks)
+			},
+		},
+		{
+			name:  "cell numbers (partial last row)",
+			input: load(t, "xwordinfo-nyt-20200607-partial-last-row.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := [][]int{
+					{1, 2, 3, 4, 5, 0, 6, 7, 0, 8, 0, 9, 10, 11, 0, 12, 13, 14, 15, 16, 0, 17, 18, 19, 20, 21, 22},
+					{23, 0, 24, 25, 26, 27, 0, 28, 29, 30, 0, 31, 32, 33, 34, 35, 36, 37, 0, 38, 39, 40, 0, 41, 42, 43, 0},
+					{44, 45, 46, 47, 48, 49, 0, 50, 51, 52, 0, 53, 54, 55, 56, 0, 57, 58, 59, 60, 61, 0, 62, 63, 0, 64, 65},
+					{66, 0, 67, 68, 69, 70, 0, 71, 72, 73, 74, 0, 75, 76, 77, 0, 78, 79, 80, 81, 82, 83, 0, 84, 85, 86, 87},
+					{88, 89, 0, 90, 91, 92, 0, 93, 94, 95, 96, 97, 98, 0, 99, 100, 101, 102, 0, 103, 104, 105, 0, 106, 107, 108, 109},
+					{0, 110, 111, 112, 113, 114, 0, 115, 116, 0, 117, 118, 119, 120, 0, 121, 122, 123, 0, 124, 125, 126, 0, 127, 128, 129, 130},
+					{131, 132, 133, 134, 135, 0, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 0, 146, 147, 0, 148, 149, 150, 151, 152, 0, 153},
+					{154, 155, 156, 157, 158, 159, 0, 160, 161, 162, 0, 163, 164, 165, 166, 167, 0, 168, 169, 170, 171, 0, 0, 0, 0, 0, 0},
+				}
+				assert.Equal(t, expected, puzzle.CellNumbers)
+			},
+		},
+		{
+			name:  "cell clue letters (partial last row)",
+			input: load(t, "xwordinfo-nyt-20200607-partial-last-row.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := [][]string{
+					{"K", "S", "V", "D", "F", "", "B", "N", "", "T", "", "G", "H", "Q", "", "M", "E", "W", "A", "O", "", "C", "D", "Y", "F", "I", "B"},
+					{"J", "", "V", "H", "U", "P", "", "E", "T", "R", "", "C", "K", "L", "Q", "I", "J", "A", "", "U", "F", "V", "", "X", "N", "T", ""},
+					{"H", "G", "R", "C", "O", "E", "", "I", "J", "Y", "", "U", "P", "K", "D", "", "A", "B", "Q", "F", "X", "", "C", "E", "", "G", "I"},
+					{"T", "", "Y", "W", "H", "R", "", "U", "J", "V", "D", "", "M", "Q", "G", "", "X", "E", "L", "I", "K", "S", "", "U", "A", "W", "C"},
+					{"O", "B", "", "F", "M", "Y", "", "H", "G", "E", "Q", "T", "I", "", "N", "D", "P", "L", "", "A", "F", "S", "", "B", "V", "U", "Y"},
+					{"", "H", "O", "G", "J", "D", "", "I", "N", "", "Q", "T", "E", "X", "", "L", "P", "W", "", "M", "R", "K", "", "Y", "F", "U", "J"},
+					{"C", "N", "H", "V", "O", "", "S", "G", "E", "B", "I", "W", "A", "T", "P", "X", "", "D", "R", "", "K", "Y", "H", "L", "Q", "", "E"},
+					{"I", "W", "V", "S", "M", "T", "", "P", "X", "C", "", "R", "U", "J", "O", "L", "", "G", "B", "N", "K", "", "", "", "", "", ""},
+				}
+				assert.Equal(t, expected, puzzle.CellClueLetters)
+			},
+		},
 	}
 
 	for _, test := range tests {

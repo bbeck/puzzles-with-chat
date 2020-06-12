@@ -113,6 +113,19 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 		return nil, fmt.Errorf("empty JSON response")
 	}
 
+	// Puzzles can end in multiple black squares because the last row isn't
+	// completely filled.  When this happens we'll pad the various strings/arrays
+	// so that the below loops don't all need to have special cases within them.
+	for len(raw.AnswerKey) < raw.Rows*raw.Cols {
+		raw.AnswerKey += " "
+	}
+	for len(raw.GridLetters) < raw.Rows*raw.Cols {
+		raw.GridLetters += " "
+	}
+	for len(raw.GridNumbers) < raw.Rows*raw.Cols {
+		raw.GridNumbers = append(raw.GridNumbers, 0)
+	}
+
 	var cells [][]string
 	for row := 0; row < raw.Rows; row++ {
 		cells = append(cells, make([]string, raw.Cols))
