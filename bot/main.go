@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/bbeck/puzzles-with-chat/bot/acrostic"
 	"github.com/bbeck/puzzles-with-chat/bot/crossword"
 	"github.com/bbeck/puzzles-with-chat/bot/spellingbee"
 	"io"
@@ -26,6 +27,7 @@ func main() {
 	}
 
 	handlers := map[ID]MessageHandler{
+		"acrostic":    acrostic.NewMessageHandler(host),
 		"crossword":   crossword.NewMessageHandler(host),
 		"spellingbee": spellingbee.NewMessageHandler(host),
 	}

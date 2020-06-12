@@ -20,6 +20,10 @@ type ChannelLocator struct {
 type ChannelsEvent struct {
 	Kind    string `json:"kind"`
 	Payload struct {
+		Acrostics []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"acrostic"`
 		Crosswords []struct {
 			Name   string `json:"name"`
 			Status string `json:"status"`
@@ -71,8 +75,12 @@ func ProcessEvent(bs []byte) (map[ID][]string, error) {
 	switch event.Kind {
 	case "channels":
 		channels := map[ID][]string{
+			"acrostic":    nil,
 			"crossword":   nil,
 			"spellingbee": nil,
+		}
+		for _, channel := range event.Payload.Acrostics {
+			channels["acrostic"] = append(channels["acrostic"], channel.Name)
 		}
 		for _, channel := range event.Payload.Crosswords {
 			channels["crossword"] = append(channels["crossword"], channel.Name)

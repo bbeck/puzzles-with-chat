@@ -21,47 +21,61 @@ func TestProcessEvent(t *testing.T) {
 	}{
 		{
 			name:  "no puzzles",
-			event: NewChannelsEvent("channels", nil, nil),
+			event: NewChannelsEvent("channels", nil, nil, nil),
 			expected: map[ID][]string{
+				"acrostic":    nil,
 				"crossword":   nil,
 				"spellingbee": nil,
 			},
 		},
 		{
 			name:  "crossword puzzle only",
-			event: NewChannelsEvent("channels", []string{"channel"}, nil),
+			event: NewChannelsEvent("channels", []string{"channel"}, nil, nil),
 			expected: map[ID][]string{
+				"acrostic":    nil,
 				"crossword":   {"channel"},
 				"spellingbee": nil,
 			},
 		},
 		{
 			name:  "spellingbee puzzle only",
-			event: NewChannelsEvent("channels", nil, []string{"channel"}),
+			event: NewChannelsEvent("channels", nil, []string{"channel"}, nil),
 			expected: map[ID][]string{
+				"acrostic":    nil,
 				"crossword":   nil,
 				"spellingbee": {"channel"},
 			},
 		},
 		{
-			name:  "multiple puzzles (different channels)",
-			event: NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"}),
+			name:  "acrostic puzzle only",
+			event: NewChannelsEvent("channels", nil, nil, []string{"channel"}),
 			expected: map[ID][]string{
+				"acrostic":    {"channel"},
+				"crossword":   nil,
+				"spellingbee": nil,
+			},
+		},
+		{
+			name:  "multiple puzzles (different channels)",
+			event: NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"}, []string{"channel3"}),
+			expected: map[ID][]string{
+				"acrostic":    {"channel3"},
 				"crossword":   {"channel1"},
 				"spellingbee": {"channel2"},
 			},
 		},
 		{
 			name:  "multiple puzzles (same channels)",
-			event: NewChannelsEvent("channels", []string{"channel"}, []string{"channel"}),
+			event: NewChannelsEvent("channels", []string{"channel"}, []string{"channel"}, []string{"channel"}),
 			expected: map[ID][]string{
+				"acrostic":    {"channel"},
 				"crossword":   {"channel"},
 				"spellingbee": {"channel"},
 			},
 		},
 		{
 			name:     "ping event",
-			event:    NewChannelsEvent("ping", nil, nil),
+			event:    NewChannelsEvent("ping", nil, nil, nil),
 			expected: nil, // update shouldn't be called
 		},
 	}
@@ -117,22 +131,24 @@ func TestChannelLocator_Run(t *testing.T) {
 	}{
 		{
 			name:  "ping event",
-			event: marshal(t, NewChannelsEvent("ping", nil, nil)),
+			event: marshal(t, NewChannelsEvent("ping", nil, nil, nil)),
 		},
 		{
 			name:           "channels event",
-			event:          marshal(t, NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"})),
+			event:          marshal(t, NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"}, []string{"channel3"})),
 			expectedUpdate: true,
 			expectedChannels: map[ID][]string{
 				"crossword":   {"channel1"},
 				"spellingbee": {"channel2"},
+				"acrostic":    {"channel3"},
 			},
 		},
 		{
 			name:           "empty channels event",
-			event:          marshal(t, NewChannelsEvent("channels", nil, nil)),
+			event:          marshal(t, NewChannelsEvent("channels", nil, nil, nil)),
 			expectedUpdate: true,
 			expectedChannels: map[ID][]string{
+				"acrostic":    nil,
 				"crossword":   nil,
 				"spellingbee": nil,
 			},
@@ -192,7 +208,7 @@ func TestChannelLocator_Run(t *testing.T) {
 	}
 }
 
-func NewChannelsEvent(kind string, crosswords []string, spellingbees []string) ChannelsEvent {
+func NewChannelsEvent(kind string, crosswords []string, spellingbees []string, acrostics []string) ChannelsEvent {
 	type Channel = struct {
 		Name   string `json:"name"`
 		Status string `json:"status"`
@@ -216,9 +232,13 @@ func NewChannelsEvent(kind string, crosswords []string, spellingbees []string) C
 			Status: "solving",
 		}
 	}
-	for i, payload := range event.Payload.Crosswords {
-		payload.Name = crosswords[i]
-		payload.Status = "solving"
+
+	event.Payload.Acrostics = make([]Channel, len(acrostics))
+	for i, name := range acrostics {
+		event.Payload.Acrostics[i] = Channel{
+			Name:   name,
+			Status: "solving",
+		}
 	}
 
 	return event
