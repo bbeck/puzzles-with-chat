@@ -22,16 +22,40 @@ func TestMessageHandler_HandleChannelMessage(t *testing.T) {
 			message: "hello there",
 		},
 		{
-			name:         "answer command",
+			name:         "answer clue",
 			message:      "!Q half step",
 			expectedPath: "/api/acrostic/channel/answer/Q",
 			expectedBody: `"half step"`,
 		},
 		{
-			name:         "answer command (long form)",
+			name:         "answer clue (lowercase clue)",
+			message:      "!q half step",
+			expectedPath: "/api/acrostic/channel/answer/q",
+			expectedBody: `"half step"`,
+		},
+		{
+			name:         "answer clue (long form)",
 			message:      "!answer Q half step",
 			expectedPath: "/api/acrostic/channel/answer/Q",
 			expectedBody: `"half step"`,
+		},
+		{
+			name:         "answer clue (long form, lowercase clue)",
+			message:      "!answer q half step",
+			expectedPath: "/api/acrostic/channel/answer/q",
+			expectedBody: `"half step"`,
+		},
+		{
+			name:         "answer cells",
+			message:      "!26 vast knowledge",
+			expectedPath: "/api/acrostic/channel/answer/26",
+			expectedBody: `"vast knowledge"`,
+		},
+		{
+			name:         "answer cells (long form)",
+			message:      "!answer 26 vast knowledge",
+			expectedPath: "/api/acrostic/channel/answer/26",
+			expectedBody: `"vast knowledge"`,
 		},
 		{
 			name:         "show command",

@@ -20,13 +20,13 @@ var DefaultAcrosticHTTPClient = &http.Client{
 // A regular expression that matches a message that's providing an answer.
 // Capture group 1 is the clue and capture group 2 is the answer.
 var AnswerRegexp = regexp.MustCompile(
-	`^!(?:answer\s+)?([0-9]+|[A-Z])\s+(.*)\s*$`,
+	`^!(?:answer\s+)?([0-9]+|[A-Za-z])\s+(.*)\s*$`,
 )
 
 // A regular expression that matches a message that's asking for a clue to be
 // made visible.  Capture group 1 is the clue.
 var ShowClueRegexp = regexp.MustCompile(
-	`^!show\s+(?P<clue>[A-Z])\s*$`,
+	`^!show\s+(?P<clue>[A-Za-z])\s*$`,
 )
 
 type MessageHandler struct {
