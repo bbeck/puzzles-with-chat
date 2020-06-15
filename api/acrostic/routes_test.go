@@ -135,6 +135,13 @@ func TestRoute_ShowClue(t *testing.T) {
 		assert.Equal(t, "A", clue)
 	})
 
+	// Request showing a lowercase clue.
+	response = Channel.GET("/show/b", router)
+	require.Equal(t, http.StatusOK, response.Code)
+	VerifyShowClue(t, events, func(clue string) {
+		assert.Equal(t, "B", clue)
+	})
+
 	// Request showing a malformed clue.
 	response = Channel.GET("/show/1", router)
 	require.Equal(t, http.StatusBadRequest, response.Code)

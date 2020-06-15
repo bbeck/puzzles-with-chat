@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -258,7 +259,7 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 func ShowClue(registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
-		clue := chi.URLParam(r, "clue")
+		clue := strings.ToUpper(chi.URLParam(r, "clue"))
 
 		index := sort.SearchStrings(ClueLetters, clue)
 		if index == len(ClueLetters) || ClueLetters[index] != clue {
@@ -340,7 +341,7 @@ func ToggleStatus(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 func UpdateAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		channel := chi.URLParam(r, "channel")
-		clue := chi.URLParam(r, "clue")
+		clue := strings.ToUpper(chi.URLParam(r, "clue"))
 
 		if r.ContentLength > 1024 {
 			w.WriteHeader(http.StatusRequestEntityTooLarge)
