@@ -55,6 +55,9 @@ func NewClient(handler MessageHandler) (Client, error) {
 		return nil, errors.New("missing TWITCH_OAUTH_TOKEN environment variable")
 	}
 
+	// Twitch says the username should be all lowercase.
+	username = strings.ToLower(username)
+
 	client := twitch.NewClient(username, token)
 
 	// Wire up the Twitch client to send every message in a channel to each of the
