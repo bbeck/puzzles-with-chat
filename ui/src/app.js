@@ -20,10 +20,6 @@ export default function App() {
 
       <SpellingBeeApp path="/:channel/spellingbee/"/>
       <SpellingBeeApp path="/:channel/spellingbee/:view"/>
-
-      {/* These routes are temporary redirects from old paths that are no longer valid. */}
-      <ChannelRedirect path="/:channel/progress" view="progress"/>
-      <ChannelRedirect path="/:channel/streamer" view="streamer"/>
     </Router>
   );
 }
@@ -195,31 +191,4 @@ function ChannelHome(props) {
       </div>
     </div>
   )
-}
-
-function ChannelRedirect(props) {
-  const channel = props.channel;
-  const view = props.view;
-
-  return (
-    <div>
-      <Nav/>
-      <div className="jumbotron">
-        <h2>URL paths have changed!</h2>
-        <p>
-          In order to accommodate multiple types of puzzles being solved the
-          URLs of this application have changed slightly. The URL you are
-          looking for has moved to:
-        </p>
-        <div className="alert alert-dark">
-          <a href={`/${channel}/crossword/${view}`}>
-            {document.location.origin}/{channel}/crossword/{view}
-          </a>
-        </div>
-        <p>
-          Please update any bookmarks you may have to reflect the new URL.
-        </p>
-      </div>
-    </div>
-  );
 }
