@@ -46,7 +46,19 @@
   flex-basis: 333px;
 }
 #acrostic .puzzle .clues .clue-row .clue-letter {
-  padding-right: 5px;
+  padding-right: 4px;
+}
+#acrostic .puzzle .clues[data-font-size="normal"] .clue-row .clue-letter {
+  flex-basis: 20px;
+}
+#acrostic .puzzle .clues[data-font-size="large"] .clue-row .clue-letter {
+  flex-basis: 23px;
+}
+#acrostic .puzzle .clues[data-font-size="xlarge"] .clue-row .clue-letter {
+  flex-basis: 27px;
+}
+#acrostic .puzzle .clues .clue-row .clue-body {
+  flex-basis: 305px;
 }
 #acrostic .puzzle .clues .clue-row .clue-boxes {
   height: 35px;

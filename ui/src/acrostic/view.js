@@ -170,7 +170,7 @@ function Clues({puzzle, cells, filled, font_size, view}) {
     rows.push(
       <div id={clue} className={className} key={clue}>
         <div className="clue-letter">{clue}.</div>
-        <div>
+        <div className="clue-body">
           <div className="clue" dangerouslySetInnerHTML={{__html: puzzle.clues[clue]}}/>
           <ClueBoxes
             letters={puzzle.clue_numbers[clue].map(n => contents[n])}
