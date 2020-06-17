@@ -824,6 +824,8 @@ func VerifyGeniusEvent(t *testing.T, events <-chan pubsub.Event) {
 	require.Equal(t, 1, len(found))
 }
 
+// Events extracts events of a particular kind from a channel.  It consumes all
+// events in the channel that are available at the time of the call.
 func Events(events <-chan pubsub.Event, kind string) []pubsub.Event {
 	var found []pubsub.Event
 

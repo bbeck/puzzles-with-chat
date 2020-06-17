@@ -829,18 +829,13 @@ func TestRoute_GetEvents_LoadSaveError(t *testing.T) {
 func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(s Settings)) {
 	t.Helper()
 
-	// First check that we've received an event with the correct value
-	select {
-	case event := <-events:
-		// Ignore any non-settings events.
-		if event.Kind != "settings" {
-			return
-		}
-		fn(event.Payload.(Settings))
+	// First check that we've received a single settings event with the correct
+	// values
+	found := Events(events, "settings")
+	require.Equal(t, 1, len(found), "incorrect number of events found")
 
-	default:
-		assert.Fail(t, "no settings event available")
-	}
+	settings := found[0].Payload.(Settings)
+	fn(settings)
 
 	// Next check that the database has a valid settings object
 	conn := NewRedisConnection(t, pool)
@@ -855,23 +850,16 @@ func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, 
 func VerifyState(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(s State)) {
 	t.Helper()
 
-	// First check that we've received an event with the correct value
-	select {
-	case event := <-events:
-		// Ignore any non-state events.
-		if event.Kind != "state" {
-			return
-		}
+	// First check that we've received a single state event that has the correct
+	// values
+	found := Events(events, "state")
+	require.Equal(t, 1, len(found), "incorrect number of events found")
 
-		state := event.Payload.(State)
-		assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
-		fn(state)
+	state := found[0].Payload.(State)
+	assert.Nil(t, state.Puzzle.Cells) // Events should never have the solution
+	fn(state)
 
-	default:
-		assert.Fail(t, "no state event available")
-	}
-
-	// Next check that the database has a valid settings object
+	// Next check that the database has a valid state object
 	conn := NewRedisConnection(t, pool)
 	state, err := GetState(conn, Channel.name)
 	require.NoError(t, err)
@@ -883,17 +871,31 @@ func VerifyState(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn 
 func VerifyShowClue(t *testing.T, events <-chan pubsub.Event, fn func(clue string)) {
 	t.Helper()
 
-	// First check that we've received an event with the correct value
-	select {
-	case event := <-events:
-		if event.Kind != "show_clue" {
-			return
-		}
-		fn(event.Payload.(string))
+	found := Events(events, "show_clue")
+	require.Equal(t, 1, len(found))
+	fn(found[0].Payload.(string))
+}
 
-	default:
-		assert.Fail(t, "no show_clue event available")
+// Events extracts events of a particular kind from a channel.  It consumes all
+// events in the channel that are available at the time of the call.
+func Events(events <-chan pubsub.Event, kind string) []pubsub.Event {
+	var found []pubsub.Event
+
+	for done := false; !done; {
+		select {
+		case event := <-events:
+			if event.Kind != kind {
+				continue
+			}
+
+			found = append(found, event)
+
+		default:
+			done = true
+		}
 	}
+
+	return found
 }
 
 // ChannelClient is a client that makes requests against the URL of a particular
