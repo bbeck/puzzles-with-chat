@@ -46,7 +46,9 @@ export function SpellingBeeView({view, state, settings}) {
 
   return (
     <div id="spellingbee" className={status === "selected" || status === "paused" ? "blur" : ""}>
-      <Banner status={status} isGenius={isGenius} isQueenBee={isQueenBee}/>
+      <div id="genius-banner" className="banner">
+        GENIUS!<span role="img" aria-label="genius">&nbsp;&#x1f393;</span>
+      </div>
       <div className="puzzle">
         <Header
           date={puzzle.published}
@@ -66,24 +68,6 @@ export function SpellingBeeView({view, state, settings}) {
         total={total_num_words}
       />
     </div>
-  );
-}
-
-function Banner({status, isGenius, isQueenBee}) {
-  let contents;
-  if (isGenius && !isQueenBee) {
-    contents = (
-      <>
-        GENIUS!<span role="img" aria-label="genius">&nbsp;&#x1f393;</span>
-      </>
-    );
-  }
-
-  const className = (status !== "complete" && isGenius)
-    ? "banner animate"
-    : "banner";
-  return (
-    <div className={className}>{contents}</div>
   );
 }
 

@@ -555,7 +555,51 @@ func TestRoute_AddAnswer_SolvedPuzzleStopsTimer(t *testing.T) {
 		assert.Nil(t, state.LastStartTime)
 		assert.True(t, state.TotalSolveDuration.Seconds() > 0)
 	})
+}
 
+func TestRoute_AddAnswer_GeniusEvent(t *testing.T) {
+	// This acts as a small integration test ensuring that the genius event is
+	// emitted once the score crosses the threshold.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Set the state to have all of the words except for one.
+	state := NewState(t, "nytbee-20200408.html")
+	state.Status = model.StatusSolving
+	state.ApplyAnswer("CONCOCT", false)
+	state.ApplyAnswer("CONTORT", false)
+	state.ApplyAnswer("CONTOUR", false)
+	state.ApplyAnswer("COOT", false)
+	state.ApplyAnswer("COTTON", false)
+	state.ApplyAnswer("COTTONY", false)
+	state.ApplyAnswer("COUNT", false)
+	state.ApplyAnswer("COUNTRY", false)
+	state.ApplyAnswer("COUNTY", false)
+	state.ApplyAnswer("COURT", false)
+	state.ApplyAnswer("CROUTON", false)
+	state.ApplyAnswer("CURT", false)
+	state.ApplyAnswer("CUTOUT", false)
+	state.ApplyAnswer("NUTTY", false)
+	state.ApplyAnswer("ONTO", false)
+	state.ApplyAnswer("OUTCRY", false)
+	state.ApplyAnswer("OUTRO", false)
+	state.ApplyAnswer("OUTRUN", false)
+	state.ApplyAnswer("ROOT", false)
+	state.ApplyAnswer("ROTO", false)
+	state.ApplyAnswer("ROTOR", false)
+	state.ApplyAnswer("ROUT", false)
+	state.ApplyAnswer("RUNOUT", false)
+	state.ApplyAnswer("RUNT", false)
+	state.ApplyAnswer("RUNTY", false)
+	state.ApplyAnswer("RUTTY", false)
+	require.NoError(t, SetState(conn, Channel.name, state))
+	require.Equal(t, model.StatusSolving, state.Status)
+
+	// The next answer should cross the genius threshold.
+	response := Channel.POST("/answer", `"COCONUT"`, router)
+	assert.Equal(t, http.StatusCreated, response.Code)
+	VerifyGeniusEvent(t, events)
 }
 
 func TestRoute_AddAnswer_Error(t *testing.T) {
@@ -730,18 +774,13 @@ func TestRoute_GetEvents_LoadSaveError(t *testing.T) {
 func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(s Settings)) {
 	t.Helper()
 
-	// First check that we've received an event with the correct value
-	select {
-	case event := <-events:
-		// Ignore any non-settings events.
-		if event.Kind != "settings" {
-			return
-		}
-		fn(event.Payload.(Settings))
+	// First check that we've received a single settings event with the correct
+	// values
+	found := Events(events, "settings")
+	require.Equal(t, 1, len(found), "incorrect number of events found")
 
-	default:
-		assert.Fail(t, "no settings event available")
-	}
+	settings := found[0].Payload.(Settings)
+	fn(settings)
 
 	// Next check that the database has a valid settings object
 	conn := NewRedisConnection(t, pool)
@@ -756,25 +795,18 @@ func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, 
 func VerifyState(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(State)) {
 	t.Helper()
 
-	// First check that we've received an event with the correct value
-	select {
-	case event := <-events:
-		// Ignore any non-state events.
-		if event.Kind != "state" {
-			return
-		}
-		state := event.Payload.(State)
+	// First check that we've received a single state event that has the correct
+	// values
+	found := Events(events, "state")
+	require.Equal(t, 1, len(found), "incorrect number of events found")
 
-		// Event should never have the answers
-		assert.Nil(t, state.Puzzle.OfficialAnswers)
-		assert.Nil(t, state.Puzzle.UnofficialAnswers)
-		fn(state)
+	// Event should never have the answers
+	state := found[0].Payload.(State)
+	assert.Nil(t, state.Puzzle.OfficialAnswers)
+	assert.Nil(t, state.Puzzle.UnofficialAnswers)
+	fn(state)
 
-	default:
-		assert.Fail(t, "no state event available")
-	}
-
-	// Next check that the database has a valid settings object
+	// Next check that the database has a valid state object
 	state, err := GetState(NewRedisConnection(t, pool), Channel.name)
 	require.NoError(t, err)
 
@@ -782,6 +814,34 @@ func VerifyState(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn 
 	assert.NotNil(t, state.Puzzle.OfficialAnswers)
 	assert.NotNil(t, state.Puzzle.UnofficialAnswers)
 	fn(state)
+}
+
+// VerifyGeniusEvent ensures that a genius event is present in the event stream.
+func VerifyGeniusEvent(t *testing.T, events <-chan pubsub.Event) {
+	t.Helper()
+
+	found := Events(events, "genius")
+	require.Equal(t, 1, len(found))
+}
+
+func Events(events <-chan pubsub.Event, kind string) []pubsub.Event {
+	var found []pubsub.Event
+
+	for done := false; !done; {
+		select {
+		case event := <-events:
+			if event.Kind != kind {
+				continue
+			}
+
+			found = append(found, event)
+
+		default:
+			done = true
+		}
+	}
+
+	return found
 }
 
 // ChannelClient is a client that makes requests against the URL of a particular

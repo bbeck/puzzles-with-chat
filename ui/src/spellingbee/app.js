@@ -48,6 +48,14 @@ export function SpellingBeeApp(props) {
           setState(event.payload);
           break;
 
+        case "genius":
+          const banner = document.getElementById("genius-banner");
+          if (banner !== null) {
+            banner.classList.add("animate");
+            setTimeout(() => banner.classList.remove("animate"), 3500);
+          }
+          break;
+
         case "complete":
           setShowFireworks(true);
           setTimeout(() => setShowFireworks(false), 20000);

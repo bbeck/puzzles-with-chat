@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"time"
@@ -349,6 +350,10 @@ func AddAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 			return
 		}
 
+		// Save the previous score so that we can determine if we crossed the genius
+		// threshold or not.
+		previous := state.Score
+
 		if err := state.ApplyAnswer(answer, settings.AllowUnofficialAnswers); err != nil {
 			log.Printf("unable to apply answer %s for channel %s: %+v", answer, channel, err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -377,6 +382,17 @@ func AddAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 		state.Puzzle = state.Puzzle.WithoutAnswers()
 
 		registry.Publish(ChannelID(channel), StateEvent(state))
+
+		// If we've just crossed the threshold for genius then send a genius event
+		// as well.
+		max := float64(state.Puzzle.MaximumOfficialScore)
+		if settings.AllowUnofficialAnswers {
+			max = float64(state.Puzzle.MaximumUnofficialScore)
+		}
+		genius := int(math.Floor(max * 0.7))
+		if previous < genius && state.Score >= genius {
+			registry.Publish(ChannelID(channel), GeniusEvent())
+		}
 
 		// If we've just finished the solve then send a complete event as well.
 		if state.Status == model.StatusComplete {
@@ -466,5 +482,11 @@ func StateEvent(state State) pubsub.Event {
 func CompleteEvent() pubsub.Event {
 	return pubsub.Event{
 		Kind: "complete",
+	}
+}
+
+func GeniusEvent() pubsub.Event {
+	return pubsub.Event{
+		Kind: "genius",
 	}
 }
