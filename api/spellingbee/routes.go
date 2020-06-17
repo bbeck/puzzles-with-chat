@@ -23,6 +23,8 @@ func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 		r.Post("/answer", AddAnswer(pool, registry))
 		r.Get("/events", GetEvents(pool, registry))
 	})
+
+	r.Get("/spellingbee/dates", GetAvailableDates())
 }
 
 // UpdatePuzzle changes the spelling bee puzzle that's currently being solved
@@ -457,6 +459,29 @@ func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 		}
 
 		pubsub.EmitEvents(r.Context(), w, stream)
+	}
+}
+
+// GetAvailableDates returns the available spelling bee dates across all puzzle
+// sources.
+func GetAvailableDates() http.HandlerFunc {
+	// The format to use when returning dates to the caller.
+	const ISO8601 string = "2006-01-02"
+
+	// Format the given set of dates.
+	format := func(dates []time.Time) []string {
+		var formatted []string
+		for _, date := range dates {
+			formatted = append(formatted, date.Format(ISO8601))
+		}
+
+		return formatted
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, r, map[string][]string{
+			"nytbee": format(LoadAvailableNYTBeeDates()),
+		})
 	}
 }
 

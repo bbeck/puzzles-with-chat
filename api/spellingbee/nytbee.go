@@ -216,3 +216,24 @@ func InferLetters(words []string) (string, []string, error) {
 
 	return center, letters, nil
 }
+
+var NYTBeeFirstPuzzleDate = time.Date(2018, time.June, 29, 0, 0, 0, 0, time.UTC)
+
+// LoadAvailableNYTBeeDates calculates the set of available dates for spelling
+// bee puzzles on the nytbee.com site.  Since the spelling bee puzzle is
+// available daily this is just a computation and doesn't require any network
+// calls.
+func LoadAvailableNYTBeeDates() []time.Time {
+	now := time.Now().UTC()
+
+	var dates []time.Time
+	for date := NYTBeeFirstPuzzleDate; date.Before(now) || date.Equal(now); date = date.AddDate(0, 0, 1) {
+		dates = append(dates, date)
+	}
+
+	sort.Slice(dates, func(i, j int) bool {
+		return dates[i].Before(dates[j])
+	})
+
+	return dates
+}

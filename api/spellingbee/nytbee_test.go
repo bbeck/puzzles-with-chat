@@ -4,9 +4,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
+	"sort"
 	"strings"
 	"testing"
 	"testing/iotest"
+	"time"
 )
 
 func TestInferPuzzle(t *testing.T) {
@@ -594,6 +596,33 @@ func TestParseNYTBeeResponse_Error(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := ParseNYTBeeResponse(test.input)
 			require.Error(t, err)
+		})
+	}
+}
+
+func TestLoadAvailableNYTBeeDates(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected time.Time
+	}{
+		{
+			name:     "first puzzle date",
+			expected: NYTBeeFirstPuzzleDate,
+		},
+		{
+			name:     "today",
+			expected: time.Now().UTC().Truncate(24 * time.Hour),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dates := LoadAvailableNYTBeeDates()
+
+			index := sort.Search(len(dates), func(i int) bool {
+				return dates[i].Equal(test.expected) || dates[i].After(test.expected)
+			})
+			assert.Equal(t, test.expected, dates[index])
 		})
 	}
 }

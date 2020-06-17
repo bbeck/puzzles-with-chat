@@ -9,6 +9,7 @@ import (
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -769,6 +771,59 @@ func TestRoute_GetEvents_LoadSaveError(t *testing.T) {
 	}
 }
 
+func TestRoute_GetAvailableDates(t *testing.T) {
+	tests := []struct {
+		name     string
+		source   string
+		expected []string
+	}{
+		{
+			name:   "nytbee",
+			source: "nytbee",
+			expected: []string{
+				NYTBeeFirstPuzzleDate.Format("2006-01-02"),
+				"2018-07-01",
+				"2018-08-01",
+				"2018-09-01",
+				"2018-10-01",
+				"2018-11-01",
+				"2018-12-01",
+				"2019-01-01",
+				"2019-02-01",
+				"2019-03-01",
+				"2019-04-01",
+				"2019-05-01",
+				"2019-06-01",
+				"2019-07-01",
+				"2019-08-01",
+				"2019-09-01",
+				"2019-10-01",
+				"2019-11-01",
+				"2019-12-01",
+				time.Now().UTC().Format("2006-01-02"),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router, _, _ := NewTestRouter(t)
+
+			response := GET("/spellingbee/dates", router)
+			assert.Equal(t, http.StatusOK, response.Code)
+
+			var dates map[string][]string
+			require.NoError(t, render.DecodeJSON(response.Result().Body, &dates))
+
+			for _, expected := range test.expected {
+				index := sort.SearchStrings(dates[test.source], expected)
+				require.True(t, index != len(dates))
+				assert.Equal(t, expected, dates[test.source][index])
+			}
+		})
+	}
+}
+
 // VerifySettings performs test specific verifications on the settings objects
 // in both event and database forms.
 func VerifySettings(t *testing.T, pool *redis.Pool, events <-chan pubsub.Event, fn func(s Settings)) {
@@ -846,6 +901,14 @@ func Events(events <-chan pubsub.Event, kind string) []pubsub.Event {
 	return found
 }
 
+// GET performs a HTTP GET request to the provided router.
+func GET(url string, router chi.Router) *httptest.ResponseRecorder {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, url, nil)
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
 // ChannelClient is a client that makes requests against the URL of a particular
 // user's channel.
 type ChannelClient struct {
@@ -854,10 +917,7 @@ type ChannelClient struct {
 
 func (c ChannelClient) GET(url string, router chi.Router) *httptest.ResponseRecorder {
 	url = path.Join("/spellingbee", c.name, url)
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, url, nil)
-	router.ServeHTTP(recorder, request)
-	return recorder
+	return GET(url, router)
 }
 
 func (c ChannelClient) PUT(url, body string, router chi.Router) *httptest.ResponseRecorder {

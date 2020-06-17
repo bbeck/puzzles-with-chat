@@ -1,7 +1,7 @@
 import React from "react";
-import formatISO from "date-fns/formatISO";
 import {DateChooser, Switch} from "common/nav";
-import {isNYTBeeDateAllowed, nytBeeFirstPuzzleDate} from "spellingbee/allowed-dates";
+import formatISO from "date-fns/formatISO";
+import parseISO from "date-fns/parseISO";
 
 export function ViewsDropdown(props) {
   const base = `${document.location.origin}/${props.channel}/spellingbee`;
@@ -137,22 +137,55 @@ export function SettingsDropdown(props) {
   );
 }
 
-export function PuzzleDropdown(props) {
+export function PuzzleDropdown({channel, setErrorMessage}) {
+  const [minDates, setMinDates] = React.useState({});
+  const [dates, setDates] = React.useState({});
+
+  // Fetch the available dates from the API and then index them into the above
+  // state variables.
+  React.useEffect(() => {
+    fetch(`/api/spellingbee/dates`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Unable to load available puzzle dates.");
+        }
+
+        return response.json();
+      })
+      .then(response => {
+        const min = {}
+        const dates = {}
+        for (const [source, ds] of Object.entries(response)) {
+          min[source] = parseISO(ds[0]);
+          dates[source] = new Set(ds);
+        }
+
+        setMinDates(min);
+        setDates(dates);
+      })
+      .catch(error => setErrorMessage(error.message));
+  }, [setErrorMessage, setMinDates, setDates]);
+
   // Select a puzzle for the channel.  If the puzzle fails to load properly
   // then a simple error message will be displayed until a page reload or a
   // successful puzzle load.
-  const setPuzzle = (payload) => {
-    return fetch(`/api/spellingbee/${props.channel}`,
+  const setPuzzle = (source, date) => {
+    if (!date) {
+      return;
+    }
+    date = formatISO(date, {representation: "date"});
+
+    return fetch(`/api/spellingbee/${channel}`,
       {
         method: "PUT",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({[source]: date}),
       })
       .then(response => {
         if (!response.ok) {
           throw new Error("Unable to load puzzle.")
         }
 
-        props.setErrorMessage(null);
+        setErrorMessage(null);
       })
       .then(() => {
         // Hide the dropdown menu after a selection is successfully made.
@@ -161,17 +194,13 @@ export function PuzzleDropdown(props) {
           menu.classList.remove("show");
         }
       })
-      .catch(error => props.setErrorMessage(error.message));
+      .catch(error => setErrorMessage(error.message));
   };
 
-  // Select a NYTBee puzzle for a specific date.
-  const onNYTBeeDateSelected = (date) => {
-    if (!date) {
-      return;
-    }
-
+  // Determine if a puzzle is available for a particular date.
+  const isPuzzleAvailableForDate = (source, date) => {
     date = formatISO(date, {representation: "date"});
-    return setPuzzle({"nytbee": date});
+    return dates[source] && dates[source].has(date);
   };
 
   return (
@@ -191,9 +220,9 @@ export function PuzzleDropdown(props) {
             </div>
             <div className="input-group">
               <DateChooser
-                onClick={onNYTBeeDateSelected}
-                filterDate={isNYTBeeDateAllowed}
-                minDate={nytBeeFirstPuzzleDate}
+                onClick={(date) => setPuzzle("nytbee", date)}
+                filterDate={(date) => isPuzzleAvailableForDate("nytbee", date)}
+                minDate={minDates["nytbee"]}
               />
             </div>
           </div>
