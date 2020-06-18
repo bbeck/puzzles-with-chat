@@ -1,12 +1,7 @@
 import React from "react";
-import formatISO from "date-fns/formatISO";
 import {DateChooser, Switch} from "common/nav";
-import {
-  isNewYorkTimesDateAllowed,
-  isWallStreetJournalDateAllowed,
-  nytFirstPuzzleDate,
-  wsjFirstPuzzleDate
-} from "crossword/allowed-dates";
+import formatISO from "date-fns/formatISO";
+import parseISO from "date-fns/parseISO";
 
 export function ViewsDropdown(props) {
   const base = `${document.location.origin}/${props.channel}/crossword`;
@@ -169,12 +164,40 @@ export function SettingsDropdown(props) {
   );
 }
 
-export function PuzzleDropdown(props) {
+export function PuzzleDropdown({channel, setErrorMessage}) {
+  const [minDates, setMinDates] = React.useState({});
+  const [dates, setDates] = React.useState({});
+
+  // Fetch the available dates from the API and then index them into the above
+  // state variables.
+  React.useEffect(() => {
+    fetch(`/api/crossword/dates`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Unable to load available puzzle dates.");
+        }
+
+        return response.json();
+      })
+      .then(response => {
+        const min = {}
+        const dates = {}
+        for (const [source, ds] of Object.entries(response)) {
+          min[source] = parseISO(ds[0]);
+          dates[source] = new Set(ds);
+        }
+
+        setMinDates(min);
+        setDates(dates);
+      })
+      .catch(error => setErrorMessage(error.message));
+  }, [setErrorMessage, setMinDates, setDates]);
+
   // Select a puzzle for the channel.  If the puzzle fails to load properly
   // then a simple error message will be displayed until a page reload or a
   // successful puzzle load.
   const setPuzzle = (payload) => {
-    return fetch(`/api/crossword/${props.channel}`,
+    return fetch(`/api/crossword/${channel}`,
       {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -184,7 +207,7 @@ export function PuzzleDropdown(props) {
           throw new Error("Unable to load puzzle.")
         }
 
-        props.setErrorMessage(null);
+        setErrorMessage(null);
       })
       .then(() => {
         // Hide the dropdown menu after a selection is successfully made.
@@ -193,7 +216,7 @@ export function PuzzleDropdown(props) {
           menu.classList.remove("show");
         }
       })
-      .catch(error => props.setErrorMessage(error.message));
+      .catch(error => setErrorMessage(error.message));
   };
 
   // Helper to read a file or blob to its bytes.
@@ -204,25 +227,21 @@ export function PuzzleDropdown(props) {
     reader.readAsBinaryString(f);
   });
 
-  // Select a New York Times puzzle for a specific date.
-  const onNewYorkTimesDateSelected = (date) => {
+  // Determine if a puzzle is available for a particular date.
+  const isPuzzleAvailableForDate = (source, date) => {
+    date = formatISO(date, {representation: "date"});
+    return dates[source] && dates[source].has(date);
+  };
+
+  // Select a puzzle for a specific source/date.
+  const onDateSelected = (source, date) => {
     if (!date) {
       return;
     }
 
     date = formatISO(date, {representation: "date"});
-    return setPuzzle({"new_york_times_date": date});
-  };
-
-  // Select a Wall Street Journal puzzle for a specific date.
-  const onWallStreetJournalDateSelected = (date) => {
-    if (!date) {
-      return;
-    }
-
-    date = formatISO(date, {representation: "date"});
-    return setPuzzle({"wall_street_journal_date": date});
-  };
+    return setPuzzle({[source + "_date"]: date});
+  }
 
   // Select a .puz puzzle based on a URL to the .puz file.
   const onPuzUrlSelected = (url) => {
@@ -261,9 +280,9 @@ export function PuzzleDropdown(props) {
             </div>
             <div className="input-group">
               <DateChooser
-                onClick={onNewYorkTimesDateSelected}
-                filterDate={isNewYorkTimesDateAllowed}
-                minDate={nytFirstPuzzleDate}
+                onClick={date => onDateSelected("new_york_times", date)}
+                filterDate={date => isPuzzleAvailableForDate("new_york_times", date)}
+                minDate={minDates["new_york_times"]}
               />
             </div>
           </div>
@@ -278,9 +297,9 @@ export function PuzzleDropdown(props) {
             </div>
             <div className="input-group">
               <DateChooser
-                onClick={onWallStreetJournalDateSelected}
-                filterDate={isWallStreetJournalDateAllowed}
-                minDate={wsjFirstPuzzleDate}
+                onClick={date => onDateSelected("wall_street_journal", date)}
+                filterDate={date => isPuzzleAvailableForDate("wall_street_journal", date)}
+                minDate={minDates["wall_street_journal"]}
               />
             </div>
           </div>

@@ -224,3 +224,25 @@ func ParseXWordInfoClue(s string) (int, string, error) {
 	clue = strings.Trim(clue, " \t\n")
 	return num, clue, nil
 }
+
+var NYTFirstPuzzleDate = time.Date(1942, time.February, 15, 0, 0, 0, 0, time.UTC)
+
+// Prior to 1950-09-11 puzzles were only on Sundays.
+var NYTSwitchToDailyDate = time.Date(1950, time.September, 11, 0, 0, 0, 0, time.UTC)
+
+// LoadAvailableNYTDates calculates the set of available dates for crossword
+// puzzles from The New York Times.
+func LoadAvailableNYTDates() []time.Time {
+	now := time.Now().UTC()
+
+	var dates []time.Time
+	for date := NYTFirstPuzzleDate; date.Before(now) || date.Equal(now); date = date.AddDate(0, 0, 1) {
+		if date.Before(NYTSwitchToDailyDate) && date.Weekday() != time.Sunday {
+			continue
+		}
+
+		dates = append(dates, date)
+	}
+
+	return dates
+}

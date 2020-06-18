@@ -1,10 +1,12 @@
 package crossword
 
 import (
+	"compress/flate"
 	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
 	"log"
@@ -21,6 +23,10 @@ func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 		r.Get("/show/{clue}", ShowClue(registry))
 		r.Get("/events", GetEvents(pool, registry))
 	})
+
+	// When possible compress the dates response since it's so large.
+	compressor := middleware.NewCompressor(flate.BestCompression, "application/json")
+	r.With(compressor.Handler()).Get("/crossword/dates", GetAvailableDates())
 }
 
 // UpdatePuzzle changes the crossword puzzle that's currently being solved for a
@@ -466,6 +472,27 @@ func GetEvents(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc {
 		}
 
 		pubsub.EmitEvents(r.Context(), w, stream)
+	}
+}
+
+// GetAvailableDates returns the available crossword dates across all puzzle
+// sources.
+func GetAvailableDates() http.HandlerFunc {
+	// Format the given set of dates.
+	format := func(dates []time.Time) []string {
+		var formatted []string
+		for _, date := range dates {
+			formatted = append(formatted, date.Format("2006-01-02"))
+		}
+
+		return formatted
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		render.JSON(w, r, map[string][]string{
+			"new_york_times":      format(LoadAvailableNYTDates()),
+			"wall_street_journal": format(LoadAvailableWSJDates()),
+		})
 	}
 }
 

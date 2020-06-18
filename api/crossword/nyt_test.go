@@ -3,6 +3,7 @@ package crossword
 import (
 	"bytes"
 	"io"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -584,6 +585,352 @@ func TestParseXWordInfoResponse_Error(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := ParseXWordInfoResponse(strings.NewReader(test.input))
 			require.Error(t, err)
+		})
+	}
+}
+
+func TestLoadAvailableNYTDates(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected time.Time
+	}{
+		{
+			name:     "first puzzle date",
+			expected: NYTFirstPuzzleDate,
+		},
+		{
+			name:     "first non-sunday puzzle",
+			expected: NYTSwitchToDailyDate,
+		},
+		{
+			name:     "1943-01-03",
+			expected: time.Date(1943, time.January, 3, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1944-01-02",
+			expected: time.Date(1944, time.January, 2, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1945-01-07",
+			expected: time.Date(1945, time.January, 7, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1946-01-06",
+			expected: time.Date(1946, time.January, 6, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1947-01-05",
+			expected: time.Date(1947, time.January, 5, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1948-01-04",
+			expected: time.Date(1948, time.January, 4, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1949-01-02",
+			expected: time.Date(1949, time.January, 2, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1950-01-01",
+			expected: time.Date(1950, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1951-01-01",
+			expected: time.Date(1951, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1952-01-01",
+			expected: time.Date(1952, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1953-01-01",
+			expected: time.Date(1953, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1954-01-01",
+			expected: time.Date(1954, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1955-01-01",
+			expected: time.Date(1955, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1956-01-01",
+			expected: time.Date(1956, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1957-01-01",
+			expected: time.Date(1957, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1958-01-01",
+			expected: time.Date(1958, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1959-01-01",
+			expected: time.Date(1959, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1960-01-01",
+			expected: time.Date(1960, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1961-01-01",
+			expected: time.Date(1961, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1962-01-01",
+			expected: time.Date(1962, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1963-01-01",
+			expected: time.Date(1963, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1964-01-01",
+			expected: time.Date(1964, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1965-01-01",
+			expected: time.Date(1965, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1966-01-01",
+			expected: time.Date(1966, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1967-01-01",
+			expected: time.Date(1967, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1968-01-01",
+			expected: time.Date(1968, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1969-01-01",
+			expected: time.Date(1969, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1970-01-01",
+			expected: time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1971-01-01",
+			expected: time.Date(1971, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1972-01-01",
+			expected: time.Date(1972, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1973-01-01",
+			expected: time.Date(1973, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1974-01-01",
+			expected: time.Date(1974, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1975-01-01",
+			expected: time.Date(1975, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1976-01-01",
+			expected: time.Date(1976, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1977-01-01",
+			expected: time.Date(1977, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1978-01-01",
+			expected: time.Date(1978, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1979-01-01",
+			expected: time.Date(1979, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1980-01-01",
+			expected: time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1981-01-01",
+			expected: time.Date(1981, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1982-01-01",
+			expected: time.Date(1982, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1983-01-01",
+			expected: time.Date(1983, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1984-01-01",
+			expected: time.Date(1984, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1985-01-01",
+			expected: time.Date(1985, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1986-01-01",
+			expected: time.Date(1986, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1987-01-01",
+			expected: time.Date(1987, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1988-01-01",
+			expected: time.Date(1988, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1989-01-01",
+			expected: time.Date(1989, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1990-01-01",
+			expected: time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1991-01-01",
+			expected: time.Date(1991, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1992-01-01",
+			expected: time.Date(1992, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1993-01-01",
+			expected: time.Date(1993, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1994-01-01",
+			expected: time.Date(1994, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1995-01-01",
+			expected: time.Date(1995, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1996-01-01",
+			expected: time.Date(1996, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1997-01-01",
+			expected: time.Date(1997, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1998-01-01",
+			expected: time.Date(1998, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "1999-01-01",
+			expected: time.Date(1999, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2000-01-01",
+			expected: time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2001-01-01",
+			expected: time.Date(2001, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2002-01-01",
+			expected: time.Date(2002, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2003-01-01",
+			expected: time.Date(2003, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2004-01-01",
+			expected: time.Date(2004, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2005-01-01",
+			expected: time.Date(2005, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2006-01-01",
+			expected: time.Date(2006, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2007-01-01",
+			expected: time.Date(2007, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2008-01-01",
+			expected: time.Date(2008, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2009-01-01",
+			expected: time.Date(2009, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2010-01-01",
+			expected: time.Date(2010, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2011-01-01",
+			expected: time.Date(2011, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2012-01-01",
+			expected: time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2013-01-01",
+			expected: time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2014-01-01",
+			expected: time.Date(2014, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2015-01-01",
+			expected: time.Date(2015, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2016-01-01",
+			expected: time.Date(2016, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2017-01-01",
+			expected: time.Date(2017, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2018-01-01",
+			expected: time.Date(2018, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2019-01-01",
+			expected: time.Date(2019, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "2020-01-01",
+			expected: time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "today",
+			expected: time.Now().UTC().Truncate(24 * time.Hour),
+		},
+	}
+
+	dates := LoadAvailableNYTDates()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.True(t, sort.SliceIsSorted(dates, func(i, j int) bool {
+				return dates[i].Before(dates[j])
+			}))
+
+			index := sort.Search(len(dates), func(i int) bool {
+				return dates[i].Equal(test.expected) || dates[i].After(test.expected)
+			})
+			assert.Equal(t, test.expected, dates[index])
 		})
 	}
 }
