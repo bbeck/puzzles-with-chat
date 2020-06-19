@@ -1,10 +1,12 @@
 package spellingbee
 
 import (
+	"compress/flate"
 	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
 	"log"
@@ -24,7 +26,8 @@ func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 		r.Get("/events", GetEvents(pool, registry))
 	})
 
-	r.Get("/spellingbee/dates", GetAvailableDates())
+	compressor := middleware.NewCompressor(flate.BestCompression, "application/json")
+	r.With(compressor.Handler()).Get("/spellingbee/dates", GetAvailableDates())
 }
 
 // UpdatePuzzle changes the spelling bee puzzle that's currently being solved
@@ -45,7 +48,7 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		var puzzle *Puzzle
 
 		// New York Times date
-		if date := payload["nytbee"]; date != "" {
+		if date := payload["new_york_times_date"]; date != "" {
 			p, err := LoadFromNYTBee(date)
 			if err != nil {
 				log.Printf("unable to load NYTBee puzzle for date %s: %+v", date, err)
@@ -480,7 +483,7 @@ func GetAvailableDates() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, map[string][]string{
-			"nytbee": format(LoadAvailableNYTBeeDates()),
+			"new_york_times": format(LoadAvailableNYTBeeDates()),
 		})
 	}
 }

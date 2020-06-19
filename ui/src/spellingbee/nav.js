@@ -1,7 +1,6 @@
 import React from "react";
-import {DateChooser, Switch} from "common/nav";
+import {DateChooser, Switch, useSourceDates} from "common/nav";
 import formatISO from "date-fns/formatISO";
-import parseISO from "date-fns/parseISO";
 
 export function ViewsDropdown(props) {
   const base = `${document.location.origin}/${props.channel}/spellingbee`;
@@ -138,33 +137,7 @@ export function SettingsDropdown(props) {
 }
 
 export function PuzzleDropdown({channel, setErrorMessage}) {
-  const [minDates, setMinDates] = React.useState({});
-  const [dates, setDates] = React.useState({});
-
-  // Fetch the available dates from the API and then index them into the above
-  // state variables.
-  React.useEffect(() => {
-    fetch(`/api/spellingbee/dates`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("Unable to load available puzzle dates.");
-        }
-
-        return response.json();
-      })
-      .then(response => {
-        const min = {}
-        const dates = {}
-        for (const [source, ds] of Object.entries(response)) {
-          min[source] = parseISO(ds[0]);
-          dates[source] = new Set(ds);
-        }
-
-        setMinDates(min);
-        setDates(dates);
-      })
-      .catch(error => setErrorMessage(error.message));
-  }, [setErrorMessage, setMinDates, setDates]);
+  const [minDates, dates] = useSourceDates("spellingbee", setErrorMessage);
 
   // Select a puzzle for the channel.  If the puzzle fails to load properly
   // then a simple error message will be displayed until a page reload or a
@@ -178,7 +151,7 @@ export function PuzzleDropdown({channel, setErrorMessage}) {
     return fetch(`/api/spellingbee/${channel}`,
       {
         method: "PUT",
-        body: JSON.stringify({[source]: date}),
+        body: JSON.stringify({[source + "_date"]: date}),
       })
       .then(response => {
         if (!response.ok) {
@@ -220,9 +193,9 @@ export function PuzzleDropdown({channel, setErrorMessage}) {
             </div>
             <div className="input-group">
               <DateChooser
-                onClick={(date) => setPuzzle("nytbee", date)}
-                filterDate={(date) => isPuzzleAvailableForDate("nytbee", date)}
-                minDate={minDates["nytbee"]}
+                onClick={(date) => setPuzzle("new_york_times", date)}
+                filterDate={(date) => isPuzzleAvailableForDate("new_york_times", date)}
+                minDate={minDates["new_york_times"]}
               />
             </div>
           </div>

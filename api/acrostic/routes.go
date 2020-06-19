@@ -1,10 +1,12 @@
 package acrostic
 
 import (
+	"compress/flate"
 	"fmt"
 	"github.com/bbeck/puzzles-with-chat/api/model"
 	"github.com/bbeck/puzzles-with-chat/api/pubsub"
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	"github.com/gomodule/redigo/redis"
 	"log"
@@ -26,7 +28,8 @@ func RegisterRoutes(r chi.Router, pool *redis.Pool, registry *pubsub.Registry) {
 		r.Put("/answer/{clue}", UpdateAnswer(pool, registry))
 	})
 
-	r.Get("/acrostic/dates/nytimes", GetNewYorkTimesAvailableDates())
+	compressor := middleware.NewCompressor(flate.BestCompression, "application/json")
+	r.With(compressor.Handler()).Get("/acrostic/dates", GetAvailableDates())
 }
 
 // UpdatePuzzle changes the acrostic puzzle that's currently being solved for a
@@ -429,29 +432,37 @@ func UpdateAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 	}
 }
 
-// GetNewYorkTimesAvailableDates returns the available acrostic dates from the
-// archives of The New York Times.
+// GetAvailableDates returns the available acrostic dates across all puzzle
+// sources.
 //
-// In order to minimize load on the API the response is cached for several
-// is cached for several hours.
-func GetNewYorkTimesAvailableDates() http.HandlerFunc {
+// In order to minimize load on external data sources the response is cached for
+// several hours.
+func GetAvailableDates() http.HandlerFunc {
 	// The format to use when returning dates to the caller.
 	const ISO8601 string = "2006-01-02"
+
+	// Format the given set of dates.
+	format := func(dates []time.Time) []string {
+		var formatted []string
+		for _, date := range dates {
+			formatted = append(formatted, date.Format(ISO8601))
+		}
+
+		return formatted
+	}
 
 	// In order to not call into the xwordinfo.com site too often we cache
 	// previous results of available dates and only refresh the cache
 	// periodically.
 	var lock sync.Mutex
-	var cache []string
+	var newYorkTimesCache []string
 	var expiration time.Time
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		lock.Lock()
 		defer lock.Unlock()
 
-		if cache == nil || expiration.Before(time.Now()) {
-			// We either don't have a cache or it's expired.  Load a fresh copy of the
-			// dates.
+		if newYorkTimesCache == nil || expiration.Before(time.Now()) {
 			dates, err := LoadAvailableNewYorkTimesDates()
 			if err != nil {
 				log.Printf("unable to load available new york times dates: %+v", err)
@@ -459,18 +470,14 @@ func GetNewYorkTimesAvailableDates() http.HandlerFunc {
 				return
 			}
 
-			// Convert the dates to the appropriate string format.
-			var formatted []string
-			for _, date := range dates {
-				formatted = append(formatted, date.Format(ISO8601))
-			}
-
 			// Update the cache with our new data.
-			cache = formatted
+			newYorkTimesCache = format(dates)
 			expiration = time.Now().Add(4 * time.Hour)
 		}
 
-		render.JSON(w, r, cache)
+		render.JSON(w, r, map[string][]string{
+			"new_york_times": newYorkTimesCache,
+		})
 	}
 }
 

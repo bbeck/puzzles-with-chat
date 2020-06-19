@@ -721,69 +721,70 @@ func TestRoute_GetEvents_LoadSaveError(t *testing.T) {
 	}
 }
 
-func TestRoute_GetNewYorkTimesAvailableDates(t *testing.T) {
-	// This acts as a small integration test ensuring that the available dates
-	// are correctly returned.
-	router, _, _ := NewTestRouter(t)
-
-	ForceAvailableDatesToBeLoaded(t, "xwordinfo-select-acrostic-20200610.html")
-
-	response := GET("/acrostic/dates/nytimes", router)
-	assert.Equal(t, http.StatusOK, response.Code)
-
-	var dates []string
-	require.NoError(t, render.DecodeJSON(response.Result().Body, &dates))
-
-	// Ensure that we received the proper number of dates.
-	assert.Equal(t, 543, len(dates))
-
-	// And that they're sorted.
-	require.True(t, sort.StringsAreSorted(dates))
-
-	// Ensure that several expected dates are present.  We'll choose the very
-	// first available date, the last one (when the test file was captured) as
-	// well as the first puzzle of each year.
-	expected := []string{
-		"1999-09-12",
-		"2000-01-02",
-		"2001-01-14",
-		"2002-01-13",
-		"2003-01-12",
-		"2004-01-11",
-		"2005-01-09",
-		"2006-01-08",
-		"2007-01-07",
-		"2008-01-06",
-		"2009-01-04",
-		"2010-01-03",
-		"2011-01-02",
-		"2012-01-01",
-		"2013-01-13",
-		"2014-01-12",
-		"2015-01-11",
-		"2016-01-10",
-		"2017-01-08",
-		"2018-01-07",
-		"2019-01-06",
-		"2020-01-05",
-		"2020-06-07",
-	}
-	for _, date := range expected {
-		index := sort.SearchStrings(dates, date)
-		require.True(t, index != len(dates))
-		assert.Equal(t, date, dates[index])
+func TestRoute_GetAvailableDates(t *testing.T) {
+	tests := []struct {
+		name     string
+		setup    func(*testing.T)
+		source   string
+		expected []string
+	}{
+		{
+			name: "new york times",
+			setup: func(t *testing.T) {
+				ForceAvailableDatesToBeLoaded(t, "xwordinfo-select-acrostic-20200610.html")
+			},
+			source: "new_york_times",
+			expected: []string{
+				"1999-09-12",
+				"2000-01-02",
+				"2001-01-14",
+				"2002-01-13",
+				"2003-01-12",
+				"2004-01-11",
+				"2005-01-09",
+				"2006-01-08",
+				"2007-01-07",
+				"2008-01-06",
+				"2009-01-04",
+				"2010-01-03",
+				"2011-01-02",
+				"2012-01-01",
+				"2013-01-13",
+				"2014-01-12",
+				"2015-01-11",
+				"2016-01-10",
+				"2017-01-08",
+				"2018-01-07",
+				"2019-01-06",
+				"2020-01-05",
+				"2020-06-07",
+			},
+		},
 	}
 
-	// Since the dates have been successfully loaded, trying to load them again
-	// should use the cached copy.  Force an error to happen if we were to try to
-	// load them from the source again.
-	ForceErrorDuringAvailableDatesLoad(t, errors.New("forced error"))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.setup != nil {
+				test.setup(t)
+			}
 
-	response = GET("/acrostic/dates/nytimes", router)
-	assert.Equal(t, http.StatusOK, response.Code)
+			router, _, _ := NewTestRouter(t)
+			response := GET("/acrostic/dates", router)
+			assert.Equal(t, http.StatusOK, response.Code)
+
+			var dates map[string][]string
+			require.NoError(t, render.DecodeJSON(response.Result().Body, &dates))
+
+			for _, expected := range test.expected {
+				index := sort.SearchStrings(dates[test.source], expected)
+				require.True(t, index != len(dates))
+				assert.Equal(t, expected, dates[test.source][index])
+			}
+		})
+	}
 }
 
-func TestRoute_GetNewYorkTimesAvailableDates_Error(t *testing.T) {
+func TestRoute_GetAvailableDates_Error(t *testing.T) {
 	tests := []struct {
 		name                string
 		forceDatesLoadError error
@@ -800,7 +801,7 @@ func TestRoute_GetNewYorkTimesAvailableDates_Error(t *testing.T) {
 
 			ForceErrorDuringAvailableDatesLoad(t, test.forceDatesLoadError)
 
-			response := GET("/acrostic/dates/nytimes", router)
+			response := GET("/acrostic/dates", router)
 			assert.Equal(t, http.StatusInternalServerError, response.Code)
 		})
 	}
@@ -855,6 +856,7 @@ func VerifyShowClue(t *testing.T, events <-chan pubsub.Event, fn func(clue strin
 
 	found := Events(events, "show_clue")
 	require.Equal(t, 1, len(found))
+	fn(found[0].Payload.(string))
 }
 
 // Events extracts events of a particular kind from a channel.  It consumes all

@@ -3,6 +3,7 @@ import "bootstrap/dist/js/bootstrap.bundle.min";
 import "bootstrap/dist/css/bootstrap.min.css";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import parseISO from "date-fns/parseISO";
 import "./nav.css";
 
 export function Nav(props) {
@@ -114,4 +115,38 @@ export function Switch(props) {
       <span className="slider round" onClick={props.onClick}/>
     </label>
   );
+}
+
+// Fetch the source dates for a given puzzle type and for each source compute
+// the minimum and available dates and return them.
+export function useSourceDates(puzzle, setErrorMessage) {
+  const [minDates, setMinDates] = React.useState({});
+  const [dates, setDates] = React.useState({});
+
+  // Fetch the available dates from the API and then index them into the above
+  // state variables.
+  React.useEffect(() => {
+    fetch(`/api/${puzzle}/dates`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Unable to load available puzzle dates.");
+        }
+
+        return response.json();
+      })
+      .then(response => {
+        const min = {}
+        const dates = {}
+        for (const [source, ds] of Object.entries(response)) {
+          min[source] = parseISO(ds[0]);
+          dates[source] = new Set(ds);
+        }
+
+        setMinDates(min);
+        setDates(dates);
+      })
+      .catch(error => setErrorMessage(error.message));
+  }, [puzzle, setErrorMessage, setMinDates, setDates]);
+
+  return [minDates, dates];
 }

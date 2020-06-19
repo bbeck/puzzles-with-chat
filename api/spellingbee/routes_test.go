@@ -27,7 +27,7 @@ import (
 
 var Channel = ChannelClient{name: "channel"}
 
-func TestRoute_UpdatePuzzle_NYTBee(t *testing.T) {
+func TestRoute_UpdatePuzzle_NewYorkTimes(t *testing.T) {
 	// This acts as a small integration test updating the date of the NYTBee
 	// puzzle we're working on and ensuring the proper values are written
 	// to the database.
@@ -37,7 +37,7 @@ func TestRoute_UpdatePuzzle_NYTBee(t *testing.T) {
 	// Force a specific puzzle to be loaded so we don't make a network call.
 	ForcePuzzleToBeLoaded(t, "nytbee-20200408.html")
 
-	response := Channel.PUT("/", `{"nytbee": "2020-04-08"}`, router)
+	response := Channel.PUT("/", `{"new_york_times_date": "2020-04-08"}`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	VerifyState(t, pool, events, func(state State) {
 		assert.Equal(t, model.StatusSelected, state.Status)
@@ -55,7 +55,7 @@ func TestRoute_UpdatePuzzle_JSONError(t *testing.T) {
 	}{
 		{
 			name:     "bad json",
-			json:     `{"nytbee": }`,
+			json:     `{"new_york_times_date": }`,
 			expected: http.StatusBadRequest,
 		},
 		{
@@ -108,7 +108,7 @@ func TestRoute_UpdatePuzzle_LoadSaveError(t *testing.T) {
 
 			ForceErrorDuringStateSave(t, test.forcedStateSaveError)
 
-			response := Channel.PUT("/", `{"nytbee": "ignored"}`, router)
+			response := Channel.PUT("/", `{"new_york_times_date": "ignored"}`, router)
 			assert.Equal(t, test.expected, response.Code)
 		})
 	}
@@ -778,8 +778,8 @@ func TestRoute_GetAvailableDates(t *testing.T) {
 		expected []string
 	}{
 		{
-			name:   "nytbee",
-			source: "nytbee",
+			name:   "new_york_times",
+			source: "new_york_times",
 			expected: []string{
 				NYTBeeFirstPuzzleDate.Format("2006-01-02"),
 				"2018-07-01",

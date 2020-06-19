@@ -1,7 +1,6 @@
 import React from "react";
-import {DateChooser, Switch} from "common/nav";
+import {DateChooser, Switch, useSourceDates} from "common/nav";
 import formatISO from "date-fns/formatISO";
-import parseISO from "date-fns/parseISO";
 
 export function ViewsDropdown(props) {
   const base = `${document.location.origin}/${props.channel}/acrostic`;
@@ -135,17 +134,21 @@ export function SettingsDropdown(props) {
 }
 
 export function PuzzleDropdown({channel, setErrorMessage}) {
-  const [minNYTDate, setMinNYTDate] = React.useState(null);
-  const [nytDates, setNYTDates] = React.useState(new Set());
+  const [minDates, dates] = useSourceDates("acrostic", setErrorMessage);
 
   // Select a puzzle for the channel.  If the puzzle fails to load properly
   // then a simple error message will be displayed until a page reload or a
   // successful puzzle load.
-  const setPuzzle = (payload) => {
+  const setPuzzle = (source, date) => {
+    if (!date) {
+      return;
+    }
+    date = formatISO(date, {representation: "date"});
+
     return fetch(`/api/acrostic/${channel}`,
       {
         method: "PUT",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({[source + "_date"]: date}),
       })
       .then(response => {
         if (!response.ok) {
@@ -164,37 +167,11 @@ export function PuzzleDropdown({channel, setErrorMessage}) {
       .catch(error => setErrorMessage(error.message));
   };
 
-  // Determine if a puzzle is available for a particular date.
-  const isNYTPuzzleAvailableForDate = (date) => {
-    const iso = formatISO(date, {representation: "date"});
-    return nytDates.has(iso);
-  };
-
-  // Select a NYT puzzle for a specific date.
-  const onNYTDateSelected = (date) => {
-    if (!date) {
-      return;
-    }
-
+  // Determine if a source has a puzzle available for a particular date.
+  const isPuzzleAvailableForDate = (source, date) => {
     date = formatISO(date, {representation: "date"});
-    return setPuzzle({"new_york_times_date": date});
+    return dates[source] && dates[source].has(date);
   };
-
-  React.useEffect(() => {
-    fetch(`/api/acrostic/dates/nytimes`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error("Unable to load available puzzle dates.");
-        }
-
-        return response.json();
-      })
-      .then(dates => {
-        setMinNYTDate(parseISO(dates[0]));
-        setNYTDates(new Set(dates));
-      })
-      .catch(error => setErrorMessage(error.message));
-  }, [setErrorMessage, setMinNYTDate, setNYTDates]);
 
   return (
     <li className="nav-item dropdown">
@@ -213,9 +190,9 @@ export function PuzzleDropdown({channel, setErrorMessage}) {
             </div>
             <div className="input-group">
               <DateChooser
-                onClick={onNYTDateSelected}
-                filterDate={isNYTPuzzleAvailableForDate}
-                minDate={minNYTDate}
+                onClick={date => setPuzzle("new_york_times", date)}
+                filterDate={date => isPuzzleAvailableForDate("new_york_times", date)}
+                minDate={minDates["new_york_times"]}
               />
             </div>
           </div>

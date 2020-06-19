@@ -231,9 +231,5 @@ func LoadAvailableNYTBeeDates() []time.Time {
 		dates = append(dates, date)
 	}
 
-	sort.Slice(dates, func(i, j int) bool {
-		return dates[i].Before(dates[j])
-	})
-
 	return dates
 }
