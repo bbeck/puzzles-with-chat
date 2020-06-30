@@ -12,48 +12,67 @@ type MessageRouter struct {
 	// The message handlers for each integration.
 	handlers map[ID]MessageHandler
 
-	// A mapping of active integrations on a per channel basis.
-	channels map[string]map[ID]struct{}
+	// The status of each channel's integrations.
+	statuses map[string]map[ID]string
 }
 
 func NewMessageRouter(handlers map[ID]MessageHandler) *MessageRouter {
-	return &MessageRouter{
-		handlers: handlers,
-		channels: make(map[string]map[ID]struct{}),
-	}
+	return &MessageRouter{handlers: handlers}
 }
 
-// UpdateChannels updates the active integrations of the router.  This will
-// cause messages to start/stop being delivered to message handlers.
-func (r *MessageRouter) UpdateChannels(update map[ID][]string) {
+// AddIntegration updates the integration status for the provided channel.
+func (r *MessageRouter) AddIntegration(app ID, channel string, status string) {
 	r.Lock()
 	defer r.Unlock()
 
-	// Index the update by channel instead of by integration.
-	r.channels = make(map[string]map[ID]struct{})
-	for id, channels := range update {
-		for _, channel := range channels {
-			m := r.channels[channel]
-			if m == nil {
-				m = make(map[ID]struct{})
-				r.channels[channel] = m
-			}
+	r.ensure(channel)
+	r.statuses[channel][app] = status
+}
 
-			m[id] = struct{}{}
-		}
+// RemoveIntegration removes the specified integration for the provided channel.
+func (r *MessageRouter) RemoveIntegration(app ID, channel string) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.ensure(channel)
+	delete(r.statuses[channel], app)
+
+	if len(r.statuses[channel]) == 0 {
+		delete(r.statuses, channel)
 	}
+}
+
+// UpdateChannel updates the active integrations for a channel.  This will
+// cause messages to start/stop being delivered to message handlers.
+func (r *MessageRouter) UpdateIntegrationStatus(app ID, channel string, status string) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.ensure(channel)
+	r.statuses[channel][app] = status
 }
 
 // HandleChannelMessage takes a message that was sent to a channel and passes
 // it onto the handlers for the integrations that are active for the channel.
-func (r *MessageRouter) HandleChannelMessage(channel, userid, username, message string) {
+func (r *MessageRouter) HandleChannelMessage(channel, _, _, message string) {
 	r.Lock()
 	defer r.Unlock()
 
-	for id := range r.channels[channel] {
-		handler := r.handlers[id]
+	r.ensure(channel)
+	for app, status := range r.statuses[channel] {
+		handler := r.handlers[app]
 		if handler != nil {
-			handler.HandleChannelMessage(channel, userid, username, message)
+			handler.HandleChannelMessage(channel, status, message)
 		}
+	}
+}
+
+func (r *MessageRouter) ensure(channel string) {
+	if r.statuses == nil {
+		r.statuses = make(map[string]map[ID]string)
+	}
+
+	if r.statuses[channel] == nil {
+		r.statuses[channel] = make(map[ID]string)
 	}
 }

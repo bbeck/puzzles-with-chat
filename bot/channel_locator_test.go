@@ -13,104 +13,61 @@ import (
 	"time"
 )
 
-func TestProcessEvent(t *testing.T) {
+func TestChannelLocator_ProcessPayload(t *testing.T) {
 	tests := []struct {
 		name     string
-		event    ChannelsEvent
-		expected map[ID][]string
+		payload  ChannelsPayload
+		expected []Update
 	}{
 		{
-			name:  "no puzzles",
-			event: NewChannelsEvent("channels", nil, nil, nil),
-			expected: map[ID][]string{
-				"acrostic":    nil,
-				"crossword":   nil,
-				"spellingbee": nil,
+			name:    "no puzzles",
+			payload: ChannelsPayload{},
+		},
+		{
+			name: "single puzzle",
+			payload: ChannelsPayload{
+				"crossword": {
+					{Name: "channel", Status: "solving"},
+				},
+			},
+			expected: []Update{
+				{Application: "crossword", Channel: "channel", Status: "solving"},
 			},
 		},
 		{
-			name:  "crossword puzzle only",
-			event: NewChannelsEvent("channels", []string{"channel"}, nil, nil),
-			expected: map[ID][]string{
-				"acrostic":    nil,
-				"crossword":   {"channel"},
-				"spellingbee": nil,
+			name: "multiple puzzles",
+			payload: ChannelsPayload{
+				"acrostic": {
+					{Name: "channel1", Status: "solving"},
+				},
+				"crossword": {
+					{Name: "channel2", Status: "solving"},
+					{Name: "channel3", Status: "solving"},
+				},
+				"spellingbee": {
+					{Name: "channel4", Status: "solving"},
+				},
 			},
-		},
-		{
-			name:  "spellingbee puzzle only",
-			event: NewChannelsEvent("channels", nil, []string{"channel"}, nil),
-			expected: map[ID][]string{
-				"acrostic":    nil,
-				"crossword":   nil,
-				"spellingbee": {"channel"},
+			expected: []Update{
+				{Application: "acrostic", Channel: "channel1", Status: "solving"},
+				{Application: "crossword", Channel: "channel2", Status: "solving"},
+				{Application: "crossword", Channel: "channel3", Status: "solving"},
+				{Application: "spellingbee", Channel: "channel4", Status: "solving"},
 			},
-		},
-		{
-			name:  "acrostic puzzle only",
-			event: NewChannelsEvent("channels", nil, nil, []string{"channel"}),
-			expected: map[ID][]string{
-				"acrostic":    {"channel"},
-				"crossword":   nil,
-				"spellingbee": nil,
-			},
-		},
-		{
-			name:  "multiple puzzles (different channels)",
-			event: NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"}, []string{"channel3"}),
-			expected: map[ID][]string{
-				"acrostic":    {"channel3"},
-				"crossword":   {"channel1"},
-				"spellingbee": {"channel2"},
-			},
-		},
-		{
-			name:  "multiple puzzles (same channels)",
-			event: NewChannelsEvent("channels", []string{"channel"}, []string{"channel"}, []string{"channel"}),
-			expected: map[ID][]string{
-				"acrostic":    {"channel"},
-				"crossword":   {"channel"},
-				"spellingbee": {"channel"},
-			},
-		},
-		{
-			name:     "ping event",
-			event:    NewChannelsEvent("ping", nil, nil, nil),
-			expected: nil, // update shouldn't be called
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			bs, err := json.Marshal(test.event)
-			require.NoError(t, err)
+			var updateCalled bool
+			update := func(updates []Update) {
+				assert.False(t, updateCalled)
+				assert.ElementsMatch(t, test.expected, updates)
+				updateCalled = true
+			}
 
-			channels, err := ProcessEvent(bs)
-			require.NoError(t, err)
-			assert.Equal(t, test.expected, channels)
-		})
-	}
-}
-
-func TestProcessEvent_Error(t *testing.T) {
-	tests := []struct {
-		name  string
-		event []byte
-	}{
-		{
-			name:  "invalid json",
-			event: []byte("not json"),
-		},
-		{
-			name:  "event has a kind different than channels",
-			event: []byte(`{"kind":"not channels"}`),
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := ProcessEvent(test.event)
-			assert.Error(t, err)
+			ProcessPayload(test.payload, update)
+			assert.True(t, updateCalled)
 		})
 	}
 }
@@ -123,51 +80,77 @@ func TestChannelLocator_Run(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		event            []byte
-		expectedUpdate   bool
-		expectedChannels map[ID][]string
-		expectedError    bool
+		name                 string
+		event                []byte
+		expectedUpdateCalled bool
+		expectedUpdates      []Update
+		expectedFailCalled   bool
 	}{
 		{
-			name:  "ping event",
-			event: marshal(t, NewChannelsEvent("ping", nil, nil, nil)),
+			name: "ping event",
+			event: marshal(t, Event{
+				Kind: "ping",
+			}),
 		},
 		{
-			name:           "channels event",
-			event:          marshal(t, NewChannelsEvent("channels", []string{"channel1"}, []string{"channel2"}, []string{"channel3"})),
-			expectedUpdate: true,
-			expectedChannels: map[ID][]string{
-				"crossword":   {"channel1"},
-				"spellingbee": {"channel2"},
-				"acrostic":    {"channel3"},
+			name: "channels event",
+			event: marshal(t, Event{
+				Kind: "channels",
+				Payload: json.RawMessage(`{
+					"acrostic": [
+						{ "name": "channel1", "status": "solving" }
+					],
+					"crossword": [
+						{ "name": "channel2", "status": "solving" },
+						{ "name": "channel3", "status": "solving" }
+					],
+					"spellingbee": [
+						{ "name": "channel4", "status": "solving" }
+					]
+				}`),
+			}),
+			expectedUpdateCalled: true,
+			expectedUpdates: []Update{
+				{Application: "acrostic", Channel: "channel1", Status: "solving"},
+				{Application: "crossword", Channel: "channel2", Status: "solving"},
+				{Application: "crossword", Channel: "channel3", Status: "solving"},
+				{Application: "spellingbee", Channel: "channel4", Status: "solving"},
 			},
 		},
 		{
-			name:           "empty channels event",
-			event:          marshal(t, NewChannelsEvent("channels", nil, nil, nil)),
-			expectedUpdate: true,
-			expectedChannels: map[ID][]string{
-				"acrostic":    nil,
-				"crossword":   nil,
-				"spellingbee": nil,
-			},
+			name: "empty channels event",
+			event: marshal(t, Event{
+				Kind: "channels",
+			}),
+			expectedUpdateCalled: true,
 		},
 		{
-			name:          "error parsing json",
-			event:         []byte("not valid json"),
-			expectedError: true,
+			name:               "error parsing event",
+			event:              []byte(`not valid json`),
+			expectedFailCalled: true,
+		},
+		{
+			name: "unsupported event kind",
+			event: marshal(t, Event{
+				Kind: "unsupported",
+			}),
+			expectedFailCalled: true,
+		},
+		{
+			name:               "error parsing payload",
+			event:              []byte(`{"kind": "channels", "payload": true}`),
+			expectedFailCalled: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response := fmt.Sprintf("event:message\ndata:%s\n\n", test.event)
+			event := fmt.Sprintf("event:message\ndata:%s\n\n", test.event)
 
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(200)
 
-				_, err := w.Write([]byte(response))
+				_, err := w.Write([]byte(event))
 				require.NoError(t, err)
 			}))
 			defer server.Close()
@@ -178,16 +161,18 @@ func TestChannelLocator_Run(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			var onUpdateCalled bool
-			var channels map[ID][]string
-			onUpdate := func(update map[ID][]string) {
-				onUpdateCalled = true
-				channels = update
+			var updateCalled bool
+			update := func(updates []Update) {
+				assert.False(t, updateCalled)
+				assert.ElementsMatch(t, test.expectedUpdates, updates)
+				updateCalled = true
 				cancel()
 			}
 
-			onError := func(e error) {
-				err = e
+			var failCalled bool
+			fail := func(e error) {
+				assert.False(t, failCalled)
+				failCalled = true
 				cancel()
 			}
 
@@ -195,51 +180,10 @@ func TestChannelLocator_Run(t *testing.T) {
 			time.AfterFunc(10*time.Millisecond, cancel)
 
 			locator := NewChannelLocator(parsed.Host)
-			locator.Run(ctx, onUpdate, onError)
+			locator.Run(ctx, update, fail)
 
-			assert.Equal(t, test.expectedUpdate, onUpdateCalled)
-			assert.Equal(t, test.expectedChannels, channels)
-			if !test.expectedError {
-				assert.NoError(t, err)
-			} else {
-				assert.Error(t, err)
-			}
+			assert.Equal(t, updateCalled, test.expectedUpdateCalled)
+			assert.Equal(t, failCalled, test.expectedFailCalled)
 		})
 	}
-}
-
-func NewChannelsEvent(kind string, crosswords []string, spellingbees []string, acrostics []string) ChannelsEvent {
-	type Channel = struct {
-		Name   string `json:"name"`
-		Status string `json:"status"`
-	}
-
-	var event ChannelsEvent
-	event.Kind = kind
-
-	event.Payload.Crosswords = make([]Channel, len(crosswords))
-	for i, name := range crosswords {
-		event.Payload.Crosswords[i] = Channel{
-			Name:   name,
-			Status: "solving",
-		}
-	}
-
-	event.Payload.SpellingBees = make([]Channel, len(spellingbees))
-	for i, name := range spellingbees {
-		event.Payload.SpellingBees[i] = Channel{
-			Name:   name,
-			Status: "solving",
-		}
-	}
-
-	event.Payload.Acrostics = make([]Channel, len(acrostics))
-	for i, name := range acrostics {
-		event.Payload.Acrostics[i] = Channel{
-			Name:   name,
-			Status: "solving",
-		}
-	}
-
-	return event
 }

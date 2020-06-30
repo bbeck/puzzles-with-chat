@@ -28,9 +28,13 @@ type Client interface {
 	Depart(channel string)
 }
 
+type ClientMessageHandler interface {
+	HandleChannelMessage(channel, userid, username, message string)
+}
+
 // NewClient constructs a new client instance that's wired to the provided
 // message handler and will send all channel messages to that handler.
-func NewClient(handler MessageHandler) (Client, error) {
+func NewClient(handler ClientMessageHandler) (Client, error) {
 	env, ok := os.LookupEnv("ENV")
 	if !ok {
 		env = "local"
@@ -77,7 +81,7 @@ func NewClient(handler MessageHandler) (Client, error) {
 // the commands it receives.
 type LocalClient struct {
 	port    int
-	handler MessageHandler
+	handler ClientMessageHandler
 }
 
 func (c *LocalClient) Join(...string) {}

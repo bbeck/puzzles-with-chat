@@ -20,13 +20,13 @@ var DefaultCrosswordHTTPClient = &http.Client{
 // A regular expression that matches a message that's providing an answer.
 // Capture group 1 is the clue and capture group 2 is the answer.
 var AnswerRegexp = regexp.MustCompile(
-	`^!(?:answer\s+)?([0-9]+[aAdD])\s+(.*)\s*$`,
+	`^!(?i:answer\s+)?([0-9]+[aAdD])\s+(.*)\s*$`,
 )
 
 // A regular expression that matches a message that's asking for a clue to be
 // made visible.  Capture group 1 is the clue.
 var ShowClueRegexp = regexp.MustCompile(
-	`^!show\s+(?P<clue>[0-9]+[aAdD])\s*$`,
+	`^!(?i:show)\s+(?P<clue>[0-9]+[aAdD])\s*$`,
 )
 
 type MessageHandler struct {
@@ -40,8 +40,12 @@ func NewMessageHandler(host string) *MessageHandler {
 
 // HandleChannelMessage parses a message and if it matches a crossword command
 // sends it to the appropriate API endpoint.
-func (h *MessageHandler) HandleChannelMessage(channel string, _ string, _ string, message string) {
+func (h *MessageHandler) HandleChannelMessage(channel, status, message string) {
 	if match := AnswerRegexp.FindStringSubmatch(message); len(match) != 0 {
+		if status != "solving" {
+			return
+		}
+
 		clue := match[1]
 		answer := match[2]
 

@@ -20,13 +20,13 @@ var DefaultSpellingBeeHTTPClient = &http.Client{
 // A regular expression that matches a message that's providing an answer.
 // Capture group 1 is the answer.
 var AnswerRegexp = regexp.MustCompile(
-	`^!(?:answer\s+)?([^\s]+)\s*$`,
+	`^!(?i:answer\s+)?([^\s]+)\s*$`,
 )
 
 // A regular expression that matches a message that's asking for the letters
 // to be shuffled into a new order.  There are no capture groups.
 var ShuffleRegexp = regexp.MustCompile(
-	`^!shuffle\s*$`,
+	`^!(?i:shuffle)\s*$`,
 )
 
 type MessageHandler struct {
@@ -40,7 +40,11 @@ func NewMessageHandler(host string) *MessageHandler {
 
 // HandleChannelMessage parses a message and if it matches a spelling bee
 // command sends it to the appropriate API endpoint.
-func (h *MessageHandler) HandleChannelMessage(channel string, _ string, _ string, message string) {
+func (h *MessageHandler) HandleChannelMessage(channel, status, message string) {
+	if status != "solving" {
+		return
+	}
+
 	// We need to check for !shuffle first since the regexp patterns are overlapping.
 	if match := ShuffleRegexp.FindStringSubmatch(message); len(match) != 0 {
 		url := fmt.Sprintf("%s/%s/shuffle", h.baseURL, channel)

@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-var PRESENT = struct{}{}
-
 func TestNewMessageRouter(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -39,79 +37,150 @@ func TestNewMessageRouter(t *testing.T) {
 	}
 }
 
-func TestMessageRouter_UpdateChannels(t *testing.T) {
+func TestMessageRouter_AddIntegration(t *testing.T) {
 	tests := []struct {
 		name     string
-		initial  map[string]map[ID]struct{} // the initial set of channel/integration mappings
-		update   map[ID][]string            // the update to apply, one at a time
-		expected map[string]map[ID]struct{} // the expected integrations after the update
+		initial  map[string]map[ID]string // initial set of mappings
+		adds     map[string]map[ID]string // adds to apply one at a time
+		expected map[string]map[ID]string // expected statuses to see
 	}{
 		{
-			name:    "add single integration to channel",
-			initial: make(map[string]map[ID]struct{}),
-			update: map[ID][]string{
-				"integration": {"a"},
+			name: "one integration",
+			adds: map[string]map[ID]string{
+				"channel": {"crossword": "solving"},
 			},
-			expected: map[string]map[ID]struct{}{
-				"a": {"integration": PRESENT},
-			},
-		},
-		{
-			name:    "add single integrations to multiple channels",
-			initial: make(map[string]map[ID]struct{}),
-			update: map[ID][]string{
-				"integration-1": {"a"},
-				"integration-2": {"b"},
-			},
-			expected: map[string]map[ID]struct{}{
-				"a": {"integration-1": PRESENT},
-				"b": {"integration-2": PRESENT},
+			expected: map[string]map[ID]string{
+				"channel": {"crossword": "solving"},
 			},
 		},
 		{
-			name:    "add multiple integrations to one channel",
-			initial: make(map[string]map[ID]struct{}),
-			update: map[ID][]string{
-				"integration-1": {"a"},
-				"integration-2": {"a"},
+			name: "existing integrations",
+			initial: map[string]map[ID]string{
+				"channel": {"acrostic": "complete"},
 			},
-			expected: map[string]map[ID]struct{}{
-				"a": {"integration-1": PRESENT, "integration-2": PRESENT},
+			adds: map[string]map[ID]string{
+				"channel": {"crossword": "solving"},
 			},
-		},
-		{
-			name: "change integration of one channel",
-			initial: map[string]map[ID]struct{}{
-				"a": {"integration-1": PRESENT},
+			expected: map[string]map[ID]string{
+				"channel": {
+					"acrostic":  "complete",
+					"crossword": "solving",
+				},
 			},
-			update: map[ID][]string{
-				"integration-1": {},
-				"integration-2": {"a"},
-			},
-			expected: map[string]map[ID]struct{}{
-				"a": {"integration-2": PRESENT},
-			},
-		},
-		{
-			name: "remove integration of one channel",
-			initial: map[string]map[ID]struct{}{
-				"a": {"integration-1": PRESENT},
-			},
-			update: map[ID][]string{
-				"integration-1": {},
-			},
-			expected: make(map[string]map[ID]struct{}),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			router := &MessageRouter{
-				channels: test.initial,
+			router := &MessageRouter{statuses: test.initial}
+			for channel, adds := range test.adds {
+				for app, status := range adds {
+					router.AddIntegration(app, channel, status)
+				}
 			}
 
-			router.UpdateChannels(test.update)
-			assertIntegrationsEqual(t, test.expected, router.channels)
+			assert.Equal(t, test.expected, router.statuses)
+		})
+	}
+}
+
+func TestMessageRouter_RemoveIntegration(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  map[string]map[ID]string // initial set of mappings
+		removes  map[string][]ID          // removes to apply one at a time
+		expected map[string]map[ID]string // expected statuses to see
+	}{
+		{
+			name: "one integration",
+			initial: map[string]map[ID]string{
+				"channel": {"crossword": "complete"},
+			},
+			removes: map[string][]ID{
+				"channel": {"crossword"},
+			},
+			expected: map[string]map[ID]string{},
+		},
+		{
+			name: "remaining integrations",
+			initial: map[string]map[ID]string{
+				"channel": {
+					"acrostic":  "complete",
+					"crossword": "solving",
+				},
+			},
+			removes: map[string][]ID{
+				"channel": {"acrostic"},
+			},
+			expected: map[string]map[ID]string{
+				"channel": {"crossword": "solving"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router := &MessageRouter{statuses: test.initial}
+			for channel, apps := range test.removes {
+				for _, app := range apps {
+					router.RemoveIntegration(app, channel)
+				}
+			}
+
+			assert.Equal(t, test.expected, router.statuses)
+		})
+	}
+}
+
+func TestMessageRouter_UpdateIntegrationStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  map[string]map[ID]string // initial set of mappings
+		updates  map[string]map[ID]string // updates to apply one at a time
+		expected map[string]map[ID]string // expected statuses to see
+	}{
+		{
+			name: "solving to complete",
+			initial: map[string]map[ID]string{
+				"channel": {"crossword": "solving"},
+			},
+			updates: map[string]map[ID]string{
+				"channel": {"crossword": "complete"},
+			},
+			expected: map[string]map[ID]string{
+				"channel": {"crossword": "complete"},
+			},
+		},
+		{
+			name: "multiple active applications",
+			initial: map[string]map[ID]string{
+				"channel": {
+					"acrostic":  "selected",
+					"crossword": "solving",
+				},
+			},
+			updates: map[string]map[ID]string{
+				"channel": {"crossword": "complete"},
+			},
+			expected: map[string]map[ID]string{
+				"channel": {
+					"acrostic":  "selected",
+					"crossword": "complete",
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router := &MessageRouter{statuses: test.initial}
+			for channel, apps := range test.updates {
+				for app, status := range apps {
+					router.UpdateIntegrationStatus(app, channel, status)
+				}
+			}
+
+			assert.Equal(t, test.expected, router.statuses)
 		})
 	}
 }
@@ -119,57 +188,67 @@ func TestMessageRouter_UpdateChannels(t *testing.T) {
 func TestMessageRouter_HandleChannelMessage(t *testing.T) {
 	tests := []struct {
 		name     string
-		handlers []ID                       // which integrations should have handlers
-		initial  map[string]map[ID]struct{} // initial mapping of channel to its integrations
-		channel  string                     // the channel a message is received from
-		expected []ID                       // which integrations are expected to be called
+		handlers []ID                     // which integrations should have handlers
+		initial  map[string]map[ID]string // initial set of mappings
+		channel  string                   // the channel to send a message from
+		expected []ID                     // which integrations should receive the message
 	}{
 		{
-			name:     "message on channel with integration received",
-			handlers: []ID{"integration-1"},
-			initial: map[string]map[ID]struct{}{
-				"a": {"integration-1": struct{}{}},
-			},
-			channel:  "a",
-			expected: []ID{"integration-1"},
+			name:     "message from channel with no apps",
+			handlers: []ID{"crossword"},
+			channel:  "channel",
 		},
 		{
-			name:     "message sent to different channel not received",
-			handlers: []ID{"integration-1"},
-			initial: map[string]map[ID]struct{}{
-				"a": {"integration-1": struct{}{}},
+			name:     "message from channel with one app",
+			handlers: []ID{"crossword"},
+			initial: map[string]map[ID]string{
+				"channel": {"crossword": "solving"},
 			},
-			channel:  "b",
+			channel:  "channel",
+			expected: []ID{"crossword"},
+		},
+		{
+			name:     "message from channel with multiple apps",
+			handlers: []ID{"acrostic", "crossword"},
+			initial: map[string]map[ID]string{
+				"channel": {
+					"acrostic":  "solving",
+					"crossword": "solving",
+				},
+			},
+			channel:  "channel",
+			expected: []ID{"acrostic", "crossword"},
+		},
+		{
+			name:     "message to different channel not received",
+			handlers: []ID{"acrostic", "crossword"},
+			initial: map[string]map[ID]string{
+				"channel-1": {
+					"acrostic":  "solving",
+					"crossword": "solving",
+				},
+			},
+			channel:  "channel-2",
 			expected: []ID{},
-		},
-		{
-			name:     "message sent multiple to integrations",
-			handlers: []ID{"integration-1", "integration-2"},
-			initial: map[string]map[ID]struct{}{
-				"a": {"integration-1": struct{}{}, "integration-2": struct{}{}},
-			},
-			channel:  "a",
-			expected: []ID{"integration-1", "integration-2"},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var called []ID // which integrations were called
+			var called []ID // which integrations received messages
 
 			handlers := make(map[ID]MessageHandler)
-			for _, id := range test.handlers {
-				id := id
-				handlers[id] = TestMessageHandler{id, func() {
-					called = append(called, id)
+			for _, app := range test.handlers {
+				app := app
+				handlers[app] = TestMessageHandler{app, func() {
+					called = append(called, app)
 				}}
 			}
 
 			router := &MessageRouter{
 				handlers: handlers,
-				channels: test.initial,
+				statuses: test.initial,
 			}
-
 			router.HandleChannelMessage(test.channel, "userid", "username", "message")
 			assert.ElementsMatch(t, test.expected, called)
 		})
@@ -181,33 +260,6 @@ type TestMessageHandler struct {
 	fn func()
 }
 
-func (h TestMessageHandler) HandleChannelMessage(_, _, _, _ string) {
-	if h.fn != nil {
-		h.fn()
-	}
-}
-
-func assertIntegrationsEqual(t *testing.T, expected, actual map[string]map[ID]struct{}) {
-	var expectedChannels, actualChannels []string
-	for channel := range expected {
-		expectedChannels = append(expectedChannels, channel)
-	}
-	for channel := range actual {
-		actualChannels = append(actualChannels, channel)
-	}
-	if !assert.ElementsMatch(t, expectedChannels, actualChannels) {
-		return
-	}
-
-	for channel := range expected {
-		var expectedIntegrations, actualIntegrations []ID
-		for integration := range expected[channel] {
-			expectedIntegrations = append(expectedIntegrations, integration)
-		}
-		for integration := range actual[channel] {
-			actualIntegrations = append(actualIntegrations, integration)
-		}
-
-		assert.ElementsMatch(t, expectedIntegrations, actualIntegrations)
-	}
+func (h TestMessageHandler) HandleChannelMessage(_, _, _ string) {
+	h.fn()
 }

@@ -8,31 +8,25 @@ import (
 )
 
 // ChannelLocator is a SSE event processor that runs in the background to locate
-// channels that should be joined for active puzzles.  As channels are
-// discovered they are passed onto an update callback.
+// and keep track of channels that should have their messages processed.  As
+// channels are discovered they are passed onto an update callback along with
+// the state of their puzzle solve.
 type ChannelLocator struct {
 	url string
 }
 
-// ChannelsEvent is the SSE event that the ChannelLocator unmarshalls data into.
-// It contains all of the fields representing which channels are solving a
-// puzzle.
-type ChannelsEvent struct {
-	Kind    string `json:"kind"`
-	Payload struct {
-		Acrostics []struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-		} `json:"acrostic"`
-		Crosswords []struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-		} `json:"crossword"`
-		SpellingBees []struct {
-			Name   string `json:"name"`
-			Status string `json:"status"`
-		} `json:"spellingbee"`
-	} `json:"payload"`
+// Event is the SSE event that the ChannelLocator receives from the API about
+// the active set of channels.
+type Event struct {
+	Kind    string          `json:"kind"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+// ChannelsPayload is the payload of an event that is sent out containing the
+// current set of located channels organized by puzzle type ID.
+type ChannelsPayload map[ID][]struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
 }
 
 func NewChannelLocator(host string) *ChannelLocator {
@@ -40,23 +34,49 @@ func NewChannelLocator(host string) *ChannelLocator {
 	return &ChannelLocator{url: url}
 }
 
-type UpdateChannelsFunc func(map[ID][]string)
+// Update represents an update of the status of a channel's integration.
+type Update struct {
+	Application ID
+	Channel     string
+	Status      string
+}
+
+type UpdateFunc func(updates []Update)
 type FailFunc func(error)
 
-func (l *ChannelLocator) Run(ctx context.Context, update UpdateChannelsFunc, fail FailFunc) {
+// Run starts an infinite loop connecting to a SSE stream and processing
+// received events.  Channels events are passed onto the update function while
+// any errors encountered are passed onto the fail function.
+func (l *ChannelLocator) Run(ctx context.Context, update UpdateFunc, fail FailFunc) {
 	stream := sse.Open(ctx, l.url)
 
 	for {
 		select {
-		case event := <-stream:
-			channels, err := ProcessEvent(event.Data)
-			if err != nil {
+		case entry := <-stream:
+			var event Event
+			if err := json.Unmarshal(entry.Data, &event); err != nil {
+				err = fmt.Errorf("unable to parse json '%s': %+v", entry.Data, err)
 				fail(err)
 				break
 			}
 
-			if channels != nil {
-				update(channels)
+			switch event.Kind {
+			case "channels":
+				var payload ChannelsPayload
+				if err := json.Unmarshal(event.Payload, &payload); err != nil {
+					err = fmt.Errorf("unable to parse payload '%s': %+v", event.Payload, err)
+					fail(err)
+					break
+				}
+
+				ProcessPayload(payload, update)
+
+			case "ping":
+				// do nothing
+
+			default:
+				err := fmt.Errorf("unrecognized event kind: %s", event.Kind)
+				fail(err)
 			}
 
 		case <-ctx.Done():
@@ -65,36 +85,19 @@ func (l *ChannelLocator) Run(ctx context.Context, update UpdateChannelsFunc, fai
 	}
 }
 
-func ProcessEvent(bs []byte) (map[ID][]string, error) {
-	var event ChannelsEvent
-	if err := json.Unmarshal(bs, &event); err != nil {
-		err = fmt.Errorf("unable to parse json '%s': %+v", bs, err)
-		return nil, err
+func ProcessPayload(payload ChannelsPayload, update UpdateFunc) {
+	var updates []Update
+
+	// Flatten the payload into individual updates
+	for app, channels := range payload {
+		for _, channel := range channels {
+			updates = append(updates, Update{
+				Application: app,
+				Channel:     channel.Name,
+				Status:      channel.Status,
+			})
+		}
 	}
 
-	switch event.Kind {
-	case "channels":
-		channels := map[ID][]string{
-			"acrostic":    nil,
-			"crossword":   nil,
-			"spellingbee": nil,
-		}
-		for _, channel := range event.Payload.Acrostics {
-			channels["acrostic"] = append(channels["acrostic"], channel.Name)
-		}
-		for _, channel := range event.Payload.Crosswords {
-			channels["crossword"] = append(channels["crossword"], channel.Name)
-		}
-		for _, channel := range event.Payload.SpellingBees {
-			channels["spellingbee"] = append(channels["spellingbee"], channel.Name)
-		}
-
-		return channels, nil
-
-	case "ping":
-		return nil, nil
-
-	default:
-		return nil, fmt.Errorf("received unrecognized message: %s\n", bs)
-	}
+	update(updates)
 }
