@@ -11,6 +11,112 @@ import (
 	"time"
 )
 
+func TestParseAuthorAndTitle(t *testing.T) {
+	tests := []struct {
+		name           string
+		quote          string
+		expectedAuthor string
+		expectedTitle  string
+	}{
+		{
+			name:           "basic author",
+			quote:          "KEN DRUSE, THE NEW SHADE GARDEN — Plants are moving...",
+			expectedAuthor: "KEN DRUSE",
+			expectedTitle:  "THE NEW SHADE GARDEN",
+		},
+		{
+			name:           "parenthesized author first name",
+			quote:          "(MABEL) WAGNALLS, STARS OF THE OPERA — People seldom appreciate the vast knowledge...",
+			expectedAuthor: "MABEL WAGNALLS",
+			expectedTitle:  "STARS OF THE OPERA",
+		},
+		{
+			name:           "hyphenated last name",
+			quote:          "DORIS NASH-WORTMAN, TITLE — Quote...",
+			expectedAuthor: "DORIS NASH-WORTMAN",
+			expectedTitle:  "TITLE",
+		},
+		{
+			name:           "parenthesized first name, hyphenated last name",
+			quote:          "(DORIS) NASH-WORTMAN, TITLE — Quote...",
+			expectedAuthor: "DORIS NASH-WORTMAN",
+			expectedTitle:  "TITLE",
+		},
+		{
+			name:           "basic title",
+			quote:          "KEN DRUSE, THE NEW SHADE GARDEN — Plants are moving...",
+			expectedAuthor: "KEN DRUSE",
+			expectedTitle:  "THE NEW SHADE GARDEN",
+		},
+		{
+			name:           "hyphen separator",
+			quote:          "KEN DRUSE, THE NEW SHADE GARDEN - Plants are moving...",
+			expectedAuthor: "KEN DRUSE",
+			expectedTitle:  "THE NEW SHADE GARDEN",
+		},
+		{
+			name:           "quote in author",
+			quote:          "CONAN O'BRIEN, IN THE YEAR 2000 — ...",
+			expectedAuthor: "CONAN O'BRIEN",
+			expectedTitle:  "IN THE YEAR 2000",
+		},
+		{
+			name:           "html character code in author",
+			quote:          "CONAN O&#39;BRIEN, IN THE YEAR 2000 — ...",
+			expectedAuthor: "CONAN O'BRIEN",
+			expectedTitle:  "IN THE YEAR 2000",
+		},
+		{
+			name:           "quote in title",
+			quote:          "FRANS DE WAAL, MAMA'S LAST HUG — An Internet video of a...",
+			expectedAuthor: "FRANS DE WAAL",
+			expectedTitle:  "MAMA'S LAST HUG",
+		},
+		{
+			name:           "html character code in title",
+			quote:          "FRANS DE WAAL, MAMA&#39;S LAST HUG — An Internet video of a...",
+			expectedAuthor: "FRANS DE WAAL",
+			expectedTitle:  "MAMA'S LAST HUG",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			author, title, err := ParseAuthorAndTitle(test.quote)
+
+			require.NoError(t, err)
+			assert.Equal(t, test.expectedAuthor, author)
+			assert.Equal(t, test.expectedTitle, title)
+		})
+	}
+}
+
+func TestParseAuthorAndTitle_Error(t *testing.T) {
+	tests := []struct {
+		name  string
+		quote string
+	}{
+		{
+			name: "empty quote",
+		},
+		{
+			name:  "whitespace only quote",
+			quote: " ",
+		},
+		{
+			name:  "no delimeters",
+			quote: "KEN DRUSE THE NEW SHADE GARDEN Plants are moving...",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, err := ParseAuthorAndTitle(test.quote)
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestGetClueLetter(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -168,6 +274,40 @@ func TestParseXWordInfoPuzzleResponse(t *testing.T) {
 				assert.Equal(t, 2020, puzzle.PublishedDate.Year())
 				assert.Equal(t, time.May, puzzle.PublishedDate.Month())
 				assert.Equal(t, 24, puzzle.PublishedDate.Day())
+			},
+		},
+		{
+			name:  "author",
+			input: load(t, "xwordinfo-nyt-20200524.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, "MABEL WAGNALLS", puzzle.Author)
+			},
+		},
+		{
+			name:  "title",
+			input: load(t, "xwordinfo-nyt-20200524.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, "STARS OF THE OPERA", puzzle.Title)
+			},
+		},
+		{
+			name:  "title with HTML character entity",
+			input: load(t, "xwordinfo-nyt-20200510-html-character-in-title.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				assert.Equal(t, "MAMA'S LAST HUG", puzzle.Title)
+			},
+		},
+		{
+			name:  "quote",
+			input: load(t, "xwordinfo-nyt-20200524.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := "<p>People seldom appreciate the vast knowledge of music " +
+					"and the remarkable ability in sight-reading which these orchestra " +
+					"players possess. Not one of them but has worked at his art from " +
+					"childhood; most of them play several different instruments; and " +
+					"they all hold as a creed that a false note is a sin, and a " +
+					"variation in rhythm is a fall from grace.</p>"
+				assert.Equal(t, expected, puzzle.Quote)
 			},
 		},
 		{
@@ -428,6 +568,16 @@ func TestParseXWordInfoPuzzleResponse_Error(t *testing.T) {
                 "answerKey": "answers go here",
 								"clues": ["A"],
                 "clueData": ["1,2,a,3"]
+							}`,
+		},
+		{
+			name: "unable to extract title and author",
+			input: `{
+                "date": "1/1/2001",
+                "answerKey": "answers go here",
+								"clues": ["A"],
+                "clueData": ["1"],
+                "quote": "author and title with no delimeters"
 							}`,
 		},
 	}

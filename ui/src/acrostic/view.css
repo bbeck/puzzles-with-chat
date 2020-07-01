@@ -42,6 +42,10 @@
 #acrostic .puzzle .footer {
   width: 995px;  /* not 1000 to compensate for the border on the left. */
 }
+#acrostic .puzzle .grid .quote {
+  height: 100%;
+  width: 100%;
+}
 #acrostic .puzzle .clues .clue-column {
   flex-basis: 333px;
 }
@@ -124,6 +128,29 @@
   text-anchor: middle;
   transform: translate(50px, 90px);
   pointer-events: none;
+}
+#acrostic .puzzle .grid .quote {
+  opacity: 0.95;
+  padding: 75px;
+}
+#acrostic .puzzle .grid .quote .close {
+  font-size: 75px;
+  left: 50px;
+  position: relative;
+  top: -70px;
+}
+#acrostic .puzzle .grid .quote .text {
+  font-size: 60px;
+  padding-bottom: 60px;
+}
+#acrostic .puzzle .grid .quote .title {
+  font-size: 50px;
+  font-style: italic;
+  text-transform: capitalize;
+}
+#acrostic .puzzle .grid .quote .author {
+  font-size: 50px;
+  text-transform: capitalize;
 }
 #acrostic .puzzle .clues {
   overflow-x: hidden;

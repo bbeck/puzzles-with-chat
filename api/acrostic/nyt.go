@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bbeck/puzzles-with-chat/api/web"
+	"html"
 	"io"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -183,12 +185,20 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 		clueNumbers[letter] = nums
 	}
 
+	author, title, err := ParseAuthorAndTitle(raw.Quote)
+	if err != nil {
+		return nil, err
+	}
+
 	var puzzle Puzzle
 	puzzle.Description = fmt.Sprintf("New York Times puzzle from %s", published.Format("2006-01-02"))
 	puzzle.Rows = raw.Rows
 	puzzle.Cols = raw.Cols
 	puzzle.Publisher = "The New York Times"
 	puzzle.PublishedDate = published
+	puzzle.Author = author
+	puzzle.Title = title
+	puzzle.Quote = raw.FullQuote
 	puzzle.Cells = cells
 	puzzle.CellBlocks = blocks
 	puzzle.CellNumbers = numbers
@@ -197,6 +207,38 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 	puzzle.ClueNumbers = clueNumbers
 
 	return &puzzle, nil
+}
+
+// A regular expression that matches the author and title of and acrostic.  This
+// is meant to be executed on the quote field for an xwordinfo.com JSON API
+// response.
+var AuthorTitleRegexp = regexp.MustCompile(
+	`^(?P<author>[^,]+), (?P<title>[^-–—]+) [-–—]`,
+)
+
+// ParseAuthorAndTitle extracts the author name and title from the quote field
+// of the xwordinfo.com JSON API response.  If the author cannot be determined
+// then an error is returned.
+func ParseAuthorAndTitle(s string) (string, string, error) {
+	if match := AuthorTitleRegexp.FindStringSubmatch(s); len(match) != 0 {
+		author := match[1]
+		title := match[2]
+
+		// Sometimes the author has special characters in it that are escaped or
+		// it's too long relative to the number of clues and they leave off the
+		// first name.  When this happens the first name is surrounded by
+		// parentheses that need to be removed.
+		author = html.UnescapeString(author)
+		author = strings.ReplaceAll(author, "(", "")
+		author = strings.ReplaceAll(author, ")", "")
+
+		// Sometimes the title has special characters in it that are escaped.
+		title = html.UnescapeString(title)
+
+		return author, title, nil
+	}
+
+	return "", "", fmt.Errorf("unable to determine author and title from quote: %s", s)
 }
 
 var ClueLetters = []string{

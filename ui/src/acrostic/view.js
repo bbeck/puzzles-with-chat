@@ -4,7 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "acrostic/view.css";
 import {Timer} from "../common/view";
 
-export function AcrosticView({state, settings, view}) {
+export function AcrosticView({state, settings, view, quote, clearQuote}) {
   const puzzle = state && state.puzzle;
   if (!state || !puzzle) {
     return (
@@ -41,7 +41,7 @@ export function AcrosticView({state, settings, view}) {
           last_start_time={state.last_start_time}
           total_solve_duration={state.total_solve_duration}
         />
-        <Grid puzzle={puzzle} cells={state.cells} view={view}/>
+        <Grid puzzle={puzzle} cells={state.cells} view={view} quote={quote} clearQuote={clearQuote}/>
         <Clues
           puzzle={puzzle}
           cells={state.cells}
@@ -78,7 +78,7 @@ function Footer() {
   );
 }
 
-function Grid({puzzle, cells, view}) {
+function Grid({puzzle, cells, view, quote, clearQuote}) {
   // Because we're rendering as a SVG we'll make the size of each cell fixed
   // regardless of the width or height of the puzzle.  We'll then change the
   // view box of the SVG to contain the complete puzzle adding padding where
@@ -136,11 +136,29 @@ function Grid({puzzle, cells, view}) {
   let width = s * puzzle.cols + b + B;
   let height = s * puzzle.rows + b + B;
 
+  // If we have a quote then create an overlay that contains the text of it.
+  let overlay;
+  if (Object.keys(quote).length !== 0) {
+    overlay = (
+      <foreignObject x={minX} y={minY} width={width} height={height}>
+        <div xmlns="http://www.w3.org/1999/xhtml" className="quote bg-dark">
+          <button type="button" className="close" aria-label="Close">
+            <span className="text-light" aria-hidden="true" onClick={clearQuote}>&times;</span>
+          </button>
+          <div className="text text-light" dangerouslySetInnerHTML={{__html: quote.text}}/>
+          <div className="title text-light">{quote.title.toLowerCase()}</div>
+          <div className="author text-light">{quote.author.toLowerCase()}</div>
+        </div>
+      </foreignObject>
+    );
+  }
+
   return (
     <div className="grid">
-      <svg className="grid" viewBox={`${minX} ${minY} ${width} ${height}`}>
+      <svg viewBox={`${minX} ${minY} ${width} ${height}`}>
         {boxes}
         {border}  {/* Add this after the cells so it's drawn on top. */}
+        {overlay}
       </svg>
     </div>
   );

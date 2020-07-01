@@ -11,22 +11,31 @@ import (
 // Additionally the puzzle contains a set of lettered clues and a mapping of
 // answer letters their position within the grid.  Lastly a puzzle has
 // various bits of interesting metadata such as the publication that the
-// crossword is from, the date that it was published as well as the author(s).
+// acrostic is from, the date that it was published as well as the author(s).
 type Puzzle struct {
 	// A human readable description of the puzzle
 	Description string `json:"description"`
 
-	// The number of rows in the crossword grid.
+	// The number of rows in the acrostic grid.
 	Rows int `json:"rows"`
 
-	// The number of columns in the crossword grid.
+	// The number of columns in the acrostic grid.
 	Cols int `json:"cols"`
 
-	// The publisher of the crossword.
+	// The publisher of the acrostic.
 	Publisher string `json:"publisher"`
 
-	// The date that the crossword was published.
+	// The date that the acrostic was published.
 	PublishedDate time.Time `json:"published"`
+
+	// The author of the acrostic.
+	Author string `json:"author"`
+
+	// The title of the book the acrostic is from.
+	Title string `json:"title"`
+
+	// The quote that the acrostic is from.
+	Quote string `json:"quote"`
 
 	// The cells of the acrostic as a 2D list, entries are the letter that belongs
 	// in the cell.  If a cell cannot be inputted into then it will contain the
@@ -70,6 +79,9 @@ func (p *Puzzle) WithoutSolution() *Puzzle {
 	puzzle.Cols = p.Cols
 	puzzle.Publisher = p.Publisher
 	puzzle.PublishedDate = p.PublishedDate
+	puzzle.Author = "" // The author is the first letter of some clue answers
+	puzzle.Title = ""  // The title is the first letter of some clue answers
+	puzzle.Quote = ""  // The quote is the first letter of some clue answers
 	puzzle.Cells = nil
 	puzzle.CellBlocks = p.CellBlocks
 	puzzle.CellNumbers = p.CellNumbers

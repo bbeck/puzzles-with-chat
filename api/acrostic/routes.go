@@ -415,6 +415,12 @@ func UpdateAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 			return
 		}
 
+		// Save these before hiding the solution because they'll be cleared because
+		// they're part of the solution.
+		author := state.Puzzle.Author
+		title := state.Puzzle.Title
+		quote := state.Puzzle.Quote
+
 		// Broadcast to all of the clients that the puzzle has been selected, making
 		// sure to not include the answers.  It's okay to overwrite the puzzle
 		// attribute because we just wrote this state instance to the database
@@ -425,7 +431,7 @@ func UpdateAnswer(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 
 		// If we've just finished the solve then send a complete event as well.
 		if state.Status == model.StatusComplete {
-			registry.Publish(ChannelID(channel), CompleteEvent())
+			registry.Publish(ChannelID(channel), CompleteEvent(author, title, quote))
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -493,9 +499,14 @@ func StateEvent(state State) pubsub.Event {
 	}
 }
 
-func CompleteEvent() pubsub.Event {
+func CompleteEvent(author, title, text string) pubsub.Event {
 	return pubsub.Event{
 		Kind: "complete",
+		Payload: map[string]string{
+			"author": author,
+			"title":  title,
+			"text":   text,
+		},
 	}
 }
 

@@ -681,6 +681,25 @@ func TestRoute_GetEvents(t *testing.T) {
 	assert.Equal(t, 1, len(events))
 	assert.Equal(t, "settings", events[0].Kind)
 
+	// Now complete the puzzle, this should cause a complete event to be sent.
+	solution := `"PEOPLE SELDOM APPRECIATE THE VAST KNOWLEDGE WHICH ORCHESTRA ` +
+		`PLAYERS POSSESS MOST OF THEM PLAY SEVERAL INSTRUMENTS AND THEY ALL HOLD ` +
+		`AS A CREED THAT A FALSE NOTE IS A SIN AND A VARIATION IN RHYTHM IS A ` +
+		`FALL FROM GRACE"`
+	response = Channel.PUT("/answer/1", solution, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	events = flush()
+	assert.Equal(t, 2, len(events)) // last state update event and complete event
+	assert.Equal(t, "complete", events[1].Kind)
+
+	complete := map[string]interface{}{
+		"author": "MABEL WAGNALLS",
+		"title":  "STARS OF THE OPERA",
+		"text":   `<p>People seldom appreciate the vast knowledge of music and the remarkable ability in sight-reading which these orchestra players possess. Not one of them but has worked at his art from childhood; most of them play several different instruments; and they all hold as a creed that a false note is a sin, and a variation in rhythm is a fall from grace.</p>`,
+	}
+	assert.Equal(t, complete, events[1].Payload)
+
 	// Disconnect, there shouldn't be any events anymore.
 	events = stop()
 	assert.Equal(t, 0, len(events))

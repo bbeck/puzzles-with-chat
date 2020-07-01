@@ -15,6 +15,10 @@ export function AcrosticApp(props) {
   // The current state of the app for the current channel.
   const [state, setState] = React.useState({});
 
+  // Whether or not we're currently showing the puzzle's quote
+  const [quote, setQuote] = React.useState({});
+  const clearQuote= () => { setQuote({}); }
+
   // Whether or not we're currently showing fireworks.
   const [showFireworks, setShowFireworks] = React.useState(false);
 
@@ -62,6 +66,9 @@ export function AcrosticApp(props) {
           setState(event.payload);
 
           if (event.payload.status === "selected") {
+            // Clear the quote from the previous puzzle if there is one.
+            clearQuote();
+
             // We just started a new puzzle -- scroll the clues back to the top
             // of the list.  There's 3 columns worth of clues though, so we have
             // to scroll each back to the top.
@@ -74,6 +81,7 @@ export function AcrosticApp(props) {
           break;
 
         case "complete":
+          setQuote(event.payload);
           setShowFireworks(true);
           setTimeout(() => setShowFireworks(false), 20000);
           break;
@@ -103,7 +111,7 @@ export function AcrosticApp(props) {
         </ul>
       </Nav>
 
-      <AcrosticView view={props.view} state={state} settings={settings}/>
+      <AcrosticView view={props.view} state={state} settings={settings} quote={quote} clearQuote={clearQuote}/>
       {showFireworks && <Fireworks/>}
     </>
   );

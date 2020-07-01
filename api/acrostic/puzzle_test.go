@@ -8,30 +8,49 @@ import (
 
 func TestPuzzle_WithoutSolution(t *testing.T) {
 	tests := []struct {
-		name  string
-		cells [][]string
+		name   string
+		puzzle *Puzzle
 	}{
 		{
-			name: "nil cells",
+			name:   "nil cells",
+			puzzle: &Puzzle{Cells: nil},
 		},
 		{
-			name:  "empty cells",
-			cells: [][]string{},
+			name:   "empty cells",
+			puzzle: &Puzzle{Cells: [][]string{}},
 		},
 		{
 			name: "non-empty cells",
-			cells: [][]string{
-				{"A", "B", "C"},
-				{"D", "E", "F"},
-				{"I", "H", "G"},
+			puzzle: &Puzzle{
+				Cells: [][]string{
+					{"A", "B", "C"},
+					{"D", "E", "F"},
+					{"I", "H", "G"},
+				},
 			},
+		},
+		{
+			name:   "author",
+			puzzle: &Puzzle{Author: "puzzle author"},
+		},
+		{
+			name:   "title",
+			puzzle: &Puzzle{Title: "puzzle title"},
+		},
+		{
+			name:   "quote",
+			puzzle: &Puzzle{Quote: "puzzle quote"},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			puzzle := &Puzzle{Cells: test.cells}
-			assert.Nil(t, puzzle.WithoutSolution().Cells)
+			puzzle := test.puzzle.WithoutSolution()
+
+			assert.Nil(t, puzzle.Cells)
+			assert.Empty(t, puzzle.Author)
+			assert.Empty(t, puzzle.Title)
+			assert.Empty(t, puzzle.Quote)
 		})
 	}
 }
