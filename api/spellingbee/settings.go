@@ -13,6 +13,9 @@ type Settings struct {
 	// When enabled unofficial answers will be allowed.
 	AllowUnofficialAnswers bool `json:"allow_unofficial_answers"`
 
+	// Whether or not to show answer placeholders.
+	ShowAnswerPlaceholders bool `json:"show_answer_placeholders"`
+
 	// What font size words should be rendered with.
 	FontSize model.FontSize `json:"font_size"`
 }

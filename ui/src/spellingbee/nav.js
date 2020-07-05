@@ -117,6 +117,18 @@ export function SettingsDropdown(props) {
           </div>
           <div className="dropdown-divider"/>
           <div className="dropdown-item">
+            <div className="lead">Show answer placeholders</div>
+            <div>
+              <small className="text-muted">
+                This setting enables showing a slot for every possible answer.
+                This is useful to help narrow down where undiscovered answers
+                fit in the alphabetical list of answers.
+              </small>
+            </div>
+            <Switch checked={settings.show_answer_placeholders} onClick={update("show_answer_placeholders", !settings.show_answer_placeholders)}/>
+          </div>
+          <div className="dropdown-divider"/>
+          <div className="dropdown-item">
             <div className="lead">Font size</div>
             <div>
               <small className="text-muted">

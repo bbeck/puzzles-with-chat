@@ -217,7 +217,7 @@ func InferLetters(words []string) (string, []string, error) {
 	return center, letters, nil
 }
 
-var NYTBeeFirstPuzzleDate = time.Date(2018, time.June, 29, 0, 0, 0, 0, time.UTC)
+var NYTBeeFirstPuzzleDate = time.Date(2018, time.July, 29, 0, 0, 0, 0, time.UTC)
 
 // LoadAvailableNYTBeeDates calculates the set of available dates for spelling
 // bee puzzles on the nytbee.com site.  Since the spelling bee puzzle is

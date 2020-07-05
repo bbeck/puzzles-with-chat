@@ -62,6 +62,7 @@ export function SpellingBeeView({view, state, settings}) {
         <Footer/>
       </div>
       <WordsList
+        show_placeholders={settings.show_answer_placeholders}
         font_size={settings.font_size}
         view={view}
         words={state.words}
@@ -161,36 +162,54 @@ function Cell(props) {
   );
 }
 
-function WordsList(props) {
-  const isProgress = props.view === "progress";
+function WordsList({show_placeholders, font_size, view, words, total}) {
+  const isProgress = view === "progress";
   const className = isProgress ? "word filled" : "word";
 
-  const words = props.words || [];
-  if (isProgress) {
-    // Obscure the answers when we're only showing progress.
+  // Helper to obscure answers when we're showing only progress.
+  const mask = (word, seed) => {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    for (let i = 0; i < words.length; i++) {
-      const word = words[i];
+    let masked = "";
+    for (let j = 0; j < word.length; j++) {
+      const index = Math.floor(Math.abs(Math.sin(seed + j) * 10000));
+      masked += alphabet[index % alphabet.length];
+    }
 
-      let masked = "";
-      for (let j = 0; j < word.length; j++) {
-        const index = Math.floor(Math.abs(Math.sin(i+j) * 10000));
-        masked += alphabet[index % alphabet.length];
+    return masked;
+  };
+
+  // Create a word entry for each provided word, indexed by the position in the
+  // list the word belongs at.  This will only insert entries for the words that
+  // have actually been provided.  Other indices will be missing.
+  const entries = {};
+  for (const [word, index] of Object.entries(words)) {
+    entries[index] = (
+      <div className={className} key={index}>
+        {!isProgress ? word : mask(word, index)}
+      </div>
+    );
+  }
+
+  // If we're showing all words, not just the ones that have been provided then
+  // we insert placeholder entries into the map.
+  if (show_placeholders) {
+    for (let index = 0; index < total; index++) {
+      if (!entries[index]) {
+        entries[index] = (
+          <div className={className} key={index}>&nbsp;</div>
+        );
       }
-
-      words[i] = masked;
     }
   }
 
   return (
-    <div className="word-list" data-font-size={props.font_size}>
-      <div className="header">Found <b>{words.length}</b> out of {props.total} words</div>
+    <div className="word-list" data-font-size={font_size}>
+      <div className="header">Found <b>{Object.keys(words).length}</b> out of {total} words</div>
       <div className="words">
         {
-          words.map((word, i) => {
-            return <div className={className} key={i}>{word}</div>;
-          })
+          // We have to make sure to iterate the entries in index order.
+          [...Array(total).keys()].map(index => entries[index])
         }
       </div>
     </div>

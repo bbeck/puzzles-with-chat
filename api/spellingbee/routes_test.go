@@ -133,9 +133,15 @@ func TestRoute_UpdateSetting(t *testing.T) {
 	VerifySettings(t, pool, events, func(s Settings) {
 		assert.Equal(t, model.FontSizeXLarge, s.FontSize)
 	})
+
+	response = Channel.PUT("/setting/show_answer_placeholders", `true`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifySettings(t, pool, events, func(s Settings) {
+		assert.True(t, s.ShowAnswerPlaceholders)
+	})
 }
 
-func TestRoute_UpdateSetting_ClearsUnofficialAnswers(t *testing.T) {
+func TestRoute_UpdateSetting_AllowUnofficialAnswers_ClearsAnswers(t *testing.T) {
 	// This acts as a small integration test toggling the AllowUnofficialAnswers
 	// setting and ensuring that it removes any unofficial answers.
 	router, pool, registry := NewTestRouter(t)
@@ -145,16 +151,147 @@ func TestRoute_UpdateSetting_ClearsUnofficialAnswers(t *testing.T) {
 	// Setup the state with some unofficial answers in it.
 	state := NewState(t, "nytbee-20200408.html")
 	state.Status = model.StatusSolving
-	state.Words = []string{"COCONUT", "CONCOCT", "CONCOCTOR", "CONTO"}
+	state.Words = map[string]int{
+		"COCONUT":   0,
+		"CONCOCT":   1,
+		"CONCOCTOR": 2,
+		"CONTO":     3,
+	}
 	require.NoError(t, SetState(conn, Channel.name, state))
 
 	// Set the AllowUnofficialAnswers setting to false
 	response := Channel.PUT("/setting/allow_unofficial_answers", `false`, router)
 	assert.Equal(t, http.StatusOK, response.Code)
 	VerifyState(t, pool, events, func(state State) {
-		expected := []string{"COCONUT", "CONCOCT"}
-		assert.ElementsMatch(t, expected, state.Words)
+		expected := map[string]int{
+			"COCONUT": 0,
+			"CONCOCT": 1,
+		}
+		assert.Equal(t, expected, state.Words)
 	})
+}
+
+func TestRoute_UpdateSetting_AllowUnofficialAnswers_RebuildsWordMap(t *testing.T) {
+	// This acts as a small integration test toggling the AllowUnofficialAnswers
+	// setting and ensuring that it reindexes the remaining answers.
+	router, pool, registry := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Setup the state with some unofficial answers in it.
+	state := NewState(t, "nytbee-20200408.html")
+	state.Status = model.StatusSolving
+	state.Words = map[string]int{
+		"COCONUT":   0,
+		"CONCOCT":   1,
+		"CONCOCTOR": 2,
+		"CONTO":     3,
+		"COUNTRY":   11,
+	}
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Set the AllowUnofficialAnswers setting to false
+	response := Channel.PUT("/setting/allow_unofficial_answers", `false`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		expected := map[string]int{
+			"COCONUT": 0,
+			"CONCOCT": 1,
+			"COUNTRY": 8,
+		}
+		assert.Equal(t, expected, state.Words)
+	})
+}
+
+func TestRoute_UpdateSetting_AllowUnofficialAnswers_SendsCompleteEvent(t *testing.T) {
+	// This acts as a small integration test toggling the AllowUnofficialAnswers
+	// setting and ensuring that when it clears unofficial answers if the puzzle
+	// is complete it sends the complete event.
+	router, pool, _ := NewTestRouter(t)
+	conn := NewRedisConnection(t, pool)
+
+	// AllowUnofficialAnswers in the settings.
+	settings := Settings{AllowUnofficialAnswers: true}
+	require.NoError(t, SetSettings(conn, Channel.name, settings))
+
+	// Setup the state with some unofficial answers in it.
+	state := NewState(t, "nytbee-20200408.html")
+	state.Status = model.StatusSolving
+
+	// These are all of the official answers plus an unofficial one.  Once we
+	// remove the unofficial answer the puzzle should be solved.
+	state.Words = map[string]int{
+		"COCONUT":   0,
+		"CONCOCT":   1,
+		"CONCOCTOR": 2,
+		"CONTORT":   4,
+		"CONTOUR":   5,
+		"COOT":      6,
+		"COTTON":    8,
+		"COTTONY":   9,
+		"COUNT":     10,
+		"COUNTRY":   11,
+		"COUNTY":    12,
+		"COURT":     13,
+		"CROUTON":   15,
+		"CURT":      18,
+		"CUTOUT":    19,
+		"NUTTY":     27,
+		"ONTO":      29,
+		"OUTCRY":    32,
+		"OUTRO":     33,
+		"OUTRUN":    37,
+		"ROOT":      38,
+		"ROTO":      40,
+		"ROTOR":     41,
+		"ROUT":      42,
+		"RUNOUT":    43,
+		"RUNT":      44,
+		"RUNTY":     45,
+		"RUTTY":     46,
+		"TONY":      49,
+		"TOON":      50,
+		"TOOT":      51,
+		"TORN":      53,
+		"TORO":      54,
+		"TORT":      57,
+		"TOUR":      60,
+		"TOUT":      61,
+		"TROT":      65,
+		"TROUT":     67,
+		"TROY":      69,
+		"TRYOUT":    70,
+		"TURN":      72,
+		"TURNOUT":   74,
+		"TUTOR":     76,
+		"TUTU":      78,
+		"TYCOON":    79,
+		"TYRO":      80,
+		"UNCUT":     81,
+		"UNTO":      83,
+		"YURT":      85,
+	}
+	require.NoError(t, SetState(conn, Channel.name, state))
+
+	// Start listening for events, we should receive 2 a settings event and a
+	// state event.
+	flush, stop := Channel.SSE("/events", router)
+	events := flush()
+	assert.Equal(t, 2, len(events))
+	assert.Equal(t, "settings", events[0].Kind)
+	assert.Equal(t, "state", events[1].Kind)
+
+	// Now toggle the AllowUnofficialAnswers setting to false.
+	response := Channel.PUT("/setting/allow_unofficial_answers", `false`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+
+	// We should have received 3 events, a settings event, the state event with
+	// the removed answer and a completed event.
+	events = stop()
+	assert.Equal(t, 3, len(events))
+	assert.Equal(t, "settings", events[0].Kind)
+	assert.Equal(t, "state", events[1].Kind)
+	assert.Equal(t, "complete", events[2].Kind)
 }
 
 func TestRoute_UpdateSetting_JSONError(t *testing.T) {
@@ -171,6 +308,11 @@ func TestRoute_UpdateSetting_JSONError(t *testing.T) {
 		{
 			name:    "font_size",
 			setting: "font_size",
+			json:    `{`,
+		},
+		{
+			name:    "show_answer_placeholders",
+			setting: "show_answer_placeholders",
 			json:    `{`,
 		},
 		{
@@ -782,7 +924,6 @@ func TestRoute_GetAvailableDates(t *testing.T) {
 			source: "new_york_times",
 			expected: []string{
 				NYTBeeFirstPuzzleDate.Format("2006-01-02"),
-				"2018-07-01",
 				"2018-08-01",
 				"2018-09-01",
 				"2018-10-01",

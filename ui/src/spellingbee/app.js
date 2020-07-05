@@ -9,6 +9,7 @@ export function SpellingBeeApp(props) {
   // The settings for the spelling bee app for the current channel.
   const [settings, setSettings] = React.useState({
     allow_unofficial_answers: false,
+    show_answer_placeholders: false,
     font_size: "normal"
   });
 

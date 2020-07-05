@@ -73,7 +73,7 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 			Status:  model.StatusSelected,
 			Puzzle:  puzzle,
 			Letters: puzzle.Letters,
-			Words:   make([]string, 0),
+			Words:   make(map[string]int),
 		}
 		if err := SetState(conn, channel, state); err != nil {
 			log.Printf("unable to save state for channel %s: %+v", channel, err)
@@ -112,7 +112,7 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 		}
 
 		// Apply the update to the settings in memory.
-		var shouldClearUnofficialWords bool
+		var shouldRebuildWordMap bool
 		switch setting {
 		case "allow_unofficial_answers":
 			var value bool
@@ -122,7 +122,7 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 				return
 			}
 			settings.AllowUnofficialAnswers = value
-			shouldClearUnofficialWords = !value
+			shouldRebuildWordMap = true
 
 		case "font_size":
 			var value model.FontSize
@@ -132,6 +132,15 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 				return
 			}
 			settings.FontSize = value
+
+		case "show_answer_placeholders":
+			var value bool
+			if err := render.DecodeJSON(r.Body, &value); err != nil {
+				log.Printf("unable to parse spelling bee show answer placeholders setting json %v: %+v", value, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			settings.ShowAnswerPlaceholders = value
 
 		default:
 			log.Printf("unrecognized spelling bee setting name %s", setting)
@@ -146,11 +155,11 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 			return
 		}
 
-		// Load the state and clear any unofficial words if we changed a setting
+		// Load the state and rebuild the word map if we changed a setting that
 		// requires this.  We do this after the setting is applied so that if there
 		// was an error earlier we don't modify the solve's state.
 		var updatedState *State
-		if shouldClearUnofficialWords {
+		if shouldRebuildWordMap {
 			state, err := GetState(conn, channel)
 			if err != nil {
 				log.Printf("unable to load state for channel %s: %+v", channel, err)
@@ -162,7 +171,7 @@ func UpdateSetting(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc
 			// started or is already complete.
 			status := state.Status
 			if status != model.StatusCreated && status != model.StatusSelected && status != model.StatusComplete {
-				state.ClearUnofficialAnswers()
+				state.RebuildWordMap(settings.AllowUnofficialAnswers)
 
 				// We may have just solved the puzzle -- if so then we should stop the
 				// timer before saving the state.

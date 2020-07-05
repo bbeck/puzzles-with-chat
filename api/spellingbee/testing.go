@@ -197,7 +197,7 @@ func NewState(t *testing.T, filename string) State {
 		Status:        model.StatusSelected,
 		Puzzle:        puzzle,
 		Letters:       puzzle.Letters,
-		Words:         make([]string, 0),
+		Words:         make(map[string]int),
 		Score:         0,
 		LastStartTime: &now,
 	}

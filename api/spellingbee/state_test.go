@@ -13,36 +13,46 @@ func TestState_ApplyAnswer_Words(t *testing.T) {
 	tests := []struct {
 		name            string
 		filename        string
-		initialWords    []string
+		initialWords    map[string]int
 		answer          string
 		allowUnofficial bool
-		expectedWords   []string
+		expectedWords   map[string]int
 	}{
 		{
 			name:          "answer from official list",
 			filename:      "nytbee-20200408.html",
+			initialWords:  make(map[string]int),
 			answer:        "COCONUT",
-			expectedWords: []string{"COCONUT"},
+			expectedWords: map[string]int{"COCONUT": 0},
 		},
 		{
 			name:            "answer from unofficial list",
 			filename:        "nytbee-20200408.html",
+			initialWords:    make(map[string]int),
 			answer:          "CONCOCTOR",
 			allowUnofficial: true,
-			expectedWords:   []string{"CONCOCTOR"},
+			expectedWords:   map[string]int{"CONCOCTOR": 2},
 		},
 		{
 			name:          "lowercase answer",
 			filename:      "nytbee-20200408.html",
+			initialWords:  make(map[string]int),
 			answer:        "coconut",
-			expectedWords: []string{"COCONUT"},
+			expectedWords: map[string]int{"COCONUT": 0},
 		},
 		{
-			name:          "words stay sorted",
-			filename:      "nytbee-20200408.html",
-			initialWords:  []string{"COUNTY", "CROUTON"},
-			answer:        "COURT",
-			expectedWords: []string{"COUNTY", "COURT", "CROUTON"},
+			name:     "existing indices preserved",
+			filename: "nytbee-20200408.html",
+			initialWords: map[string]int{
+				"COUNTY":  9,
+				"CROUTON": 11,
+			},
+			answer: "COURT",
+			expectedWords: map[string]int{
+				"COUNTY":  9,
+				"COURT":   10,
+				"CROUTON": 11,
+			},
 		},
 	}
 
@@ -490,7 +500,7 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 	tests := []struct {
 		name            string
 		filename        string
-		initialWords    []string
+		initialWords    map[string]int
 		answer          string
 		allowUnofficial bool
 	}{
@@ -502,7 +512,7 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 		{
 			name:         "already given answer",
 			filename:     "nytbee-20200408.html",
-			initialWords: []string{"COCONUT"},
+			initialWords: map[string]int{"COCONUT": 0},
 			answer:       "COCONUT",
 		},
 		{
@@ -534,56 +544,81 @@ func TestState_ApplyAnswer_Error(t *testing.T) {
 	}
 }
 
-func TestState_ClearUnofficialAnswers_Words(t *testing.T) {
+func TestState_RebuildWordMap(t *testing.T) {
 	tests := []struct {
-		name     string
-		filename string
-		answers  []string // The answers already given
-		expected []string // The expected answers
+		name            string
+		filename        string
+		allowUnofficial bool
+		answers         []string       // The answers already given
+		expected        map[string]int // The expected answers after rebuilding
 	}{
 		{
 			name:     "no answers",
 			filename: "nytbee-20200408.html",
+			expected: map[string]int{},
 		},
 		{
 			name:     "no unofficial answers",
 			filename: "nytbee-20200408.html",
-			answers: []string{
-				"COCONUT",
-				"CONCOCT",
-			},
-			expected: []string{
-				"COCONUT",
-				"CONCOCT",
+			answers:  []string{"COCONUT", "CONCOCT"},
+			expected: map[string]int{
+				"COCONUT": 0,
+				"CONCOCT": 1,
 			},
 		},
 		{
-			name:     "one unofficial answer",
-			filename: "nytbee-20200408.html",
-			answers: []string{
-				"CONCOCTOR",
+			name:            "one unofficial answer, no unofficial allowed",
+			filename:        "nytbee-20200408.html",
+			allowUnofficial: false,
+			answers:         []string{"CONCOCTOR"},
+			expected:        map[string]int{},
+		},
+		{
+			name:            "multiple unofficial answers, no unofficial allowed",
+			filename:        "nytbee-20200408.html",
+			allowUnofficial: false,
+			answers:         []string{"CONCOCTOR", "CONTO"},
+			expected:        map[string]int{},
+		},
+		{
+			name:            "mixed answers, no unofficial allowed",
+			filename:        "nytbee-20200408.html",
+			allowUnofficial: false,
+			answers:         []string{"COCONUT", "CONCOCT", "CONCOCTOR", "CONTO"},
+			expected: map[string]int{
+				"COCONUT": 0,
+				"CONCOCT": 1,
 			},
 		},
 		{
-			name:     "multiple unofficial answers",
-			filename: "nytbee-20200408.html",
-			answers: []string{
-				"CONCOCTOR",
-				"CONTO",
+			name:            "one unofficial answer, unofficial allowed",
+			filename:        "nytbee-20200408.html",
+			allowUnofficial: true,
+			answers:         []string{"CONCOCTOR"},
+			expected: map[string]int{
+				"CONCOCTOR": 2,
 			},
 		},
 		{
-			name:     "mixed unofficial answers",
-			filename: "nytbee-20200408.html",
-			answers: []string{
-				"COCONUT",
-				"CONCOCT",
-				"CONCOCTOR",
-				"CONTO",
+			name:            "multiple unofficial answers, no unofficial allowed",
+			filename:        "nytbee-20200408.html",
+			allowUnofficial: true,
+			answers:         []string{"CONCOCTOR", "CONTO"},
+			expected: map[string]int{
+				"CONCOCTOR": 2,
+				"CONTO":     3,
 			},
-			expected: []string{
-				"COCONUT",
-				"CONCOCT",
+		},
+		{
+			name:            "mixed answers, unofficial allowed",
+			filename:        "nytbee-20200408.html",
+			allowUnofficial: true,
+			answers:         []string{"COCONUT", "CONCOCT", "CONCOCTOR", "CONTO"},
+			expected: map[string]int{
+				"COCONUT":   0,
+				"CONCOCT":   1,
+				"CONCOCTOR": 2,
+				"CONTO":     3,
 			},
 		},
 	}
@@ -591,21 +626,23 @@ func TestState_ClearUnofficialAnswers_Words(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state := NewState(t, test.filename)
-			state.Words = test.answers
+			for i, word := range test.answers {
+				state.Words[word] = i
+			}
 
-			state.ClearUnofficialAnswers()
-
-			assert.ElementsMatch(t, test.expected, state.Words)
+			state.RebuildWordMap(test.allowUnofficial)
+			assert.Equal(t, test.expected, state.Words)
 		})
 	}
 }
 
-func TestState_ClearUnofficialAnswers_Score(t *testing.T) {
+func TestState_RebuildWordMap_Score(t *testing.T) {
 	tests := []struct {
-		name          string
-		filename      string
-		answers       []string // The answers already given
-		expectedScore int      // The expected score
+		name            string
+		filename        string
+		allowUnofficial bool
+		answers         []string // The answers already given
+		expectedScore   int      // The expected score after rebuilding
 	}{
 		{
 			name:          "no answers",
@@ -639,7 +676,7 @@ func TestState_ClearUnofficialAnswers_Score(t *testing.T) {
 			expectedScore: 0,
 		},
 		{
-			name:     "mixed unofficial answers",
+			name:     "mixed unofficial answers, no unofficial allowed",
 			filename: "nytbee-20200408.html",
 			answers: []string{
 				"COCONUT",
@@ -649,26 +686,40 @@ func TestState_ClearUnofficialAnswers_Score(t *testing.T) {
 			},
 			expectedScore: 14,
 		},
+		{
+			name:            "mixed unofficial answers, unofficial allowed",
+			filename:        "nytbee-20200408.html",
+			allowUnofficial: true,
+			answers: []string{
+				"COCONUT",
+				"CONCOCT",
+				"CONCOCTOR",
+				"CONTO",
+			},
+			expectedScore: 28,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state := NewState(t, test.filename)
-			state.Words = test.answers
+			for i, word := range test.answers {
+				state.Words[word] = i
+			}
 
-			state.ClearUnofficialAnswers()
-
+			state.RebuildWordMap(test.allowUnofficial)
 			assert.Equal(t, test.expectedScore, state.Score)
 		})
 	}
 }
 
-func TestState_ClearUnofficialAnswers_Status(t *testing.T) {
+func TestState_RebuildWordMap_Status(t *testing.T) {
 	tests := []struct {
-		name           string
-		filename       string
-		answers        []string     // The answers already given
-		expectedStatus model.Status // The expected status
+		name            string
+		filename        string
+		allowUnofficial bool
+		answers         []string     // The answers already given
+		expectedStatus  model.Status // The expected status after rebuilding
 	}{
 		{
 			name:           "no answers",
@@ -809,10 +860,11 @@ func TestState_ClearUnofficialAnswers_Status(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state := NewState(t, test.filename)
-			state.Words = test.answers
+			for i, word := range test.answers {
+				state.Words[word] = i
+			}
 
-			state.ClearUnofficialAnswers()
-
+			state.RebuildWordMap(test.allowUnofficial)
 			assert.Equal(t, test.expectedStatus, state.Status)
 		})
 	}

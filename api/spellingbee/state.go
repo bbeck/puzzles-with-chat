@@ -24,8 +24,8 @@ type State struct {
 	// letter.
 	Letters []string `json:"letters"`
 
-	// The currently discovered words the puzzle.
-	Words []string `json:"words"`
+	// The currently discovered words the puzzle mapping to their index.
+	Words map[string]int `json:"words"`
 
 	// The current score of the solve.
 	Score int `json:"score"`
@@ -42,84 +42,66 @@ type State struct {
 // ApplyAnswer applies an answer to the state.  If the answer cannot be applied
 // or is incorrect then an error is returned.
 func (s *State) ApplyAnswer(answer string, allowUnofficial bool) error {
-	allowed := map[string]bool{
-		s.Puzzle.CenterLetter: true,
-	}
-	for _, letter := range s.Puzzle.Letters {
-		allowed[letter] = true
-	}
-
-	contains := func(words []string, word string) bool {
-		index := sort.SearchStrings(words, word)
-		return index < len(words) && words[index] == word
-	}
-
-	// First, ensure the answer uses the proper letters.
 	answer = strings.ToUpper(answer)
-	for _, letter := range answer {
-		if !allowed[string(letter)] {
-			return fmt.Errorf("answer contains letter not in puzzle: %c", letter)
-		}
-	}
 
-	// Next, make sure the answer wasn't previously given.
-	if contains(s.Words, answer) {
+	// First, make sure the answer wasn't previously given.
+	if _, found := s.Words[answer]; found {
 		return errors.New("answer already given")
 	}
 
 	// Next, ensure the answer is in the list of allowed answers.
-	var allAnswers []string
-	allAnswers = append(allAnswers, s.Puzzle.OfficialAnswers...)
+	var answers []string
+	answers = append(answers, s.Puzzle.OfficialAnswers...)
 	if allowUnofficial {
-		allAnswers = append(allAnswers, s.Puzzle.UnofficialAnswers...)
+		answers = append(answers, s.Puzzle.UnofficialAnswers...)
 	}
-	sort.Strings(allAnswers)
+	sort.Strings(answers)
 
-	if !contains(allAnswers, answer) {
+	index, found := find(answers, answer)
+	if !found {
 		return errors.New("answer not in the list of allowed answers")
 	}
 
-	// Save the answer to the state and ensure they remain sorted.
-	s.Words = append(s.Words, answer)
-	sort.Strings(s.Words)
+	// Save the answer to the state along with it's index.
+	s.Words[answer] = index
 
 	// Update the score for this answer.
-	s.Score = s.Puzzle.ComputeScore(s.Words)
+	s.Score = s.Puzzle.ComputeScore(keys(s.Words))
 
 	// Lastly determine if we've found all of the answers and the puzzle is now
 	// complete.
-	if len(s.Words) == len(allAnswers) {
+	if len(s.Words) == len(answers) {
 		s.Status = model.StatusComplete
 	}
 
 	return nil
 }
 
-// ClearUnofficialAnswers goes through all of the provided answers for a puzzle
-// and removes any that are on the unofficial answers list.
-func (s *State) ClearUnofficialAnswers() {
-	contains := func(words []string, word string) bool {
-		index := sort.SearchStrings(words, word)
-		return index < len(words) && words[index] == word
+// RebuildWordMap rebuilds the words map using the set of answers specified by
+// the allowUnofficial parameter.  Words that are present that are no longer
+// permitted are removed, and indices are adjusted appropriately.
+func (s *State) RebuildWordMap(allowUnofficial bool) {
+	var answers []string
+	answers = append(answers, s.Puzzle.OfficialAnswers...)
+	if allowUnofficial {
+		answers = append(answers, s.Puzzle.UnofficialAnswers...)
 	}
+	sort.Strings(answers)
 
-	var updatedWords []string
-	for _, word := range s.Words {
-		if !contains(s.Puzzle.UnofficialAnswers, word) {
-			updatedWords = append(updatedWords, word)
+	words := make(map[string]int)
+	for word := range s.Words {
+		if index, found := find(answers, word); found {
+			words[word] = index
 		}
 	}
 
-	// Shouldn't need to re-sort because they were already in sorted order.
-	s.Words = updatedWords
+	s.Words = words
 
-	// Since we've modified the words slice we should update the answer.
-	s.Score = s.Puzzle.ComputeScore(s.Words)
+	// The words may have changed, update the score accordingly.
+	s.Score = s.Puzzle.ComputeScore(keys(s.Words))
 
-	// Lastly determine if the puzzle is now solved.  We can directly look at
-	// the official answers from the puzzle because we know we are only
-	// interested in them because this method removes all unofficial answers.
-	if len(s.Words) == len(s.Puzzle.OfficialAnswers) {
+	// Lastly determine if the puzzle is now solved.
+	if len(s.Words) == len(answers) {
 		s.Status = model.StatusComplete
 	}
 }
@@ -200,4 +182,18 @@ func GetAllChannels(conn db.Connection) ([]model.Channel, error) {
 	})
 
 	return channels, nil
+}
+
+func find(words []string, word string) (int, bool) {
+	index := sort.SearchStrings(words, word)
+	found := index < len(words) && words[index] == word
+	return index, found
+}
+
+func keys(words map[string]int) []string {
+	var keys []string
+	for key := range words {
+		keys = append(keys, key)
+	}
+	return keys
 }
