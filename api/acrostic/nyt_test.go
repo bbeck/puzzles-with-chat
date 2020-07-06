@@ -1,9 +1,12 @@
 package acrostic
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -49,12 +52,6 @@ func TestParseAuthorAndTitle(t *testing.T) {
 			expectedTitle:  "THE NEW SHADE GARDEN",
 		},
 		{
-			name:           "hyphen separator",
-			quote:          "KEN DRUSE, THE NEW SHADE GARDEN - Plants are moving...",
-			expectedAuthor: "KEN DRUSE",
-			expectedTitle:  "THE NEW SHADE GARDEN",
-		},
-		{
 			name:           "quote in author",
 			quote:          "CONAN O'BRIEN, IN THE YEAR 2000 — ...",
 			expectedAuthor: "CONAN O'BRIEN",
@@ -78,41 +75,79 @@ func TestParseAuthorAndTitle(t *testing.T) {
 			expectedAuthor: "FRANS DE WAAL",
 			expectedTitle:  "MAMA'S LAST HUG",
 		},
+		{
+			name:           "2000-01-02",
+			quote:          "S(TEPHEN) J(AY) GOULD: DINOSAUR IN A HAYSTACK — A sixth-century monk ...",
+			expectedAuthor: "STEPHEN JAY GOULD",
+			expectedTitle:  "DINOSAUR IN A HAYSTACK",
+		},
+		{
+			name:           "2000-01-16",
+			quote:          "L(ANGSTON) HUGHES: SIMPLE TAKES A WIFE — Bop is ... not to be dug unless you&#39;ve seen dark days, too. Folks who ain&#39;t suffered ... think it&#39;s just crazy crazy. They do not know Bop is also MAD crazy, SAD crazy, FRANTIC WILD CRAZY — beat out of somebody&#39;s head! That&#39;s what Bop is.",
+			expectedAuthor: "LANGSTON HUGHES",
+			expectedTitle:  "SIMPLE TAKES A WIFE",
+		},
+		{
+			name:           "2000-01-30",
+			quote:          "It&#39;s impossible to duplicate... the conditions",
+			expectedAuthor: "",
+			expectedTitle:  "",
+		},
+		{
+			name:           "2000-02-13",
+			quote:          "DAVE BARRY TURNS FORTY — It&#39;s not easy to maintain",
+			expectedAuthor: "",
+			expectedTitle:  "DAVE BARRY TURNS FORTY",
+		},
+		{
+			name:           "2000-03-26",
+			quote:          "(JONATHAN) LETHEM, MOTHERLESS BROOKLYN - I&#39;ve got Tourette&#39;s.",
+			expectedAuthor: "JONATHAN LETHEM",
+			expectedTitle:  "MOTHERLESS BROOKLYN",
+		},
+		{
+			name:           "2001-01-14",
+			quote:          "(BILL) BRYSON: THE MOTHER TONGUE — The average English speaker ...",
+			expectedAuthor: "BILL BRYSON",
+			expectedTitle:  "THE MOTHER TONGUE",
+		},
+		{
+			name:           "2003-04-20",
+			quote:          "DIANE ACKERMAN, MUTE DANCERS (HOW TO WATCH A HUMMINGBIRD) - [Hummingbirds] spell out their ...",
+			expectedAuthor: "DIANE ACKERMAN",
+			expectedTitle:  "MUTE DANCERS HOW TO WATCH A HUMMINGBIRD",
+		},
+		{
+			name:           "2004-03-21",
+			quote:          "THE WPA GUIDE TO FLORIDA — Diddy-Wah-Diddy ...",
+			expectedAuthor: "",
+			expectedTitle:  "THE WPA GUIDE TO FLORIDA",
+		},
+		{
+			name:           "2008-01-06",
+			quote:          "[HARPER] LEE, TO KILL A MOCKINGBIRD — Never...",
+			expectedAuthor: "HARPER LEE",
+			expectedTitle:  "TO KILL A MOCKINGBIRD",
+		},
+		{
+			name:           "2010-03-14",
+			quote:          "(SYLVIA TOWNSEND) WARNER, MR. FORTUNE&#39;S MAGGOT - Most Englishmen ...",
+			expectedAuthor: "SYLVIA TOWNSEND WARNER",
+			expectedTitle:  "MR. FORTUNE'S MAGGOT",
+		},
+		{
+			name:           "2016-01-24",
+			quote:          "(V.S.) RAMACHANDRAN, (THE) TELL-TALE BRAIN — How can a three-pound ...",
+			expectedAuthor: "V.S. RAMACHANDRAN",
+			expectedTitle:  "THE TELL-TALE BRAIN",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			author, title, err := ParseAuthorAndTitle(test.quote)
-
-			require.NoError(t, err)
+			author, title := ParseAuthorAndTitle(test.quote)
 			assert.Equal(t, test.expectedAuthor, author)
 			assert.Equal(t, test.expectedTitle, title)
-		})
-	}
-}
-
-func TestParseAuthorAndTitle_Error(t *testing.T) {
-	tests := []struct {
-		name  string
-		quote string
-	}{
-		{
-			name: "empty quote",
-		},
-		{
-			name:  "whitespace only quote",
-			quote: " ",
-		},
-		{
-			name:  "no delimeters",
-			quote: "KEN DRUSE THE NEW SHADE GARDEN Plants are moving...",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, _, err := ParseAuthorAndTitle(test.quote)
-			assert.Error(t, err)
 		})
 	}
 }
@@ -568,16 +603,6 @@ func TestParseXWordInfoPuzzleResponse_Error(t *testing.T) {
                 "answerKey": "answers go here",
 								"clues": ["A"],
                 "clueData": ["1,2,a,3"]
-							}`,
-		},
-		{
-			name: "unable to extract title and author",
-			input: `{
-                "date": "1/1/2001",
-                "answerKey": "answers go here",
-								"clues": ["A"],
-                "clueData": ["1"],
-                "quote": "author and title with no delimeters"
 							}`,
 		},
 	}

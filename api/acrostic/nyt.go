@@ -185,10 +185,7 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 		clueNumbers[letter] = nums
 	}
 
-	author, title, err := ParseAuthorAndTitle(raw.Quote)
-	if err != nil {
-		return nil, err
-	}
+	author, title := ParseAuthorAndTitle(raw.Quote)
 
 	var puzzle Puzzle
 	puzzle.Description = fmt.Sprintf("New York Times puzzle from %s", published.Format("2006-01-02"))
@@ -209,36 +206,55 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 	return &puzzle, nil
 }
 
-// A regular expression that matches the author and title of and acrostic.  This
-// is meant to be executed on the quote field for an xwordinfo.com JSON API
-// response.
-var AuthorTitleRegexp = regexp.MustCompile(
-	`^(?P<author>[^,]+), (?P<title>[^-–—]+) [-–—]`,
-)
+// A set of regular expressions to use to extract the author and title of an
+// acrostic.  These will be tried in order and the first one to return a match
+// is the one that is used.
+var AuthorTitleRegexps = []*regexp.Regexp{
+	// Most of the time the author and title are easy to extract, the author is
+	// the beginning of the string up until a comma and the title is from the
+	// comma until a — (not a hyphen) character.
+	//
+	// Some examples:
+	//   KEN DRUSE, THE NEW SHADE GARDEN — Plants are moving...
+	//   (MABEL) WAGNALLS, STARS OF THE OPERA — People...
+	//   (DORIS) NASH-WORTMAN, TITLE — Quote...
+	regexp.MustCompile(`^(?P<author>[^,:]+)[,:] (?P<title>[^—]+) —`),
+
+	// Sometimes however they use a hyphen character to separate the author and
+	// title from the rest of the quote.  But more often than this there are
+	// authors that have hyphenated last names, so we try the unicode character
+	// from above first.
+	regexp.MustCompile(`^(?P<author>[^,:]+)[,:] (?P<title>[^-]+) -`),
+
+	// Sometimes there's just a title and no author.
+	regexp.MustCompile(`(?P<author>)(?P<title>[^—]+) —`),
+}
 
 // ParseAuthorAndTitle extracts the author name and title from the quote field
-// of the xwordinfo.com JSON API response.  If the author cannot be determined
-// then an error is returned.
-func ParseAuthorAndTitle(s string) (string, string, error) {
-	if match := AuthorTitleRegexp.FindStringSubmatch(s); len(match) != 0 {
-		author := match[1]
-		title := match[2]
-
-		// Sometimes the author has special characters in it that are escaped or
-		// it's too long relative to the number of clues and they leave off the
-		// first name.  When this happens the first name is surrounded by
-		// parentheses that need to be removed.
-		author = html.UnescapeString(author)
-		author = strings.ReplaceAll(author, "(", "")
-		author = strings.ReplaceAll(author, ")", "")
-
-		// Sometimes the title has special characters in it that are escaped.
-		title = html.UnescapeString(title)
-
-		return author, title, nil
+// of the xwordinfo.com JSON API response.
+func ParseAuthorAndTitle(s string) (string, string) {
+	// Sometimes the author and title have special characters in them or are too
+	// long to fit the clues so they surround some words with parentheses or
+	// brackets to indicate that they were left out.
+	sanitize := func(s string) string {
+		s = html.UnescapeString(s)
+		s = strings.ReplaceAll(s, "(", "")
+		s = strings.ReplaceAll(s, ")", "")
+		s = strings.ReplaceAll(s, "[", "")
+		s = strings.ReplaceAll(s, "]", "")
+		s = strings.Trim(s, " ")
+		return s
 	}
 
-	return "", "", fmt.Errorf("unable to determine author and title from quote: %s", s)
+	for _, regex := range AuthorTitleRegexps {
+		if match := regex.FindStringSubmatch(s); len(match) != 0 {
+			author := sanitize(match[1])
+			title := sanitize(match[2])
+			return author, title
+		}
+	}
+
+	return "", ""
 }
 
 var ClueLetters = []string{
