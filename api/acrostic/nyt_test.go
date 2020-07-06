@@ -1,12 +1,9 @@
 package acrostic
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -148,6 +145,52 @@ func TestParseAuthorAndTitle(t *testing.T) {
 			author, title := ParseAuthorAndTitle(test.quote)
 			assert.Equal(t, test.expectedAuthor, author)
 			assert.Equal(t, test.expectedTitle, title)
+		})
+	}
+}
+
+func TestParseQuote(t *testing.T) {
+	tests := []struct {
+		name     string
+		quote    string
+		expected string
+	}{
+		{
+			name:     "basic quote",
+			quote:    "KEN DRUSE, THE NEW SHADE GARDEN — Plants are moving...",
+			expected: "Plants are moving...",
+		},
+		{
+			name:     "trims leading whitespace",
+			quote:    "KEN DRUSE, THE NEW SHADE GARDEN —  Plants are moving...",
+			expected: "Plants are moving...",
+		},
+		{
+			name:     "trims trailing whitespace",
+			quote:    "KEN DRUSE, THE NEW SHADE GARDEN — Plants are moving... ",
+			expected: "Plants are moving...",
+		},
+		{
+			name:     "html character code",
+			quote:    "A LITTLE BOOK OF YANKEE HUMOR — &quot;I don&#39;t know about your...",
+			expected: `"I don't know about your...`,
+		},
+		{
+			name:     "quote characters",
+			quote:    `A LITTLE BOOK OF YANKEE HUMOR — "I don't know about your...`,
+			expected: `"I don't know about your...`,
+		},
+		{
+			name:     "no author or title",
+			quote:    "No author or title...",
+			expected: "No author or title...",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			quote := ParseQuote(test.quote)
+			assert.Equal(t, test.expected, quote)
 		})
 	}
 }
@@ -342,6 +385,17 @@ func TestParseXWordInfoPuzzleResponse(t *testing.T) {
 					"childhood; most of them play several different instruments; and " +
 					"they all hold as a creed that a false note is a sin, and a " +
 					"variation in rhythm is a fall from grace.</p>"
+				assert.Equal(t, expected, puzzle.Quote)
+			},
+		},
+		{
+			name:  "no full quote field",
+			input: load(t, "xwordinfo-nyt-20020811-no-full-quote.json"),
+			verify: func(t *testing.T, puzzle *Puzzle) {
+				expected := `"I don't know about your farm in Maine, mister, but I ` +
+					`have a ranch in Texas and it takes me five days to drive around ` +
+					`my entire spread," says the Texan. The Maine farmer replies, "Oh ` +
+					`yes, I have a car just like that myself."`
 				assert.Equal(t, expected, puzzle.Quote)
 			},
 		},

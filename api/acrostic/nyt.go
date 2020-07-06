@@ -187,6 +187,13 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 
 	author, title := ParseAuthorAndTitle(raw.Quote)
 
+	// Sometimes the FullQuote field is empty, when that happens use the quote
+	// field to determine the quote the puzzle is from.
+	quote := raw.FullQuote
+	if quote == "" {
+		quote = ParseQuote(raw.Quote)
+	}
+
 	var puzzle Puzzle
 	puzzle.Description = fmt.Sprintf("New York Times puzzle from %s", published.Format("2006-01-02"))
 	puzzle.Rows = raw.Rows
@@ -195,7 +202,7 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 	puzzle.PublishedDate = published
 	puzzle.Author = author
 	puzzle.Title = title
-	puzzle.Quote = raw.FullQuote
+	puzzle.Quote = quote
 	puzzle.Cells = cells
 	puzzle.CellBlocks = blocks
 	puzzle.CellNumbers = numbers
@@ -255,6 +262,40 @@ func ParseAuthorAndTitle(s string) (string, string) {
 	}
 
 	return "", ""
+}
+
+// A set of regular expressions to use to extract the quote of an acrostic.
+var QuoteRegexps = []*regexp.Regexp{
+	// Most of the time the author and title are separated from the quote by a
+	// unicode — (not a hyphen) character and continues to the end of the line.
+	//
+	// Some examples:
+	//   KEN DRUSE, THE NEW SHADE GARDEN — Plants are moving...
+	//   (MABEL) WAGNALLS, STARS OF THE OPERA — People...
+	//   (DORIS) NASH-WORTMAN, TITLE — Quote...
+	regexp.MustCompile(`^(?P<author_and_title>[^—]+) — (?P<quote>.+)$`),
+}
+
+func ParseQuote(s string) string {
+	// Sometimes the quote has special characters in it that needs to be
+	// sanitized.
+	sanitize := func(s string) string {
+		s = html.UnescapeString(s)
+		s = strings.ReplaceAll(s, "[", "")
+		s = strings.ReplaceAll(s, "]", "")
+		s = strings.Trim(s, " ")
+		return s
+	}
+
+	for _, regex := range QuoteRegexps {
+		if match := regex.FindStringSubmatch(s); len(match) != 0 {
+			return sanitize(match[2])
+		}
+	}
+
+	// If we couldn't locate the quote then return the full string.  It'll
+	// probably have the author and title in it, but that's better than nothing.
+	return sanitize(s)
 }
 
 var ClueLetters = []string{
