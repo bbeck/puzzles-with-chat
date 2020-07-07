@@ -615,6 +615,32 @@ func TestState_ApplyCellAnswer_Cells(t *testing.T) {
 				assert.Equal(t, "E", state.Cells[0][5])
 			},
 		},
+		{
+			name:     "given character",
+			filename: "xwordinfo-nyt-20011007-given-cell.json",
+			start:    122,
+			answer:   "POST-SHAKESPEAREAN",
+			verify: func(t *testing.T, state State) {
+				assert.Equal(t, "P", state.Cells[5][14])
+				assert.Equal(t, "O", state.Cells[5][15])
+				assert.Equal(t, "S", state.Cells[5][16])
+				assert.Equal(t, "T", state.Cells[5][17])
+
+				assert.Equal(t, "S", state.Cells[5][19])
+				assert.Equal(t, "H", state.Cells[5][20])
+				assert.Equal(t, "A", state.Cells[5][21])
+				assert.Equal(t, "K", state.Cells[5][22])
+				assert.Equal(t, "E", state.Cells[5][23])
+				assert.Equal(t, "S", state.Cells[5][24])
+				assert.Equal(t, "P", state.Cells[5][25])
+				assert.Equal(t, "E", state.Cells[5][26])
+				assert.Equal(t, "A", state.Cells[6][0])
+				assert.Equal(t, "R", state.Cells[6][1])
+				assert.Equal(t, "E", state.Cells[6][2])
+				assert.Equal(t, "A", state.Cells[6][3])
+				assert.Equal(t, "N", state.Cells[6][4])
+			},
+		},
 	}
 
 	for _, test := range tests {

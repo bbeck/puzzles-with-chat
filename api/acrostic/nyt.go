@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // LoadFromNewYorkTimes loads an acrostic puzzle from the New York Times for a
@@ -139,6 +140,17 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 		}
 	}
 
+	var givens [][]string
+	for row := 0; row < raw.Rows; row++ {
+		givens = append(givens, make([]string, raw.Cols))
+		for col := 0; col < raw.Cols; col++ {
+			index := row*raw.Cols + col
+			if raw.AnswerKey[index] != ' ' && raw.GridNumbers[index] == 0 {
+				givens[row][col] = string(raw.AnswerKey[index])
+			}
+		}
+	}
+
 	var blocks [][]bool
 	for row := 0; row < raw.Rows; row++ {
 		blocks = append(blocks, make([]bool, raw.Cols))
@@ -162,7 +174,7 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 		letters = append(letters, make([]string, raw.Cols))
 		for col := 0; col < raw.Cols; col++ {
 			letter := raw.GridLetters[row*raw.Cols+col]
-			if letter != ' ' {
+			if unicode.IsLetter(rune(letter)) {
 				letters[row][col] = string(letter)
 			}
 		}
@@ -204,6 +216,7 @@ func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 	puzzle.Title = title
 	puzzle.Quote = quote
 	puzzle.Cells = cells
+	puzzle.Givens = givens
 	puzzle.CellBlocks = blocks
 	puzzle.CellNumbers = numbers
 	puzzle.CellClueLetters = letters

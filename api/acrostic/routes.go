@@ -70,10 +70,16 @@ func UpdatePuzzle(pool *redis.Pool, registry *pubsub.Registry) http.HandlerFunc 
 		conn := pool.Get()
 		defer func() { _ = conn.Close() }()
 
-		// Save the puzzle to this channel's state
+		// Initialize the cell values.  Most cells will be empty with the exception
+		// of cells containing givens.
 		cells := make([][]string, puzzle.Rows)
 		for row := 0; row < puzzle.Rows; row++ {
 			cells[row] = make([]string, puzzle.Cols)
+			for col := 0; col < puzzle.Cols; col++ {
+				if puzzle.Givens[row][col] != "" {
+					cells[row][col] = puzzle.Givens[row][col]
+				}
+			}
 		}
 
 		state := State{

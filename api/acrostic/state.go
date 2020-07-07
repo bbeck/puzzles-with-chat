@@ -139,6 +139,19 @@ func (s *State) ApplyCellAnswer(start int, answer string, onlyCorrect bool) erro
 	answer = strings.ReplaceAll(answer, " ", "")
 	answer = strings.ToUpper(answer)
 
+	// We also ignore any given characters in the puzzle (such as hyphens) as well
+	// that might be in the answer.  It's common that they're typed as part of the
+	// answer.
+	for y := 0; y < s.Puzzle.Rows; y++ {
+		for x := 0; x < s.Puzzle.Cols; x++ {
+			given := s.Puzzle.Givens[y][x]
+			if given != "" {
+				fmt.Printf("given: %s\n", given)
+				answer = strings.ReplaceAll(answer, given, "")
+			}
+		}
+	}
+
 	// Ensure that we have a non-empty answer.
 	if len(answer) == 0 {
 		return fmt.Errorf("empty answer")

@@ -48,6 +48,23 @@ func TestRoute_UpdatePuzzle_NewYorkTimes(t *testing.T) {
 	})
 }
 
+func TestRoute_UpdatePuzzle_NewYorkTimes_WithGivens(t *testing.T) {
+	// This acts as a small integration test updating the date of the New York
+	// Times acrostic we're working on and ensuring the proper values are written
+	// to the database.
+	router, pool, registry := NewTestRouter(t)
+	events := NewEventSubscription(t, registry, Channel.name)
+
+	// Force a specific puzzle to be loaded so we don't make a network call.
+	ForcePuzzleToBeLoaded(t, "xwordinfo-nyt-20011007-given-cell.json")
+
+	response := Channel.PUT("/", `{"new_york_times_date": "2001-10-07"}`, router)
+	assert.Equal(t, http.StatusOK, response.Code)
+	VerifyState(t, pool, events, func(state State) {
+		assert.Equal(t, "-", state.Cells[5][18])
+	})
+}
+
 func TestRoute_UpdatePuzzle_JSONError(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -43,6 +43,13 @@ type Puzzle struct {
 	// cell and then by the column coordinate of the cell.
 	Cells [][]string `json:"cells,omitempty"`
 
+	// The givens of the acrostic as a 2D list.  A given is a cell in the acrostic
+	// that has a value, but no cell number or corresponding clue letter.  If a
+	// cell is not a given then it will contain the empty string.  Like cells the
+	// 2D list is first indexed by the row coordinate of the cell and then by the
+	// column coordinate.
+	Givens [][]string `json:"givens,omitempty"`
+
 	// The block attribute for each of the cells in the acrostic as a 2D list.
 	// Cells that cannot be inputted into will contain an entry of true, all other
 	// cells will contain an entry of false.  Like cells the 2D list is first
@@ -83,6 +90,7 @@ func (p *Puzzle) WithoutSolution() *Puzzle {
 	puzzle.Title = ""  // The title is the first letter of some clue answers
 	puzzle.Quote = ""  // The quote is the first letter of some clue answers
 	puzzle.Cells = nil
+	puzzle.Givens = p.Givens
 	puzzle.CellBlocks = p.CellBlocks
 	puzzle.CellNumbers = p.CellNumbers
 	puzzle.CellClueLetters = p.CellClueLetters
