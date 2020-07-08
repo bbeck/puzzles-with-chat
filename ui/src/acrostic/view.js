@@ -141,7 +141,7 @@ function Grid({puzzle, cells, view, quote, clearQuote}) {
   if (Object.keys(quote).length !== 0) {
     overlay = (
       <foreignObject x={minX} y={minY} width={width} height={height}>
-        <div xmlns="http://www.w3.org/1999/xhtml" className="quote bg-dark">
+        <div xmlns="http://www.w3.org/1999/xhtml" className="quote bg-dark overflow-auto">
           <button type="button" className="close" aria-label="Close">
             <span className="text-light" aria-hidden="true" onClick={clearQuote}>&times;</span>
           </button>
