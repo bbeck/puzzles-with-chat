@@ -1,5 +1,19 @@
 import React from "react";
 
+export function TwitchChat({channel}) {
+  const parent = document.location.hostname;
+
+  return (
+    <iframe
+      className="chat"
+      title="chat"
+      frameBorder="0"
+      src={`https://www.twitch.tv/embed/${channel}/chat?parent=${parent}`}
+      scrolling="yes"
+    />
+  );
+}
+
 export function Timer({total_solve_duration, last_start_time}) {
   // Parse the duration into the total number of seconds that the solve has
   // accumulated prior to this most recent start.

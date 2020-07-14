@@ -1,7 +1,7 @@
 import React from "react";
 import "bootstrap/dist/js/bootstrap.bundle.min";
 import "bootstrap/dist/css/bootstrap.min.css";
-import {Timer} from "common/view";
+import {Timer, TwitchChat} from "common/view";
 import "crossword/view.css";
 
 export function CrosswordView(props) {
@@ -57,6 +57,7 @@ export function CrosswordView(props) {
   const total_solve_duration = state.total_solve_duration;
   const settings = props.settings;
   const view = props.view;
+  const channel = props.channel;
 
   return (
     <div id="crossword" className={status === "selected" || status === "paused" ? "blur" : ""} data-size={Math.max(puzzle.cols, puzzle.rows)}>
@@ -81,6 +82,7 @@ export function CrosswordView(props) {
         clues_to_show={settings.clues_to_show}
         show_notes={settings.show_notes}
       />
+      { view === "player" && <TwitchChat channel={channel}/> }
     </div>
   );
 }

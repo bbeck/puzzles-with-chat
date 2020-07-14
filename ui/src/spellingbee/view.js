@@ -1,10 +1,10 @@
 import React from "react";
 import "bootstrap/dist/js/bootstrap.bundle.min";
 import "bootstrap/dist/css/bootstrap.min.css";
-import {Timer} from "common/view";
+import {Timer, TwitchChat} from "common/view";
 import "spellingbee/view.css";
 
-export function SpellingBeeView({view, state, settings}) {
+export function SpellingBeeView({channel, view, state, settings}) {
   if (!state.puzzle) {
     return (
       <div className="jumbotron">
@@ -68,6 +68,7 @@ export function SpellingBeeView({view, state, settings}) {
         words={state.words}
         total={total_num_words}
       />
+      { view === "player" && <TwitchChat channel={channel}/> }
     </div>
   );
 }

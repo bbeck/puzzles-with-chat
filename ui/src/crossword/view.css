@@ -67,7 +67,6 @@
 #crossword {
   height: 650px;
   padding: 5px 0 0 5px;
-  width: 1001px;
 }
 #crossword .puzzle .header,
 #crossword .puzzle .footer {
@@ -76,6 +75,9 @@
 #crossword .puzzle .grid {
   height: 591px;
   width: 591px;
+}
+#crossword .clues {
+  width: 401px;
 }
 #crossword .clues[data-font-size="normal"] .clue-list .number {
   max-width: 25px;
@@ -91,6 +93,9 @@
   max-width: 35px;
   min-width: 35px;
   width: 35px;
+}
+#crossword .chat {
+  width: 250px;
 }
 
 

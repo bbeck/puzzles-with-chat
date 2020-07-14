@@ -2,9 +2,9 @@ import React from "react";
 import "bootstrap/dist/js/bootstrap.bundle.min";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "acrostic/view.css";
-import {Timer} from "../common/view";
+import {Timer, TwitchChat} from "../common/view";
 
-export function AcrosticView({state, settings, view, quote, clearQuote}) {
+export function AcrosticView({state, settings, channel, view, quote, clearQuote}) {
   const puzzle = state && state.puzzle;
   if (!state || !puzzle) {
     return (
@@ -51,6 +51,7 @@ export function AcrosticView({state, settings, view, quote, clearQuote}) {
         />
         <Footer/>
       </div>
+      { view === "player" && <TwitchChat channel={channel}/> }
     </div>
   );
 }

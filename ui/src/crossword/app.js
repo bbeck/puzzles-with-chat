@@ -116,8 +116,12 @@ export function CrosswordApp(props) {
           <PuzzleDropdown channel={props.channel} setErrorMessage={setError}/>
         </ul>
       </Nav>
-
-      <CrosswordView view={props.view} state={state} settings={settings}/>
+      <CrosswordView
+        channel={props.channel}
+        view={props.view}
+        state={state}
+        settings={settings}
+      />
       {showFireworks && <Fireworks/>}
     </>
   );

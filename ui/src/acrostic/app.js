@@ -110,8 +110,14 @@ export function AcrosticApp(props) {
           <PuzzleDropdown channel={props.channel} setErrorMessage={setError}/>
         </ul>
       </Nav>
-
-      <AcrosticView view={props.view} state={state} settings={settings} quote={quote} clearQuote={clearQuote}/>
+      <AcrosticView
+        channel={props.channel}
+        view={props.view}
+        state={state}
+        settings={settings}
+        quote={quote}
+        clearQuote={clearQuote}
+      />
       {showFireworks && <Fireworks/>}
     </>
   );

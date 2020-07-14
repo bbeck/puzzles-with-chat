@@ -67,6 +67,10 @@
 #acrostic .puzzle .clues .clue-row .clue-boxes {
   height: 35px;
 }
+#acrostic .chat {
+  padding: 0 0 0 5px;
+  width: 250px;
+}
 
 /*
   Styling of all of the elements on the page.  This defines how things should

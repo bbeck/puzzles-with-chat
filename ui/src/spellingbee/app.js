@@ -86,8 +86,12 @@ export function SpellingBeeApp(props) {
           <PuzzleDropdown channel={props.channel} setErrorMessage={setError}/>
         </ul>
       </Nav>
-
-      <SpellingBeeView view={props.view} state={state} settings={settings}/>
+      <SpellingBeeView
+        channel={props.channel}
+        view={props.view}
+        state={state}
+        settings={settings}
+      />
       {showFireworks && <Fireworks/>}
     </>
   );
