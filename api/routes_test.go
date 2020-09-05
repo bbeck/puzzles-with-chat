@@ -58,6 +58,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel1",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2018-12-31",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.December, 31, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
@@ -78,6 +82,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel1",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2018-12-31",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.December, 31, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["crossword"])
 	assert.ElementsMatch(t, []model.Channel{
@@ -85,6 +93,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel2",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2018-07-29",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.July, 29, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["spellingbee"])
 
@@ -104,6 +116,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel1",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2018-12-31",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.December, 31, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["crossword"])
 	assert.ElementsMatch(t, []model.Channel{
@@ -111,6 +127,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel2",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2018-07-29",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.July, 29, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["spellingbee"])
 	assert.ElementsMatch(t, []model.Channel{
@@ -118,6 +138,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel3",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2020-05-24",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2020, time.May, 24, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["acrostic"])
 
@@ -137,6 +161,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel1",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2018-12-31",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.December, 31, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
@@ -145,6 +173,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel3",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2020-05-24",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2020, time.May, 24, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["acrostic"])
 
@@ -164,6 +196,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel1",
 			Status:      model.StatusSolving,
 			Description: "New York Times puzzle from 2018-12-31",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.December, 31, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])
@@ -186,6 +222,10 @@ func TestRoute_GetChannels(t *testing.T) {
 			Name:        "channel1",
 			Status:      model.StatusSelected,
 			Description: "New York Times puzzle from 2018-12-27",
+			Puzzle: model.PuzzleSource{
+				Publisher:     "The New York Times",
+				PublishedDate: time.Date(2018, time.December, 27, 0, 0, 0, 0, time.UTC),
+			},
 		},
 	}, payload["crossword"])
 	assert.Empty(t, payload["spellingbee"])

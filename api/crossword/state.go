@@ -329,14 +329,22 @@ func GetAllChannels(conn db.Connection) ([]model.Channel, error) {
 		}
 
 		var description string
+		var publisher string
+		var published time.Time
 		if state.Puzzle != nil {
 			description = state.Puzzle.Description
+			publisher = state.Puzzle.Publisher
+			published = state.Puzzle.PublishedDate
 		}
 
 		channels = append(channels, model.Channel{
 			Name:        name,
 			Status:      state.Status,
 			Description: description,
+			Puzzle: model.PuzzleSource{
+				Publisher:     publisher,
+				PublishedDate: published,
+			},
 		})
 	}
 

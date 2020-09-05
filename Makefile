@@ -54,7 +54,7 @@ redis-cli:
 	@docker image rm "puzzles-with-chat-$*"
 
 .PHONY: deploy
-deploy: api.tar bot.tar ui.tar
+deploy: api.tar bot.tar controller.tar ui.tar
 	@scp $^ homelab:~/
 	@ssh homelab 'for name in $^; do docker load -i $${name}; done && rm $^'
 	@ssh homelab 'sudo systemctl restart docker-compose@puzzles-with-chat && docker image prune -f'

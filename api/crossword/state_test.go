@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestState_ApplyAnswer_Cells(t *testing.T) {
@@ -885,6 +886,10 @@ func TestGetAllChannels(t *testing.T) {
 					Name:        "channel",
 					Status:      model.StatusSolving,
 					Description: "New York Times puzzle from 2018-12-31",
+					Puzzle: model.PuzzleSource{
+						Publisher:     "The New York Times",
+						PublishedDate: time.Date(2018, time.December, 31, 0, 0, 0, 0, time.UTC),
+					},
 				},
 			},
 		},
@@ -902,6 +907,10 @@ func TestGetAllChannels(t *testing.T) {
 					Name:        "channel",
 					Status:      model.StatusSolving,
 					Description: "Wall Street Journal puzzle from 2019-01-02",
+					Puzzle: model.PuzzleSource{
+						Publisher:     "The Wall Street Journal",
+						PublishedDate: time.Date(2019, time.January, 02, 0, 0, 0, 0, time.UTC),
+					},
 				},
 			},
 		},
@@ -941,11 +950,19 @@ func TestGetAllChannels(t *testing.T) {
 					Name:        "channel1",
 					Status:      model.StatusSolving,
 					Description: "New York Times puzzle from 2018-12-31",
+					Puzzle: model.PuzzleSource{
+						Publisher:     "The New York Times",
+						PublishedDate: time.Date(2018, time.December, 31, 0, 0, 0, 0, time.UTC),
+					},
 				},
 				{
 					Name:        "channel2",
 					Status:      model.StatusSolving,
 					Description: "Wall Street Journal puzzle from 2019-01-02",
+					Puzzle: model.PuzzleSource{
+						Publisher:     "The Wall Street Journal",
+						PublishedDate: time.Date(2019, time.January, 02, 0, 0, 0, 0, time.UTC),
+					},
 				},
 			},
 		},

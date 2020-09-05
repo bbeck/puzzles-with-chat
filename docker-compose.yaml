@@ -58,6 +58,29 @@ services:
       - 5000:5000/tcp  # this is only needed to test locally
     restart: unless-stopped
 
+  controller:
+    container_name: puzzles-with-chat-controller
+    build:
+      context: controller
+      target: development
+    command: >-
+      reflex
+        --start-service
+        --decoration="none"
+        --regex='\.go$$'
+        --inverse-regex='\.gen.go$$'
+      --
+        sh -c 'go run .'
+    depends_on:
+      - api
+    environment:
+      API_HOST: "api:5000"
+    volumes:
+      - type: bind
+        source: "./controller"
+        target: "/src"
+    restart: unless-stopped
+
   proxy:
     image: traefik:v2.1
     container_name: puzzles-with-chat-proxy

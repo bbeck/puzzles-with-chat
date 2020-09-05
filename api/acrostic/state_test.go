@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestState_ApplyClueAnswer_Cells(t *testing.T) {
@@ -1250,6 +1251,10 @@ func TestGetAllChannels(t *testing.T) {
 					Name:        "channel",
 					Status:      model.StatusSolving,
 					Description: "New York Times puzzle from 2020-05-24",
+					Puzzle: model.PuzzleSource{
+						Publisher:     "The New York Times",
+						PublishedDate: time.Date(2020, time.May, 24, 0, 0, 0, 0, time.UTC),
+					},
 				},
 			},
 		},
@@ -1272,11 +1277,19 @@ func TestGetAllChannels(t *testing.T) {
 					Name:        "channel1",
 					Status:      model.StatusSolving,
 					Description: "New York Times puzzle from 2020-05-24",
+					Puzzle: model.PuzzleSource{
+						Publisher:     "The New York Times",
+						PublishedDate: time.Date(2020, time.May, 24, 0, 0, 0, 0, time.UTC),
+					},
 				},
 				{
 					Name:        "channel2",
 					Status:      model.StatusSolving,
 					Description: "New York Times puzzle from 2020-05-24",
+					Puzzle: model.PuzzleSource{
+						Publisher:     "The New York Times",
+						PublishedDate: time.Date(2020, time.May, 24, 0, 0, 0, 0, time.UTC),
+					},
 				},
 			},
 		},
