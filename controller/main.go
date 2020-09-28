@@ -97,7 +97,7 @@ func HandlePayload(payload Payload, actions chan<- SwitchPuzzle) error {
 			continue
 		}
 
-		if channel.Name != "bbeck" && channel.Name != "mistaeksweremade" && channel.Name != "aidanwould" {
+		if channel.Name != "bbeck" && channel.Name != "mistaeksweremade" && channel.Name != "aidanwould" && channel.Name != "agenderwitchery" {
 			continue
 		}
 
