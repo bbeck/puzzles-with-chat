@@ -12,7 +12,6 @@ WORKDIR /src
 COPY package.json /src
 COPY package-lock.json /src
 RUN npm config set progress=false && \
-    npm config set depth=0        && \
     npm install --loglevel warn
 
 # Copy all of the source code into the image so that it can be seen.  When
