@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+var channels = map[string]bool{
+	"agenderwitchery":  true,
+	"aidanwould":       true,
+	"bbeck":            true,
+	"mistaeksweremade": true,
+}
+
 func main() {
 	host, ok := os.LookupEnv("API_HOST")
 	if !ok {
@@ -32,6 +39,8 @@ func main() {
 
 	events := sse.Open(ctx, fmt.Sprintf("http://%s/api/channels", host))
 	actions := make(chan SwitchPuzzle, 10)
+
+	log.Printf("controlling channels: %v\n", channels)
 
 	for {
 		select {
@@ -97,7 +106,7 @@ func HandlePayload(payload Payload, actions chan<- SwitchPuzzle) error {
 			continue
 		}
 
-		if channel.Name != "bbeck" && channel.Name != "mistaeksweremade" && channel.Name != "aidanwould" && channel.Name != "agenderwitchery" {
+		if !channels[channel.Name] {
 			continue
 		}
 
