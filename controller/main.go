@@ -16,7 +16,7 @@ import (
 
 var channels = map[string]bool{
 	"agenderwitchery":  true,
-	"aidanwould":       true,
+	"aidanwould":       false,
 	"bbeck":            true,
 	"mistaeksweremade": true,
 }
