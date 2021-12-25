@@ -16,6 +16,11 @@ import (
 	"unicode"
 )
 
+
+var XWordInfoHeaders = map[string]string{
+	"Referer": "https://www.xwordinfo.com/Acrostic",
+}
+
 // LoadFromNewYorkTimes loads an acrostic puzzle from the New York Times for a
 // particular date.
 //
@@ -32,8 +37,8 @@ func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
 		return nil, testPuzzleLoadError
 	}
 
-	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/AcData.aspx?date=%s", date)
-	response, err := web.Get(url)
+	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/AcrosticData.ashx?date=%s", date)
+	response, err := web.GetWithHeaders(url, XWordInfoHeaders)
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
 	}
@@ -346,18 +351,16 @@ func ParseXWordInfoAvailableDatesResponse(in io.Reader) ([]time.Time, error) {
 	}
 
 	var dates []time.Time
-	doc.Find("a.dtlink").Each(func(i int, s *goquery.Selection) {
+	doc.Find("a[data-acrdate]").Each(func(i int, s *goquery.Selection) {
 		if err != nil {
 			return
 		}
 
-		href, ok := s.Attr("href")
+		d, ok := s.Attr("data-acrdate")
 		if !ok {
-			err = fmt.Errorf("unable to determine href for selection: %v", s)
+			err = fmt.Errorf("unable to determine data-acrdate for selection: %v", s)
 			return
 		}
-
-		d := strings.TrimPrefix(href, "/Acrostic?date=")
 
 		var date time.Time
 		if date, err = time.Parse("1/2/2006", d); err == nil {

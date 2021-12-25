@@ -767,7 +767,7 @@ func TestRoute_GetAvailableDates(t *testing.T) {
 		{
 			name: "new york times",
 			setup: func(t *testing.T) {
-				ForceAvailableDatesToBeLoaded(t, "xwordinfo-select-acrostic-20200610.html")
+				ForceAvailableDatesToBeLoaded(t, "xwordinfo-select-acrostic-20211225.html")
 			},
 			source: "new_york_times",
 			expected: []string{

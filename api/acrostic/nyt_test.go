@@ -711,7 +711,7 @@ func TestParseXWordInfoAvailableDatesResponse(t *testing.T) {
 	}{
 		{
 			name:  "dates",
-			input: load(t, "xwordinfo-select-acrostic-20200610.html"),
+			input: load(t, "xwordinfo-select-acrostic-20211225.html"),
 			verify: func(t *testing.T, dates []time.Time) {
 				expected := []time.Time{
 					time.Date(1999, time.September, 12, 0, 0, 0, 0, time.UTC),
@@ -1257,13 +1257,53 @@ func TestParseXWordInfoAvailableDatesResponse(t *testing.T) {
 					time.Date(2020, time.May, 10, 0, 0, 0, 0, time.UTC),
 					time.Date(2020, time.May, 24, 0, 0, 0, 0, time.UTC),
 					time.Date(2020, time.June, 7, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.June, 21, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.July, 5, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.July, 19, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.August, 2, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.August, 16, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.August, 30, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.September, 13, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.September, 27, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.October, 11, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.October, 25, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.November, 8, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.November, 22, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.December, 6, 0, 0, 0, 0, time.UTC),
+					time.Date(2020, time.December, 20, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.January, 3, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.January, 17, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.January, 31, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.February, 14, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.February, 28, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.March, 14, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.March, 28, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.April, 11, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.April, 25, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.May, 9, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.May, 23, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.June, 6, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.June, 20, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.July, 4, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.July, 18, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.August, 1, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.August, 15, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.August, 29, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.September, 12, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.September, 26, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.October, 10, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.October, 24, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.November, 7, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.November, 21, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.December, 5, 0, 0, 0, 0, time.UTC),
+					time.Date(2021, time.December, 19, 0, 0, 0, 0, time.UTC),
 				}
 				assert.ElementsMatch(t, expected, dates)
 			},
 		},
 		{
 			name:  "dates are sorted",
-			input: load(t, "xwordinfo-select-acrostic-20200610.html"),
+			input: load(t, "xwordinfo-select-acrostic-20211225.html"),
 			verify: func(t *testing.T, dates []time.Time) {
 				assert.True(t, sort.SliceIsSorted(dates, func(i, j int) bool {
 					return dates[i].Before(dates[j])

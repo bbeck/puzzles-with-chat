@@ -33,7 +33,7 @@ func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
 		return nil, testPuzzleLoadError
 	}
 
-	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/Data.aspx?date=%s", date)
+	url := fmt.Sprintf("https://www.xwordinfo.com/JSON/Data.ashx?date=%s", date)
 	response, err := web.GetWithHeaders(url, XWordInfoHeaders)
 	if response != nil {
 		defer func() { _ = response.Body.Close() }()
