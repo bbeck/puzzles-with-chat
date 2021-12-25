@@ -9,8 +9,7 @@ WORKDIR /src
 # Download dependencies into the image prior to copying over any source files.
 # This allows the downloading dependencies step to be cached into a layer so
 # that we don't have to repeat the download each time a source file changes.
-COPY package.json /src
-COPY package-lock.json /src
+COPY package.json package-lock.json /src/
 RUN npm config set progress=false && \
     npm install --loglevel warn
 
@@ -21,7 +20,7 @@ RUN npm config set progress=false && \
 COPY . .
 
 # Create a production build of the current code
-RUN npm run build && \
+RUN npm run-script build && \
     mv build /build
 
 # In development mode listen on port 5000.

@@ -11,7 +11,7 @@
     "react": "^16.12.0",
     "react-datepicker": "^2.13.0",
     "react-dom": "^16.12.0",
-    "react-scripts": "3.2.0"
+    "react-scripts": "^3.2.0"
   },
   "scripts": {
     "start": "PORT=5000 react-scripts start",
