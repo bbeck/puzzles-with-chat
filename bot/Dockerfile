@@ -1,7 +1,7 @@
 ####################
 # Development image
 ####################
-FROM golang:1.14-alpine AS development
+FROM golang:1.17-alpine AS development
 
 # Environment variables
 ENV CGO_ENABLED=0
