@@ -19,7 +19,7 @@ RUN go get -u github.com/cespare/reflex
 # This allows the downloading dependencies step to be cached in a layer so that
 # we don't have to repeat the download each time a source file changes.
 COPY go.mod go.sum ./
-RUN go get ...
+RUN go get ./...
 
 # Copy all of the source code into the image so that it can be compiled.  When
 # running via docker-compose in development mode we'll override this and instead
