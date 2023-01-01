@@ -39,4 +39,5 @@ vendor/
 .envrc
 .direnv/
 .idea/
+*.iml
 .vscode/
