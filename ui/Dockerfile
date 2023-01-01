@@ -32,7 +32,7 @@ EXPOSE 5000
 FROM node:13.2-alpine
 
 # Install the serve tool to use to run our app.
-RUN npm install -g serve
+RUN npm install -g serve@13
 
 # Copy the static build over.
 COPY --from=development /build/ /build
