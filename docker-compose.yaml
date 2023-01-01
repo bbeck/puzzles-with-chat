@@ -25,7 +25,7 @@ services:
       - 5000
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.api.rule=Host(`puzzles-with-chat.localhost`) && PathPrefix(`/api`)"
     restart: unless-stopped
 
   bot:
@@ -82,19 +82,25 @@ services:
     restart: unless-stopped
 
   proxy:
-    image: traefik:v2.1
+    image: traefik:v2.9
     container_name: puzzles-with-chat-proxy
     command:
+      - "--api.dashboard=true"
+      - "--entrypoints.web.address=:80"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:3000"
     volumes:
       - type: bind
         source: "/var/run/docker.sock"
         target: "/var/run/docker.sock"
         read_only: true
     ports:
-      - 3000:3000/tcp
+      - "80:80/tcp"
+      - "8080:8080/tcp"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.traefik.service=api@internal"
     restart: unless-stopped
 
   redis:
@@ -120,6 +126,7 @@ services:
     command: npm run start
     depends_on:
       - api
+    tty: true  # react-scripts require a TTY or else they crash
     volumes:
       - type: bind
         source: "./ui"
@@ -128,7 +135,7 @@ services:
       - 5000
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ui.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.ui.rule=Host(`puzzles-with-chat.localhost`) && PathPrefix(`/`)"
     restart: unless-stopped
 
 volumes:

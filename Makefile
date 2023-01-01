@@ -17,28 +17,28 @@ help:
 
 .PHONY: start
 start:
-	@docker-compose up -d $(service)
+	@docker compose up -d $(service)
 
 .PHONY: stop
 stop:
-	@docker-compose stop $(service)
+	@docker compose stop $(service)
 
 .PHONY: restart
 restart:
-	@docker-compose stop $(service)
-	@docker-compose up -d $(service)
+	@docker compose stop $(service)
+	@docker compose up -d $(service)
 
 .PHONY: down
 down:
-	@docker-compose down --rmi local --volumes
+	@docker compose down --rmi local --volumes
 
 .PHONY: ps
 ps:
-	@docker-compose ps
+	@docker compose ps
 
 .PHONY: logs
 logs:
-	@docker-compose logs --tail=100 -f $(service)
+	@docker compose logs --tail=100 -f $(service)
 
 .PHONY: connect-bot
 connect-bot:
@@ -46,7 +46,7 @@ connect-bot:
 
 .PHONY: redis-cli
 redis-cli:
-	@docker-compose exec redis redis-cli
+	@docker compose exec redis redis-cli
 
 %.tar: %/Dockerfile
 	@docker build --rm -t "puzzles-with-chat-$*" "$*"

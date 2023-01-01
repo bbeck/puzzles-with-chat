@@ -64,7 +64,8 @@ A `Makefile` is also provided that provides helpers for invoking Docker Compose.
 `make help` will show all supported commands as well as a description of what
 each does.
 
-Once running the UI will be visible on [`localhost:3000`](http://localhost:3030).
+Once running the UI will be visible on 
+[`http://puzzles-with-chat.localhost`](http://puzzles-with-chat.localhost).
 
 
 ## Contributions
