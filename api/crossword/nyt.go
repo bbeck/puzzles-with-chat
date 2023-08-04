@@ -66,7 +66,7 @@ type XWordInfoPuzzle struct {
 	Grid         []string `json:"grid"`
 	GridNums     []int    `json:"gridnums"`
 	Circles      []int    `json:"circles"`
-	ShadeCircles string   `json:"shadecircles"`
+	ShadeCircles bool   `json:"shadecircles"`
 	Clues        struct {
 		Across []string `json:"across"`
 		Down   []string `json:"down"`
@@ -143,7 +143,7 @@ func ParseXWordInfoResponse(in io.Reader) (*Puzzle, error) {
 			if len(raw.Circles) > 0 {
 				// Whether or not the cell should be circled or shaded is indicated by
 				// the ShadeCircles property of the response.
-				if raw.ShadeCircles == "true" {
+				if raw.ShadeCircles {
 					shades[row][col] = raw.Circles[index] == 1
 				} else {
 					circles[row][col] = raw.Circles[index] == 1
