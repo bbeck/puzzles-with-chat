@@ -1,11 +1,13 @@
 package acrostic
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bbeck/puzzles-with-chat/api/web"
+	lzstring "github.com/daku10/go-lz-string"
 	"html"
 	"io"
 	"regexp"
@@ -15,7 +17,6 @@ import (
 	"time"
 	"unicode"
 )
-
 
 var XWordInfoHeaders = map[string]string{
 	"Referer": "https://www.xwordinfo.com/Acrostic",
@@ -46,7 +47,7 @@ func LoadFromNewYorkTimes(date string) (*Puzzle, error) {
 		return nil, err
 	}
 
-	puzzle, err := ParseXWordInfoPuzzleResponse(response.Body)
+	puzzle, err := ParseXWordInfoWrappedPuzzleResponse(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse xwordinfo.com response for date %s: %v", date, err)
 	}
@@ -87,6 +88,28 @@ func LoadAvailableNewYorkTimesDates() ([]time.Time, error) {
 	return dates, nil
 }
 
+type XWordInfoPuzzleWrapper struct {
+	Data string `json:"data"`
+}
+
+// ParseXWordInfoWrappedPuzzleResponse unwraps and decompresses a JSON response
+// from xwordinfo.com and then parses it into a puzzle object.
+func ParseXWordInfoWrappedPuzzleResponse(in io.Reader) (*Puzzle, error) {
+	// XWordInfo has started to serve up a compressed version of the acrostic
+	// JSON.  We will need to unwrap and decompress it before using it.
+	var wrapped XWordInfoPuzzleWrapper
+	if err := json.NewDecoder(in).Decode(&wrapped); err != nil {
+		return nil, fmt.Errorf("unable to parse JSON response: %v", err)
+	}
+
+	data, err := lzstring.DecompressFromEncodedURIComponent(wrapped.Data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse JSON response: %v", err)
+	}
+
+	return ParseXWordInfoPuzzleResponse(bytes.NewBufferString(data))
+}
+
 // XWordInfoPuzzle is a representation of the response from the xwordinfo.com
 // JSON API when querying for a puzzle.
 type XWordInfoPuzzle struct {
@@ -104,8 +127,8 @@ type XWordInfoPuzzle struct {
 	Rows         int      `json:"rows"`
 }
 
-// ParseXWordInfoPuzzleResponse converts a JSON response from xwordinfo.com into a
-// puzzle object.
+// ParseXWordInfoPuzzleResponse converts a JSON response from xwordinfo.com into
+// a puzzle object.
 func ParseXWordInfoPuzzleResponse(in io.Reader) (*Puzzle, error) {
 	var raw XWordInfoPuzzle
 	if err := json.NewDecoder(in).Decode(&raw); err != nil {
