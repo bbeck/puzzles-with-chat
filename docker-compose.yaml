@@ -123,14 +123,18 @@ services:
     build:
       context: ui
       target: development
-    command: npm run start
     depends_on:
       - api
+    environment:
+      PORT: 5000
     tty: true  # react-scripts require a TTY or else they crash
     volumes:
       - type: bind
         source: "./ui"
         target: "/src"
+      - type: volume
+        source: ui-node-modules
+        target: "/src/node_modules"
     expose:
       - 5000
     labels:
@@ -140,3 +144,4 @@ services:
 
 volumes:
   redis:
+  ui-node-modules:

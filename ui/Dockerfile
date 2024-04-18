@@ -26,6 +26,8 @@ RUN npm run-script build && \
 # In development mode listen on port 5000.
 EXPOSE 5000
 
+CMD npm run-script start
+
 ####################
 # Production image
 ####################
