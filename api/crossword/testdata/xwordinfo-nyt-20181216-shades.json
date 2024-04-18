@@ -1639,7 +1639,7 @@
   "notepad": null,
   "publisher": "The New York Times",
   "rbars": null,
-  "shadecircles": "true",
+  "shadecircles": true,
   "size": {
     "cols": 21,
     "rows": 21
