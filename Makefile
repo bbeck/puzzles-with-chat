@@ -47,3 +47,11 @@ connect-bot:
 .PHONY: redis-cli
 redis-cli:
 	@docker compose exec redis redis-cli
+
+.PHONY: test
+test:
+	@for dir in api bot controller; do \
+     pushd $${dir} >/dev/null;       \
+     go test ./...;                  \
+     popd >/dev/null;                \
+  done
