@@ -13,7 +13,7 @@ WORKDIR /src
 RUN apk --no-cache add ca-certificates git
 
 # Install development dependencies.
-RUN go get -u github.com/cespare/reflex
+RUN go install github.com/cespare/reflex@latest
 
 # Download dependencies into the image prior to copying over any source files.
 # This allows the downloading dependencies step to be cached in a layer so that
