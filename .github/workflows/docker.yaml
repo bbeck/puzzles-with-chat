@@ -6,7 +6,7 @@ on:
       - "v*"
 
 env:
-  DOCKER_REGISTRY: docker-registry.isomorphism.org
+  DOCKER_REGISTRY: docker-registry.home.isomorphism.org
 
 jobs:
   build-and-push-image:
